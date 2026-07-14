@@ -1,6 +1,6 @@
 # Makefile for calculator
 
-TARGET = calculator
+TARGET = calc
 
 SRCS += $(wildcard *.cc)
 OBJS = $(foreach src, $(SRCS), $(basename $(src)).o )
