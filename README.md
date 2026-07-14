@@ -1,7 +1,5 @@
 # calc
 
-A simple calculator using Table-Driven FSM style
-
 ```
 st_ops stands for state operator, can be '+', '-', '*', '/', '^'
 st_opd stands for state operand, can be 0-9 and '.'
