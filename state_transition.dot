@@ -47,7 +47,6 @@ digraph G {
         st_flp -> st_flg[label="+-", color="red", fontcolor="red"];
         st_flp -> st_fnn[label="A-z_", color="red", fontcolor="red"];
 
-        st_non -> st_end[label=""];
         st_opd -> st_end[label=""];
         st_rps -> st_end[label=""];
     }
