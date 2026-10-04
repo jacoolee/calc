@@ -7,27 +7,41 @@
 #define FLG_NEGATIVE -1
 #define FLG_ACTIVE 1
 
-ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression)
+#define Printf(...)                             \
+    do {                                        \
+        if (g_print_enable)                     \
+            printf(__VA_ARGS__);                \
+    } while (0)
+
+int g_print_enable = 0;
+
+ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, int print_enable=0)
     : m_state(ST_NON),
       m_arithmetic_expression(infix_expression),
+      m_fnn(""),
       m_parse_pos(0),
       m_lp_count(0),
+      m_fnn_spc_occurred(false),
       m_flg(FLG_ACTIVE)
 {
     m_operator_stack.push(LOWEST_PRIO_OP);
+    g_print_enable = print_enable;
 }
 
 ArithmeticExpression::StateInfo
 ArithmeticExpression::m_state_info[] = {
-    {ST_NON, "start"},
-    {ST_OPR, "operator"},
-    {ST_OPD, "operand"},
-    {ST_LPS, "left parenthesis"},
-    {ST_RPS, "right parenthesis"},
-    {ST_FLG, "flag"},
-    {ST_ERR, "error"},
+    // NOTE: keep order same as that declared in enum State
+    {ST_NON, "ST_NON"},
+    {ST_OPR, "ST_OPR"},
+    {ST_OPD, "ST_OPD"},
+    {ST_LPS, "ST_LPS"},
+    {ST_RPS, "ST_RPS"},
+    {ST_FLG, "ST_FLG"},
+    {ST_FNN, "ST_FNN"},
+    {ST_FLP, "ST_FLP"},
+    {ST_ERR, "ST_ERR"},
     // to add
-    {ST_UPPER, ""}
+    {ST_UPPER, "ST_UPPER"}
 };
 
 ArithmeticExpression::StateTable
@@ -41,19 +55,21 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // //    the second item is the type of process action of the transition                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
-    //           {CT_WHITESPACE},    {CT_OP},          {CT_NUM},         {CT_LP},          {CT_RP},          {CT_FLG}
-    /* ST_NON */ {{ST_NON, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}},
-    /* ST_OPR */ {{ST_OPR, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}},
-    /* ST_OPD */ {{ST_OPD, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_OPR, AT_OPR}},
-    /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}},
-    /* ST_RPS */ {{ST_RPS, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_ERR, AT_ERR}},
-    /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}}
+    //           {CT_WHITESPACE},    {CT_OP},          {CT_NUM},         {CT_LP},          {CT_RP},          {CT_FLG},         {CT_ALP}
+    /* ST_NON */ {{ST_NON, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
+    /* ST_OPR */ {{ST_OPR, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
+    /* ST_OPD */ {{ST_OPD, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}},
+    /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
+    /* ST_RPS */ {{ST_RPS, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}},
+    /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}},
+    /* ST_FNN */ {{ST_FNN, AT_SPC }, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_FLP, AT_LPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}},
+    /* ST_FLP */ {{ST_FLP, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}}
 };
 
 const char* ArithmeticExpression::getStateStr(State state) const
 {
     if ( state >= ST_UPPER || state < ST_NON ) {
-        printf("state is not valid, state=\"%d\"\n", (int)state);
+        Printf("state is not valid, state=\"%d\"\n", (int)state);
         return m_state_info[ST_UPPER].state_str;
     }
     return m_state_info[state].state_str;
@@ -74,11 +90,6 @@ int ArithmeticExpression::getPriority(char c)
      * 1: ')'
      * 0: LOWEST_PRIO_OP
      */
-    assert( c == '(' || c == ')' ||
-            c == '^' ||
-            c == '*' || c == '/' ||
-            c == '+' || c == '-' ||
-            c == LOWEST_PRIO_OP );
     int prio = 0;
     switch (c) {
     case '(': prio = 5; break;
@@ -94,7 +105,7 @@ int ArithmeticExpression::getPriority(char c)
     return prio;
 }
 
-bool ArithmeticExpression::handleAction(ActionType type)
+bool ArithmeticExpression::handleAction(ActionType type, char c)
 {
     bool rc = false;
     switch (type) {
@@ -104,8 +115,13 @@ bool ArithmeticExpression::handleAction(ActionType type)
     case AT_OPD: rc = handleOperand(); break;
     case AT_LPS: rc = handleLeftParenthesis(); break;
     case AT_RPS: rc = handleRightParenthesis(); break;
+    case AT_ALP: rc = handleAlpha(c); break;
+    case AT_SPC: rc = handleSpace(); break;
     case AT_ERR: rc = handleError(); break;
-    default: rc = false;
+    default:
+        Printf("no handler found for action type:%d\n", type);
+        rc = false;
+        break;
     }
     return rc;
 }
@@ -116,6 +132,9 @@ CharType ArithmeticExpression::getCharType(int c) {
     }
     if ( (c <= '9' && c >= '0') || '.' == c ) {
         return CT_NUM;
+    }
+    if ( (c <= 'Z' && c >= 'A') || (c <= 'z' && c >= 'a') || '_' == c ) {
+        return CT_ALP;
     }
     if ( '(' == c ) {
         return CT_LP;
@@ -133,28 +152,88 @@ CharType ArithmeticExpression::getCharType(int c) {
         case ST_NON:
         case ST_OPR:
         case ST_LPS:
-        case ST_FLG: return CT_FLG;
+        case ST_FLG:
+        case ST_FLP: return CT_FLG;
         case ST_OPD:
         case ST_RPS: return CT_OP;
-        default: break;
+        default:
+            Printf("undefined charType: %c applied to state:%d\n", c, m_state);
+            break;
         }
     }
     return CT_UPPER;
+}
+
+int ArithmeticExpression::fnn2int(const std::string& fnn) {
+    if (fnn == "int") return INT;
+    if (fnn == "floor") return FLOOR;
+    if (fnn == "ceil") return CEIL;
+    if (fnn == "round") return ROUND;
+    if (fnn == "fabs") return FABS;
+    if (fnn == "sqrt") return SQRT;
+    Printf("unsupported function name: %s", m_fnn.c_str());
+    return FNN_UNDEFINED;
+}
+
+std::string ArithmeticExpression::int2fnn(const int fnni) {
+    switch(fnni) {
+    case INT: return "int";
+    case FLOOR: return "floor";
+    case CEIL: return "ceil";
+    case ROUND: return "round";
+    case FABS: return "fabs";
+    case SQRT: return "sqrt";
+    default:
+        Printf("unsupported fnni=%d", fnni);
+        return "";
+    }
+}
+
+void ArithmeticExpression::dia() {
+    const char& c = m_arithmetic_expression[m_parse_pos];
+    CharType type = getCharType(c);
+    StateTable* table_item = &m_state_table[m_state][type];
+    Printf("@%d, ST=\"%s\", c='%c', CT=%d, AT=%d, remaining=\"%s\", m_fnn=\"%s\"",
+           m_parse_pos,
+           getCurStateStr(),
+           c,
+           type,
+           table_item->action_type,
+           &m_arithmetic_expression[m_parse_pos+1], // buggy
+           m_fnn.c_str()
+        );
+    Printf(", opd_stack=");
+    m_operand_stack.dia(g_print_enable);
+    Printf(", opr_stack=");
+    m_operator_stack.dia(g_print_enable);
+    Printf(", m_lp_count=%d, m_flg='%d', m_fnn_spc_occurred=%s, rpn=\"%s\"\n",
+           m_lp_count,
+           m_flg,
+           m_fnn_spc_occurred?"true":"false",
+           m_rpn_expression.c_str()
+        );
+}
+
+void ArithmeticExpression::appendToRpnExpression(char c) {
+    if (c == 'f') {
+        m_rpn_expression.append( int2fnn(m_operator_stack.top(-1)) );
+    } else {
+        m_rpn_expression.push_back(c);
+    }
 }
 
 bool ArithmeticExpression::handle(char c)
 {
     CharType type = getCharType(c);
     if ( CT_UPPER == type) {
-        printf("invalid char type, argument char='%c'\n",
-                 m_arithmetic_expression[m_parse_pos]);
+        Printf("invalid char type, argument char='%c'\n", c);
         return false;
     }
-    // printf("current state=\"%s\", coming char = '%c', remaining=\"%s\"\n",
-    //          getCurStateStr(), c, &m_arithmetic_expression[m_parse_pos+1]);
+
+    dia();
 
     StateTable* table_item = &m_state_table[m_state][type];
-    bool rc = handleAction(table_item->action_type);
+    bool rc = handleAction(table_item->action_type, c);
     if ( rc ) {
         // update state only when action runs successfully
         m_state = table_item->new_state;
@@ -169,7 +248,7 @@ bool ArithmeticExpression::handleNone()
 
 bool ArithmeticExpression::handleFlag()
 {
-    //printf("handing flags ...\n");
+    Printf("handing flags ...\n");
     const char& c = m_arithmetic_expression[m_parse_pos];
     if ( '-' == c) {
         m_flg = FLG_NEGATIVE;
@@ -185,25 +264,27 @@ bool ArithmeticExpression::handleOperator()
     char top = m_operator_stack.top();
     while ( getPriority(top) >= getPriority(cur_opr) && '(' != top ) {
         // update rpn
-        m_rpn_expression.push_back(top);
-        m_rpn_expression.push_back(' ');
-        // calculate
+        appendToRpnExpression(top);
+        appendToRpnExpression(' ');
+
         if (! calculate(top)) return false;
-        // update new top
+        // if calcute success, means cur opr consumed,
+        // so pop, and go on to next opr.
         m_operator_stack.pop();
         top = m_operator_stack.top();
     }
-    // printf("pushing operator:'%c', rpn:\"%s\"\n",
-    //          cur_opr, m_rpn_expression.c_str());
+    Printf("pushing operator:'%c', rpn:\"%s\"\n",
+           cur_opr, m_rpn_expression.c_str());
     m_operator_stack.push(cur_opr);
     return true;
 }
 bool ArithmeticExpression::handleError()
 {
-    printf("error occurs pos=\"%d\", tailing=\"%s\", raw=\"%s\"\n",
-             m_parse_pos,
-             &m_arithmetic_expression[m_parse_pos],
-             m_arithmetic_expression.c_str());
+    Printf("error occurs pos=\"%d\", tailing=\"%s\", raw=\"%s\"\n",
+           m_parse_pos,
+           &m_arithmetic_expression[m_parse_pos],
+           m_arithmetic_expression.c_str());
+    dia();
     return false;               // always false
 }
 
@@ -224,7 +305,7 @@ bool ArithmeticExpression::handleOperand()
             break;
         }
         if ( '.' == c && dot_occurred) {
-            printf("dot occurs again\n");
+            Printf("dot occurs again\n");
             return false;
         }
         // now, three combination:
@@ -245,6 +326,11 @@ bool ArithmeticExpression::handleOperand()
         }
         c = m_arithmetic_expression[++m_parse_pos];
     }
+
+    // give chance to 'parse' to process m_parse_pos correctly
+    --m_parse_pos;
+
+
     if ( dot_occurred ) {
         dot_val *= pow(0.1, dot_part_length);
     }
@@ -259,17 +345,28 @@ bool ArithmeticExpression::handleOperand()
     snprintf(val_str, sizeof val_str, "%g ", rst_val);
     m_rpn_expression.append(val_str);
 
-    // printf("rst part=\"%g\", int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
-    //          rst_val, int_val, dot_val, dot_occurred ? "yes" : "no");
+    Printf("rst part=\"%g\", int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
+           rst_val, int_val, dot_val, dot_occurred ? "yes" : "no");
     return true;
 }
 
 bool ArithmeticExpression::handleLeftParenthesis()
 {
-    const char& cur_opr = m_arithmetic_expression[m_parse_pos];
-    m_operator_stack.push(cur_opr);
+    Printf("handleLeftParenthesis\n");
+    if (m_fnn != "") {
+        int fnni = fnn2int(m_fnn);
+        if (fnni == FNN_UNDEFINED) {
+            return false;
+        }
+        m_operator_stack.push(fnni);
+        m_fnn = "";
 
-    ++m_lp_count;
+        m_operator_stack.push('f'); // means function left parenthesis
+        ++m_lp_count;
+    } else {
+        m_operator_stack.push('(');
+        ++m_lp_count;
+    }
     return true;
 }
 
@@ -277,56 +374,119 @@ bool ArithmeticExpression::handleRightParenthesis()
 {
     --m_lp_count;
     if ( m_lp_count < 0 ) {
-        printf("exists extra right parenthesis\n");
+        Printf("exists extra right parenthesis\n");
         return false;
     }
 
-    char top;
-    // pop till '('
-    while ( ! m_operator_stack.empty()
-            && '(' != (top = m_operator_stack.top())) {
-        if ( LOWEST_PRIO_OP != top ) {
-            m_rpn_expression.push_back(top);
-            m_rpn_expression.push_back(' ');
+    // pop till '(' or 'f'
+    while ( ! m_operator_stack.empty()) {
+        int top = m_operator_stack.top();
+        if (top == '(') {
+            // done for whole, (...), so pop '('
+            int x = m_operator_stack.pop();
+            Printf("pop <%d '%c'> in while loop\n", x, x);
+            break;
         }
+
+        if (top == 'f') {
+            break;
+        }
+
+        if ( LOWEST_PRIO_OP != top ) {
+            appendToRpnExpression(top);
+            appendToRpnExpression(' ');
+        }
+
         if (! calculate(top)) return false;
-        // always pop
-        m_operator_stack.pop();
+
+        // NOTE: if calculate success, means the top opr been consumed,
+        // so pop it. and go on to next opr
+        int x = m_operator_stack.pop();
+        Printf("pop opr:<%d '%c'> after calculate\n", x, x);
+
+        dia();
     }
-    // just pop '(', do not append to RPN
-    m_operator_stack.pop();
 
     // DO NOT save this operator:')' into stack
     return true;
 }
 
-bool ArithmeticExpression::calculate(char opr)
+bool ArithmeticExpression::handleAlpha(char c) {
+    if (m_fnn_spc_occurred) {
+        Printf("space not allow between alphas\n");
+        return false;
+    }
+    m_fnn.push_back(c);
+    m_fnn_spc_occurred = false;
+    return true;
+}
+
+bool ArithmeticExpression::handleSpace() {
+    if (ST_FNN == m_state) {
+        m_fnn_spc_occurred = true;
+    }
+    return true;
+}
+
+bool ArithmeticExpression::calculate(int opr)
 {
+    Printf("calculate: opr=<%c %d>\n", opr, opr);
+
     if ( '(' == opr || ')' == opr || LOWEST_PRIO_OP == opr ) {
-        // printf("do nothing for '%c'\n", opr);
+        Printf("do nothing for opr='<%c %d>'\n", opr, opr);
         return true;
     }
 
-    double r_opd = m_operand_stack.pop();
-    double l_opd = m_operand_stack.pop();
-    switch (opr) {
-    case '^': m_operand_stack.push( pow(l_opd,r_opd) ); break;
-    case '+': m_operand_stack.push( l_opd + r_opd ); break;
-    case '-': m_operand_stack.push( l_opd - r_opd ); break;
-    case '*': m_operand_stack.push( l_opd * r_opd ); break;
-    case '/': {
-        if ( 0 == r_opd ) {
-            printf("divide 0\n");
+    if ('f' == opr) {
+        Printf("opr is 'f'\n");
+
+        // pop 'f' to get fnni
+        m_operator_stack.pop();
+        Printf("pop <%d '%c'> in calculate, to get fnni\n", opr, opr);
+
+        int fnni = m_operator_stack.top(); // fnn
+
+        switch(fnni) {
+        case INT: m_operand_stack.push((int)m_operand_stack.pop()); break;
+        case FLOOR: m_operand_stack.push(floor(m_operand_stack.pop())); break;
+        case CEIL: m_operand_stack.push(ceil(m_operand_stack.pop())); break;
+        case ROUND: m_operand_stack.push(round(m_operand_stack.pop())); break;
+        case FABS: m_operand_stack.push(fabs(m_operand_stack.pop())); break;
+        case SQRT: {
+            double opd = m_operand_stack.pop();
+            if (opd < 0) {
+                Printf("sqrt expects unsigned operand, while %f gotten\n", opd);
+                return false;
+            }
+            m_operand_stack.push(sqrt(opd));
+            break;
+        }
+        default:
+            Printf("unsupported fnn: %d", fnni);
             return false;
         }
-        m_operand_stack.push( l_opd / r_opd);
-        break;
-    }
-    default: printf("unknown operator='%c'\n", opr); return false;
+    } else {
+        // two-args opr
+        double r_opd = m_operand_stack.pop();
+        double l_opd = m_operand_stack.pop();
+        switch (opr) {
+        case '^': m_operand_stack.push( pow(l_opd,r_opd) ); break;
+        case '+': m_operand_stack.push( l_opd + r_opd ); break;
+        case '-': m_operand_stack.push( l_opd - r_opd ); break;
+        case '*': m_operand_stack.push( l_opd * r_opd ); break;
+        case '/': {
+            if ( 0 == r_opd ) {
+                Printf("divide 0\n");
+                return false;
+            }
+            m_operand_stack.push( l_opd / r_opd);
+            break;
+        }
+        default: Printf("unknown operator='<%c %d>'\n", opr, opr); return false;
+        }
+        Printf("opr='<%c %d>', l_opd=\"%g\", r_opd=\"%g\", rst=\"%g\"\n", opr, opr, l_opd, r_opd, m_operand_stack.top());
     }
 
-    // printf("opr='%c', l_opd=\"%g\", r_opd=\"%g\", rst=\"%g\"\n",
-    //          opr, l_opd, r_opd, m_operand_stack.top());
     return true;
 }
 
@@ -334,63 +494,57 @@ bool ArithmeticExpression::parse()
 {
     int size = m_arithmetic_expression.size();
     if ( size == 0 ) {
-        printf("empty arithmetic expression\n");
+        Printf("empty arithmetic expression\n");
         return true;
     }
     while ( m_parse_pos < size ) {
-        //printf("to handle \"%s\"\n", &m_arithmetic_expression[m_parse_pos]);
+        Printf("> \"%s\"\n", &m_arithmetic_expression[m_parse_pos]);
         const char& c = m_arithmetic_expression.at(m_parse_pos);
         if ( ! handle(c) ) {
-            printf("failed to handle, "
-                     "tailing=\"%s\", pos=%d, "
-                     "char='%c', raw exp=\"%s\", "
-                     "state=\"%s\"\n",
-                     &m_arithmetic_expression[m_parse_pos],
-                     m_parse_pos,
-                     m_arithmetic_expression[m_parse_pos],
-                     m_arithmetic_expression.c_str(),
-                     getCurStateStr()
+            Printf("failed to handle, "
+                   "m_fnn=\"%s\", "
+                   "tailing=\"%s\", pos=%d, "
+                   "char='%c', raw exp=\"%s\", "
+                   "state=\"%s\"\n",
+                   m_fnn.c_str(),
+                   &m_arithmetic_expression[m_parse_pos],
+                   m_parse_pos,
+                   m_arithmetic_expression[m_parse_pos],
+                   m_arithmetic_expression.c_str(),
+                   getCurStateStr()
                 );
             return false;
         }
-        // only update m_parse_pos when char type is not CT_NUM,
-        // Cause the handleOperand() already update m_parse_pos
-        if ( CT_NUM != getCharType(c) ) {
-            ++m_parse_pos;
-        }
+        ++m_parse_pos;
     }
     // check program terminal state
     if ( ! isOnTerminalState() ) {
-        printf("program in not on terminal state, "
-                 "current state=\"%s\"\n",
-                 getCurStateStr());
+        Printf("program in not on terminal state, current state=\"%s\"\n", getCurStateStr());
         return false;
     }
     // check whether parenthesis matches
     if ( 0 != m_lp_count ) {
-        printf("open left parenthesis exists, count=\"%d\"\n",
-                 m_lp_count);
+        Printf("open left parenthesis exists, count=\"%d\"\n", m_lp_count);
         return false;
     }
     // fulfill m_rpn_expression using operator stack
     while ( ! m_operator_stack.empty() ) {
-        const char& top = m_operator_stack.top();
+        const int& top = m_operator_stack.top();
         if ( LOWEST_PRIO_OP != top ) {
-            m_rpn_expression.push_back(top);
-            m_rpn_expression.push_back(' ');
+            appendToRpnExpression(top);
+            appendToRpnExpression(' ');
         }
         if (! calculate(top)) return false;
-        // always pop
+        // always pop to go on to next opr
         m_operator_stack.pop();
     }
 
-    // printf("arithmetic expression successfully parsed, "
-    //          "rpn=\"%s\"\n", m_rpn_expression.c_str());
+    Printf("arithmetic expression successfully parsed, rpn=\"%s\"\n", m_rpn_expression.c_str());
     if ( m_operand_stack.empty() ) {
-        //printf("no value calculated\n");
+        Printf("no value calculated\n");
         ;
     } else {
-        // printf("value=\"%g\"\n", m_operand_stack.top());
+        Printf("value=\"%g\"\n", m_operand_stack.top());
         ;
     }
     return true;
@@ -399,17 +553,17 @@ bool ArithmeticExpression::parse()
 bool ArithmeticExpression::getExpressionValue(double &val) const
 {
     if ( !isOnTerminalState() ) {
-        printf("program in not on terminal state, "
-                 "current state=\"%s\"\n",
-                 getCurStateStr());
+        Printf("program in not on terminal state, "
+               "current state=\"%s\"\n",
+               getCurStateStr());
         return false;
     }
     bool stack_empty = m_operand_stack.empty();
     if ( ! stack_empty || (stack_empty && ST_NON == m_state)) {
         val = stack_empty ? 0 : m_operand_stack.top();
-        // printf("return value=\"%g\"\n", val);
+        Printf("return value=\"%g\"\n", val);
         return true;
     }
-    printf("the arithmetic expression is not successfully calculated\n");
+    Printf("the arithmetic expression is not successfully calculated\n");
     return false;
 }

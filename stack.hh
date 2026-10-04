@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <string>
+#include <type_traits>
+
 #define STACK_SP_INIT -1
 template <class T>
 class Stack {
@@ -15,11 +18,21 @@ public:
     Stack(int size = 1) { init(size); }
     ~Stack() { destory(); }
 
-    T& top() { return m_tunk.at(m_sp); }
-    const T& top() const { return m_tunk.at(m_sp); }
+    T& top(int step=0) { return m_tunk.at(m_sp+step); }
+    const T& top(int step=0) const { return m_tunk.at(m_sp+step); }
     void push(T val);
     T pop() { return m_tunk[m_sp--]; }
     bool empty() const { return m_sp == STACK_SP_INIT; }
+
+    void dia(int enable=0){
+        if (!enable) return;
+        printf("[ ");
+        for (int i=0; i< m_sp+1; i++) {
+            T& x = m_tunk[i];
+            printf("<%f %d '%c'> ", x,x,x);
+        }
+        printf("]");
+    }
 
 protected:
     virtual T& get(int idx);

@@ -4,17 +4,20 @@ digraph G {
 
     {
 
-        st_non [shape=circle,peripheries=2,color=green,style=filled, label="Start"]
+        st_non [shape=circle,peripheries=2,style=filled, label="Start"]
         st_opr [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_opr"]
         st_opd [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_opd"]
         st_lps [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_lps"]
         st_rps [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_rps"]
         st_flg [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_flg"]
-        st_end [shape=circle,peripheries=2,color=green,style=filled,label="End"]
+        st_fnn [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_fnn"]
+        st_flp [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_flp"]
+        st_end [shape=circle,peripheries=2,style=filled,label="End"]
 
         st_non -> st_opd[label="[.0-9]+"];
         st_non -> st_lps[label="("];
         st_non -> st_flg[label="+-"];
+        st_non -> st_fnn[label="A-z_", color="red", fontcolor="red"];
 
         st_opd -> st_opr[label="+-*/^"];
         st_opd -> st_rps[label=")"];
@@ -22,22 +25,32 @@ digraph G {
         st_opr -> st_opd[label="[.0-9]+"];
         st_opr -> st_lps[label="("];
         st_opr -> st_flg[label="+-"];
+        st_opr -> st_fnn[label="A-z_", color="red", fontcolor="red"];
 
         st_lps -> st_opd[label="[.0-9]+"];
         st_lps -> st_lps[label="("];
         st_lps -> st_flg[label="+-"];
+        st_lps -> st_fnn[label="A-z_", color="red", fontcolor="red"];
 
         st_rps -> st_opr[label="+-*/^"];
         st_rps -> st_rps[label=")"];
 
         st_flg -> st_opd[label="[.0-9]+"];
+        st_flg -> st_fnn[label="A-z_", color="red", fontcolor="red"];
 
-        st_non -> st_end[label="\0"];
-        st_opd -> st_end[label="\0"];
-        st_rps -> st_end[label="\0"];
+        st_fnn -> st_fnn[label="[A-z0-9_]+", color="red", fontcolor="red"];
+        st_fnn -> st_flp[label="(", color="red", fontcolor="red"];
+
+        st_flp -> st_opd[label="[.0-9]+", color="red", fontcolor="red"];
+        st_flp -> st_lps[label="(", color="red", fontcolor="red"];
+        st_flp -> st_flg[label="+-", color="red", fontcolor="red"];
+        st_flp -> st_fnn[label="A-z_", color="red", fontcolor="red"];
+
+        st_non -> st_end[label=""];
+        st_opd -> st_end[label=""];
+        st_rps -> st_end[label=""];
     }
 
-    ranksep=.75; size = "7.5,7.5";
     {
         rank = same;
         st_lps; st_rps;

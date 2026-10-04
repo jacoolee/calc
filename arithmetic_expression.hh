@@ -13,6 +13,8 @@ enum State
     ST_LPS,
     ST_RPS,
     ST_FLG,
+    ST_FNN,
+    ST_FLP,
     ST_ERR,
     ST_UPPER                    // upper bound
 };
@@ -25,25 +27,40 @@ enum CharType
     CT_LP,
     CT_RP,
     CT_FLG,
+    CT_ALP,
     CT_UPPER                    // upper bound
 };
 
 enum ActionType
 {
     AT_NON = 0,
-    AT_OPR,                    // operator
-    AT_OPD,                    // operand
-    AT_LPS,
-    AT_RPS,
-    AT_ERR,
-    AT_FLG,
-    AT_UPPER                   // upper bound
+    AT_OPR, // 1
+    AT_OPD,// 2
+    AT_LPS,// 3
+    AT_RPS,// 4
+    AT_ERR,// 5
+    AT_FLG,// 6
+    AT_ALP,// 7
+    AT_SPC,// 8
+    AT_UPPER
+};
+
+// todo: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
+enum FNN
+{
+    FNN_UNDEFINED = 128,
+    INT,
+    FLOOR,
+    CEIL,
+    ROUND,
+    FABS,
+    SQRT,
 };
 
 class ArithmeticExpression
 {
 public:
-    ArithmeticExpression(const std::string& infix_expression);
+    ArithmeticExpression(const std::string& infix_expression, int print_enable);
     ~ArithmeticExpression() {}
 
     bool parse();
@@ -64,9 +81,17 @@ private:
     bool handleOperand();
     bool handleLeftParenthesis();
     bool handleRightParenthesis();
+    bool handleAlpha(char c);
+    bool handleSpace();
 
-    bool handleAction(ActionType type);
-    bool calculate(char opr);
+    bool handleAction(ActionType type, char c);
+    bool calculate(int opr);
+
+    int fnn2int(const std::string& fnn);
+    std::string int2fnn(const int fnni);
+
+    void dia();
+    void appendToRpnExpression(char c);
 
     bool isOnTerminalState() const {
         return (ST_OPD == m_state ||
@@ -81,13 +106,15 @@ private:
 
 private:
     Stack<double> m_operand_stack;
-    Stack<char> m_operator_stack;
+    Stack<int> m_operator_stack;
 
     State m_state;
     std::string m_arithmetic_expression;
+    std::string m_fnn;
     int m_parse_pos;
     int m_lp_count;
     int m_flg;
+    bool m_fnn_spc_occurred;
 
     std::string m_rpn_expression;
 
