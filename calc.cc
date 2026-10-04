@@ -2,8 +2,8 @@
 
 int main(int argc, char *argv[])
 {
-    if (argc == 1) {
-        printf("Usage: %s \"math_expression\"\n", argv[0]);
+    if (argc == 1 || strcmp(argv[1], "") == 0) {
+        printf("Usage: calc math_expression\n");
         return 0;
     }
 

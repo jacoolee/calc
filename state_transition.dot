@@ -1,3 +1,4 @@
+// TODO: st_flp == st_non, aka start
 digraph G {
 
     rankdir=LR;
