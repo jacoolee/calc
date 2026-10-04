@@ -1,4 +1,3 @@
-// TODO: st_flp == st_non, aka start
 digraph G {
 
     rankdir=LR;
@@ -12,7 +11,6 @@ digraph G {
         st_rps [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_rps"]
         st_flg [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_flg"]
         st_fnn [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_fnn"]
-        st_flp [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_flp"]
         st_end [shape=circle,peripheries=2,style=filled,label="End"]
 
         st_non -> st_opd[label="[.0-9]+"];
@@ -40,12 +38,7 @@ digraph G {
         st_flg -> st_fnn[label="A-z_", color="red", fontcolor="red"];
 
         st_fnn -> st_fnn[label="[A-z0-9_]+", color="red", fontcolor="red"];
-        st_fnn -> st_flp[label="(", color="red", fontcolor="red"];
-
-        st_flp -> st_opd[label="[.0-9]+", color="red", fontcolor="red"];
-        st_flp -> st_lps[label="(", color="red", fontcolor="red"];
-        st_flp -> st_flg[label="+-", color="red", fontcolor="red"];
-        st_flp -> st_fnn[label="A-z_", color="red", fontcolor="red"];
+        st_fnn -> st_non[label="(", color="red", fontcolor="red"];
 
         st_opd -> st_end[label=""];
         st_rps -> st_end[label=""];

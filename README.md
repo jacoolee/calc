@@ -7,7 +7,6 @@ st_lps stands for left parenthesis: '('
 st_rps stands for right parentesis: ')'
 st_flg stands for flags: '+' or '-'
 st_fnn stands for function name: int, floor, ceil, round, fabs, sqrt
-st_flp stands for function left parenthesis: fnn'('
 ```
 
 ![](./state_transition.png)

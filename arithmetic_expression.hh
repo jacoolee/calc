@@ -14,7 +14,6 @@ enum State
     ST_RPS,
     ST_FLG,
     ST_FNN,
-    ST_FLP,
     ST_ERR,
     ST_UPPER                    // upper bound
 };

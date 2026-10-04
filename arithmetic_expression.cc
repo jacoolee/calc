@@ -38,7 +38,6 @@ ArithmeticExpression::m_state_info[] = {
     {ST_RPS, "ST_RPS"},
     {ST_FLG, "ST_FLG"},
     {ST_FNN, "ST_FNN"},
-    {ST_FLP, "ST_FLP"},
     {ST_ERR, "ST_ERR"},
     // to add
     {ST_UPPER, "ST_UPPER"}
@@ -62,8 +61,7 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
     /* ST_RPS */ {{ST_RPS, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}},
     /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}},
-    /* ST_FNN */ {{ST_FNN, AT_SPC }, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_FLP, AT_LPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}},
-    /* ST_FLP */ {{ST_FLP, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}}
+    /* ST_FNN */ {{ST_FNN, AT_SPC }, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_NON, AT_LPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}},
 };
 
 const char* ArithmeticExpression::getStateStr(State state) const
@@ -152,8 +150,7 @@ CharType ArithmeticExpression::getCharType(int c) {
         case ST_NON:
         case ST_OPR:
         case ST_LPS:
-        case ST_FLG:
-        case ST_FLP: return CT_FLG;
+        case ST_FLG: return CT_FLG;
         case ST_OPD:
         case ST_RPS: return CT_OP;
         default:
