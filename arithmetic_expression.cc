@@ -292,7 +292,6 @@ bool ArithmeticExpression::handleOperand()
 {
     double int_val = 0;
     double dot_val = 0;
-    double rst_val = 0;
 
     // sucks for fetching size each time for operand
     int size = m_arithmetic_expression.size();
@@ -334,19 +333,38 @@ bool ArithmeticExpression::handleOperand()
     if ( dot_occurred ) {
         dot_val *= pow(0.1, dot_part_length);
     }
-    rst_val = m_flg * (int_val + dot_val);
-    // NOTICE: important, reset m_flg to be +
-    m_flg = FLG_ACTIVE;
-    m_operand_stack.push(rst_val);
 
-    // update m_rpn_expression
-    static char val_str[20];
-    memset(val_str, sizeof val_str, 0);
-    snprintf(val_str, sizeof val_str, "%g ", rst_val);
-    m_rpn_expression.append(val_str);
+    double num = int_val + dot_val;
 
-    Printf("rst part=\"%g\", int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
-           rst_val, int_val, dot_val, dot_occurred ? "yes" : "no");
+    if (m_flg == FLG_NEGATIVE) {
+        // NOTE: to support conventional math precedence like "-2^2"
+        // we expand "-2^2" as "-1 * 2 ^ 2", so to process "-2",
+        // split into 3 steps:
+        // 1. push -1 => opd_stack
+        // 2. push  2 => opd_stack
+        // 3. push  * => opr_stack
+        m_operand_stack.push(-1);
+        m_operand_stack.push(num);
+        m_operator_stack.push('*');
+        // NOTICE: important, reset m_flg to be +
+        m_flg = FLG_ACTIVE;
+
+        // m_rpn_expression
+        m_rpn_expression.append(" -1 ");
+        m_rpn_expression.append(std::to_string(num));
+        m_rpn_expression.append(" * ");
+
+    } else {
+        m_operand_stack.push(num);
+
+        // m_rpn_expression
+        m_rpn_expression.append(" ");
+        m_rpn_expression.append(std::to_string(num));
+        m_rpn_expression.append(" ");
+    }
+
+    Printf("m_flg=%d, int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
+           m_flg, int_val, dot_val, dot_occurred ? "yes" : "no");
     return true;
 }
 
