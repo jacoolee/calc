@@ -9,9 +9,9 @@ st_flg stands for flags: '+' or '-'
 ```
 ![](https://raw.github.com/ForU/calculator-simple/master/state_transition.png "state transition procedure")
 
-## Usage 
+## Usage
 
 ```bash
-$ ./calc "(-5 + (-00.01 - 0.09) * 10 ^ 2) / 5"
--3
+$ ./calc 'fabs((-5 + (-00.01 - 0.09) * 10 ^ 2) / 5)'
+3
 ```
