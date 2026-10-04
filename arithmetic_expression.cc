@@ -347,17 +347,14 @@ bool ArithmeticExpression::handleOperand()
         m_flg = FLG_ACTIVE;
 
         // m_rpn_expression
-        m_rpn_expression.append(" -1 ");
-        m_rpn_expression.append(std::to_string(num));
-        m_rpn_expression.append(" * ");
+        // '*' will be filled by m_operator_stack
+        m_rpn_expression.append(" -1 "+std::to_string(num)+" ");
 
     } else {
         m_operand_stack.push(num);
 
         // m_rpn_expression
-        m_rpn_expression.append(" ");
-        m_rpn_expression.append(std::to_string(num));
-        m_rpn_expression.append(" ");
+        m_rpn_expression.append(" "+std::to_string(num)+" ");
     }
 
     Printf("m_flg=%d, int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
