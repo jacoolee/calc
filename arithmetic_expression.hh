@@ -53,14 +53,14 @@ enum ActionType
 enum FNN
 {
     FNN_UNDEFINED = 128,
-    INT,
-    FLOOR,
-    CEIL,
-    ROUND,
-    FABS,
-    SQRT,
-    FMAX,
-    FMIN,
+    INT,   // 129
+    FLOOR, // 130
+    CEIL,  // 131
+    ROUND, // 132
+    FABS,  // 133
+    SQRT,  // 134
+    FMAX,  // 135
+    FMIN,  // 136
 };
 
 class ArithmeticExpression

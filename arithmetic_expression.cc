@@ -414,7 +414,22 @@ bool ArithmeticExpression::handleRightParenthesis()
         }
 
         if (top == 'f') {
+            // NOTE: always calculate whole function when 'f' met.
+            if (! calculate(top)) return false;
+            // NOTE: 'f' already pop-ed in calculate(...), and due
+            // to whole function: [fnni, 'f', ..., ')'] have been processed,
+            // so 1) pop fnni too, 2) break the loop immediately
+            // (that's meet the expection of handleRightParenthesis, coz
+            // right parenthesis if the closing parenthesis of function
+            // if opr is 'f'.
+            m_operator_stack.pop(); // fnni
             break;
+        } else {
+            if (! calculate(top)) return false;
+            // NOTE: if calculate success, means the top opr been consumed,
+            // so pop it. and go on to next opr
+            int x = m_operator_stack.pop();
+            Printf("pop opr:<%d '%c'> after calculate\n", x, x);
         }
 
         if ( LOWEST_PRIO_OP != top ) {
@@ -422,12 +437,6 @@ bool ArithmeticExpression::handleRightParenthesis()
             appendToRpnExpression(' ');
         }
 
-        if (! calculate(top)) return false;
-
-        // NOTE: if calculate success, means the top opr been consumed,
-        // so pop it. and go on to next opr
-        int x = m_operator_stack.pop();
-        Printf("pop opr:<%d '%c'> after calculate\n", x, x);
         dia("+");
     }
 
@@ -480,9 +489,8 @@ bool ArithmeticExpression::calculate(int opr)
     if ('f' == opr) {
         Printf("opr is 'f'\n");
 
-        // pop 'f' to get fnni
-        m_operator_stack.pop();
-        int fnni = m_operator_stack.top(); // fnn
+        m_operator_stack.pop();            // pop 'f'
+        int fnni = m_operator_stack.top(); // get fnni
 
         Printf("pop <%d '%c'>, and fnni=%d \n", opr, opr, fnni);
 
@@ -514,7 +522,7 @@ bool ArithmeticExpression::calculate(int opr)
         }
         case FMIN: {
             // TODO: check m_comma_count of current function
-            Printf("TODO calculate check fmax's argument count ?= 2, m_comma_count=%d \n", m_comma_count);
+            Printf("TODO calculate check fmin's argument count ?= 2, m_comma_count=%d \n", m_comma_count);
             double r_opd = m_operand_stack.pop();
             double l_opd = m_operand_stack.pop();
             m_operand_stack.push(fmin(l_opd, r_opd));

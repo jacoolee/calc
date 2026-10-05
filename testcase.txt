@@ -14,3 +14,7 @@
 
 6   = sqrt(ceil(5.1) + floor(10.2 * 3))
 6   = fabs(-1 * sqrt(ceil(5.1) + floor(10.2 * 3)))
+
+3   = fmax(2,3)
+3   = fmax(fmin(5,1), fmax(0,3))
+6   = fmax(floor(5.1), fmin(ceil(5.1), 7))
