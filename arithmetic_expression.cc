@@ -260,6 +260,11 @@ bool ArithmeticExpression::handleOperator()
     const char& cur_opr = m_arithmetic_expression[m_parse_pos];
     char top = m_operator_stack.top();
     while ( getPriority(top) >= getPriority(cur_opr) && '(' != top ) {
+
+        // NOTE: to support "right-associative ^", eg: 2^3^2, if both
+        // cur_opr and top are '^', do not calculate immediately.
+        if (cur_opr == top && cur_opr == '^') break;
+
         // update rpn
         appendToRpnExpression(top);
         appendToRpnExpression(' ');
