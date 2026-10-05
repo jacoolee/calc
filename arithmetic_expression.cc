@@ -418,10 +418,11 @@ bool ArithmeticExpression::handleRightParenthesis()
             if (! calculate(top)) return false;
             // NOTE: 'f' already pop-ed in calculate(...), and due
             // to whole function: [fni, 'f', ..., ')'] have been processed,
-            // so 1) pop fni too, 2) break the loop immediately
-            // (that's meet the expection of handleRightParenthesis, coz
-            // right parenthesis if the closing parenthesis of function
-            // if opr is 'f'.
+            // so 1) pop 'f', fni, 2) break the loop immediately
+            // that's meet the expection of handleRightParenthesis, coz
+            // the right parenthesis handled is the closing parenthesis of
+            // function if opr is 'f'.
+            m_operator_stack.pop(); // 'f'
             m_operator_stack.pop(); // fni
             break;
         } else {
@@ -477,6 +478,8 @@ bool ArithmeticExpression::handleComma() {
     return true;
 }
 
+// NOTE: for easier maintainance, only modify m_operand_stack when
+// calculating, keep m_operator_stack stay.
 bool ArithmeticExpression::calculate(int opr)
 {
     Printf("calculate: opr=<%c %d>\n", opr, opr);
@@ -488,11 +491,8 @@ bool ArithmeticExpression::calculate(int opr)
 
     if ('f' == opr) {
         Printf("opr is 'f'\n");
-
-        m_operator_stack.pop();            // pop 'f'
-        int fni = m_operator_stack.top(); // get fni
-
-        Printf("pop <%d '%c'>, and fni=%d \n", opr, opr, fni);
+        int fni = m_operator_stack.top(-1); // get fni
+        Printf("fni=%d \n", opr, opr, fni);
 
         switch(fni) {
         case INT: m_operand_stack.push((int)m_operand_stack.pop()); break;
