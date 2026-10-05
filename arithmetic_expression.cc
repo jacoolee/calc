@@ -164,7 +164,7 @@ CharType ArithmeticExpression::getCharType(int c) {
     return CT_UPPER;
 }
 
-int ArithmeticExpression::fnn2int(const std::string& fnn) {
+int ArithmeticExpression::fnn2fni(const std::string& fnn) {
     if (fnn == "int") return INT;
     if (fnn == "floor") return FLOOR;
     if (fnn == "ceil") return CEIL;
@@ -177,8 +177,8 @@ int ArithmeticExpression::fnn2int(const std::string& fnn) {
     return FNN_UNDEFINED;
 }
 
-std::string ArithmeticExpression::int2fnn(const int fnni) {
-    switch(fnni) {
+std::string ArithmeticExpression::fni2fnn(const int fni) {
+    switch(fni) {
     case INT: return "int";
     case FLOOR: return "floor";
     case CEIL: return "ceil";
@@ -188,7 +188,7 @@ std::string ArithmeticExpression::int2fnn(const int fnni) {
     case FMAX: return "fmax";
     case FMIN: return "fmin";
     default:
-        Printf("unsupported fnni=%d", fnni);
+        Printf("unsupported fni=%d", fni);
         return "";
     }
 }
@@ -221,7 +221,7 @@ void ArithmeticExpression::dia(char* marker) {
 
 void ArithmeticExpression::appendToRpnExpression(char c) {
     if (c == 'f') {
-        m_rpn_expression.append( int2fnn(m_operator_stack.top(-1)) );
+        m_rpn_expression.append( fni2fnn(m_operator_stack.top(-1)) );
     } else {
         m_rpn_expression.push_back(c);
     }
@@ -377,11 +377,11 @@ bool ArithmeticExpression::handleLeftParenthesis()
 {
     Printf("handleLeftParenthesis\n");
     if (m_fnn != "") {
-        int fnni = fnn2int(m_fnn);
-        if (fnni == FNN_UNDEFINED) {
+        int fni = fnn2fni(m_fnn);
+        if (fni == FNN_UNDEFINED) {
             return false;
         }
-        m_operator_stack.push(fnni);
+        m_operator_stack.push(fni);
         m_fnn = "";
 
         m_operator_stack.push('f'); // means function left parenthesis
@@ -417,12 +417,12 @@ bool ArithmeticExpression::handleRightParenthesis()
             // NOTE: always calculate whole function when 'f' met.
             if (! calculate(top)) return false;
             // NOTE: 'f' already pop-ed in calculate(...), and due
-            // to whole function: [fnni, 'f', ..., ')'] have been processed,
-            // so 1) pop fnni too, 2) break the loop immediately
+            // to whole function: [fni, 'f', ..., ')'] have been processed,
+            // so 1) pop fni too, 2) break the loop immediately
             // (that's meet the expection of handleRightParenthesis, coz
             // right parenthesis if the closing parenthesis of function
             // if opr is 'f'.
-            m_operator_stack.pop(); // fnni
+            m_operator_stack.pop(); // fni
             break;
         } else {
             if (! calculate(top)) return false;
@@ -490,11 +490,11 @@ bool ArithmeticExpression::calculate(int opr)
         Printf("opr is 'f'\n");
 
         m_operator_stack.pop();            // pop 'f'
-        int fnni = m_operator_stack.top(); // get fnni
+        int fni = m_operator_stack.top(); // get fni
 
-        Printf("pop <%d '%c'>, and fnni=%d \n", opr, opr, fnni);
+        Printf("pop <%d '%c'>, and fni=%d \n", opr, opr, fni);
 
-        switch(fnni) {
+        switch(fni) {
         case INT: m_operand_stack.push((int)m_operand_stack.pop()); break;
         case FLOOR: m_operand_stack.push(floor(m_operand_stack.pop())); break;
         case CEIL: m_operand_stack.push(ceil(m_operand_stack.pop())); break;
@@ -531,7 +531,7 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
         default:
-            Printf("unsupported fnn: %d", fnni);
+            Printf("unsupported fnn: %d", fni);
             return false;
         }
     } else {

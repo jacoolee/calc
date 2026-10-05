@@ -94,8 +94,8 @@ private:
     bool handleAction(ActionType type, char c);
     bool calculate(int opr);
 
-    int fnn2int(const std::string& fnn);
-    std::string int2fnn(const int fnni);
+    int fnn2fni(const std::string& fnn);
+    std::string fni2fnn(const int fni);
 
     void dia(char* marker);
     void appendToRpnExpression(char c);
