@@ -16,7 +16,7 @@
 int g_print_enable = 0;
 
 ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, int print_enable=0)
-    : m_state(ST_NON),
+    : m_state(ST_BGN),
       m_arithmetic_expression(infix_expression),
       m_fnn(""),
       m_parse_pos(0),
@@ -31,7 +31,7 @@ ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, 
 ArithmeticExpression::StateInfo
 ArithmeticExpression::m_state_info[] = {
     // NOTE: keep order same as that declared in enum State
-    {ST_NON, "ST_NON"},
+    {ST_BGN, "ST_BGN"},
     {ST_OPR, "ST_OPR"},
     {ST_OPD, "ST_OPD"},
     {ST_LPS, "ST_LPS"},
@@ -55,18 +55,18 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
     //           {CT_WHITESPACE},    {CT_OP},          {CT_NUM},         {CT_LP},          {CT_RP},          {CT_FLG},         {CT_ALP}
-    /* ST_NON */ {{ST_NON, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
+    /* ST_BGN */ {{ST_BGN, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
     /* ST_OPR */ {{ST_OPR, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
     /* ST_OPD */ {{ST_OPD, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}},
     /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
     /* ST_RPS */ {{ST_RPS, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}},
     /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}},
-    /* ST_FNN */ {{ST_FNN, AT_SPC }, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_NON, AT_LPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}},
+    /* ST_FNN */ {{ST_FNN, AT_SPC }, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_BGN, AT_LPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}},
 };
 
 const char* ArithmeticExpression::getStateStr(State state) const
 {
-    if ( state >= ST_UPPER || state < ST_NON ) {
+    if ( state >= ST_UPPER || state < ST_BGN ) {
         Printf("state is not valid, state=\"%d\"\n", (int)state);
         return m_state_info[ST_UPPER].state_str;
     }
@@ -147,7 +147,7 @@ CharType ArithmeticExpression::getCharType(int c) {
     // sure return right char type
     if ( '+' == c || '-' == c) {
         switch (m_state) {
-        case ST_NON:
+        case ST_BGN:
         case ST_OPR:
         case ST_LPS:
         case ST_FLG: return CT_FLG;
@@ -578,7 +578,7 @@ bool ArithmeticExpression::getExpressionValue(double &val) const
         return false;
     }
     bool stack_empty = m_operand_stack.empty();
-    if ( ! stack_empty || (stack_empty && ST_NON == m_state)) {
+    if ( ! stack_empty || (stack_empty && ST_BGN == m_state)) {
         val = stack_empty ? 0 : m_operand_stack.top();
         Printf("return value=\"%g\"\n", val);
         return true;

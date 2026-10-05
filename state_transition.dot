@@ -4,7 +4,8 @@ digraph G {
 
     {
 
-        st_non [shape=circle,peripheries=2,style=filled, label="Start"]
+        st_start [shape=circle,peripheries=2,style=filled, label="Start"]
+        st_bgn [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_bgn"]
         st_opr [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_opr"]
         st_opd [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_opd"]
         st_lps [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_lps"]
@@ -13,10 +14,12 @@ digraph G {
         st_fnn [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_fnn"]
         st_end [shape=circle,peripheries=2,style=filled,label="End"]
 
-        st_non -> st_opd[label="[.0-9]+"];
-        st_non -> st_lps[label="("];
-        st_non -> st_flg[label="+-"];
-        st_non -> st_fnn[label="A-z_", color="red", fontcolor="red"];
+        st_start -> st_bgn;
+
+        st_bgn -> st_opd[label="[.0-9]+"];
+        st_bgn -> st_lps[label="("];
+        st_bgn -> st_flg[label="+-"];
+        st_bgn -> st_fnn[label="A-z_", color="red", fontcolor="red"];
 
         st_opd -> st_opr[label="+-*/^"];
         st_opd -> st_rps[label=")"];
@@ -38,7 +41,7 @@ digraph G {
         st_flg -> st_fnn[label="A-z_", color="red", fontcolor="red"];
 
         st_fnn -> st_fnn[label="[A-z0-9_]+", color="red", fontcolor="red"];
-        st_fnn -> st_non[label="(", color="red", fontcolor="red"];
+        st_fnn -> st_bgn[label="(", color="red", fontcolor="red"];
 
         st_opd -> st_end[label=""];
         st_rps -> st_end[label=""];

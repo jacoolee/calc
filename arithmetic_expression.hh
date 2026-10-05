@@ -7,7 +7,7 @@
 
 enum State
 {
-    ST_NON = 0,
+    ST_BGN = 0,
     ST_OPR,                     // operator
     ST_OPD,                     // operand
     ST_LPS,
@@ -95,7 +95,7 @@ private:
     bool isOnTerminalState() const {
         return (ST_OPD == m_state ||
                 ST_RPS == m_state ||
-                ST_NON == m_state);
+                ST_BGN == m_state);
     }
 
     int getPriority(char c);
