@@ -21,6 +21,7 @@ ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, 
       m_fnn(""),
       m_parse_pos(0),
       m_lp_count(0),
+      m_comma_count(0),
       m_fnn_spc_occurred(false),
       m_flg(FLG_ACTIVE)
 {
@@ -54,14 +55,14 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // //    the second item is the type of process action of the transition                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
-    //           {CT_WHITESPACE},    {CT_OP},          {CT_NUM},         {CT_LP},          {CT_RP},          {CT_FLG},         {CT_ALP}
-    /* ST_BGN */ {{ST_BGN, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
-    /* ST_OPR */ {{ST_OPR, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
-    /* ST_OPD */ {{ST_OPD, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}},
-    /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}},
-    /* ST_RPS */ {{ST_RPS, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}},
-    /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}},
-    /* ST_FNN */ {{ST_FNN, AT_SPC }, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_BGN, AT_LPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}},
+    //           {CT_WHITESPACE},    {CT_OP},          {CT_NUM},         {CT_LP},          {CT_RP},          {CT_FLG},         {CT_ALP}          CT_COMMA
+    /* ST_BGN */ {{ST_BGN, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
+    /* ST_OPR */ {{ST_OPR, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
+    /* ST_OPD */ {{ST_OPD, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_BGN, AT_COMMA}},
+    /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
+    /* ST_RPS */ {{ST_RPS, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_BGN, AT_COMMA}},
+    /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
+    /* ST_FNN */ {{ST_FNN, AT_SPC }, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_BGN, AT_LPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
 };
 
 const char* ArithmeticExpression::getStateStr(State state) const
@@ -115,6 +116,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_RPS: rc = handleRightParenthesis(); break;
     case AT_ALP: rc = handleAlpha(c); break;
     case AT_SPC: rc = handleSpace(); break;
+    case AT_COMMA: rc = handleComma(); break;
     case AT_ERR: rc = handleError(); break;
     default:
         Printf("no handler found for action type:%d\n", type);
@@ -125,6 +127,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
 }
 
 CharType ArithmeticExpression::getCharType(int c) {
+    if ( ',' == c ) return CT_COMMA;
     if ( ' ' == c || '\t' == c ) {
         return CT_WHITESPACE;
     }
@@ -168,6 +171,8 @@ int ArithmeticExpression::fnn2int(const std::string& fnn) {
     if (fnn == "round") return ROUND;
     if (fnn == "fabs") return FABS;
     if (fnn == "sqrt") return SQRT;
+    if (fnn == "fmax") return FMAX;
+    if (fnn == "fmin") return FMIN;
     Printf("unsupported function name: %s", m_fnn.c_str());
     return FNN_UNDEFINED;
 }
@@ -180,6 +185,8 @@ std::string ArithmeticExpression::int2fnn(const int fnni) {
     case ROUND: return "round";
     case FABS: return "fabs";
     case SQRT: return "sqrt";
+    case FMAX: return "fmax";
+    case FMIN: return "fmin";
     default:
         Printf("unsupported fnni=%d", fnni);
         return "";
@@ -202,11 +209,12 @@ void ArithmeticExpression::dia(char* marker) {
     m_operand_stack.dia(g_print_enable);
     Printf(" opr_stack=");
     m_operator_stack.dia(g_print_enable);
-    Printf(" m_fnn=\"%s\" m_fnn_spc_occurred=%s m_flg='%d' m_lp_count=%d rpn=\"%s\"\n",
+    Printf(" m_fnn=\"%s\" m_fnn_spc_occurred=%s m_flg='%d' m_lp_count=%d m_comma_count=%d rpn=\"%s\"\n",
            m_fnn.c_str(),
            m_fnn_spc_occurred?"true":"false",
            m_flg,
            m_lp_count,
+           m_comma_count,
            m_rpn_expression.c_str()
         );
 }
@@ -281,9 +289,9 @@ bool ArithmeticExpression::handleOperator()
 bool ArithmeticExpression::handleError()
 {
     dia("E");
-    Printf("error occurs pos=\"%d\", tailing=\"%s\", raw=\"%s\"\n",
+    Printf("error occurs pos=\"%d\", c='%c', raw=\"%s\"\n",
            m_parse_pos,
-           &m_arithmetic_expression[m_parse_pos],
+           m_arithmetic_expression[m_parse_pos],
            m_arithmetic_expression.c_str());
     return false;               // always false
 }
@@ -444,6 +452,22 @@ bool ArithmeticExpression::handleSpace() {
     return true;
 }
 
+bool ArithmeticExpression::handleComma() {
+    int top;
+    while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != 'f') {
+        dia("c");
+        if(!calculate(top)) return false;
+        dia("C");
+        m_operator_stack.pop();
+    }
+    if (m_operator_stack.empty()) {
+        Printf("invalid use of comma, comma can only be used as function argument separator\n");
+        return false;
+    }
+    ++m_comma_count;
+    return true;
+}
+
 bool ArithmeticExpression::calculate(int opr)
 {
     Printf("calculate: opr=<%c %d>\n", opr, opr);
@@ -458,9 +482,9 @@ bool ArithmeticExpression::calculate(int opr)
 
         // pop 'f' to get fnni
         m_operator_stack.pop();
-        Printf("pop <%d '%c'> in calculate, to get fnni\n", opr, opr);
-
         int fnni = m_operator_stack.top(); // fnn
+
+        Printf("pop <%d '%c'>, and fnni=%d \n", opr, opr, fnni);
 
         switch(fnni) {
         case INT: m_operand_stack.push((int)m_operand_stack.pop()); break;
@@ -469,12 +493,33 @@ bool ArithmeticExpression::calculate(int opr)
         case ROUND: m_operand_stack.push(round(m_operand_stack.pop())); break;
         case FABS: m_operand_stack.push(fabs(m_operand_stack.pop())); break;
         case SQRT: {
+            // TODO: check m_comma_count of current function, should be 0
             double opd = m_operand_stack.pop();
             if (opd < 0) {
                 Printf("sqrt expects unsigned operand, while %f gotten\n", opd);
                 return false;
             }
             m_operand_stack.push(sqrt(opd));
+            break;
+        }
+        case FMAX: {
+            // TODO: check m_comma_count of current function
+            Printf("TODO calculate check fmax's argument count ?= 2, m_comma_count=%d \n", m_comma_count);
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push(fmax(l_opd, r_opd));
+            // TODO: reset comma count when *function to which comma belongs* been processed
+            m_comma_count = 0;
+            break;
+        }
+        case FMIN: {
+            // TODO: check m_comma_count of current function
+            Printf("TODO calculate check fmax's argument count ?= 2, m_comma_count=%d \n", m_comma_count);
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push(fmin(l_opd, r_opd));
+            // TODO: reset comma count when *function to which comma belongs* been processed
+            m_comma_count = 0;
             break;
         }
         default:
@@ -560,12 +605,19 @@ bool ArithmeticExpression::parse()
     }
     dia("z");
 
-    Printf("arithmetic expression successfully parsed, rpn=\"%s\"\n", m_rpn_expression.c_str());
-    if ( m_operand_stack.empty() ) {
-        Printf("no value calculated\n");
-    } else {
-        Printf("value=\"%g\"\n", m_operand_stack.top());
+    Printf("m_operand_stack.count() = %d\n", m_operand_stack.count());
+
+    // now, m_operator_stack is empty, we expect m_operand_stack should be
+    // only one value, aka. the result of math expression.
+    if (m_operand_stack.count() != 1) {
+        Printf("operand stack have %d oprand(s) left after process, should be 1 operand left\n", m_operand_stack.count());
+        Printf("maybe too much argumets have been given to function(s), please check out the math expression\n");
+        dia("C");
+        return false;
     }
+
+    Printf("arithmetic expression successfully parsed, rpn=\"%s\"\n", m_rpn_expression.c_str());
+    Printf("value=\"%g\"\n", m_operand_stack.top());
     return true;
 }
 

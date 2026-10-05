@@ -23,6 +23,8 @@ digraph G {
 
         st_opd -> st_opr[label="+-*/^"];
         st_opd -> st_rps[label=")"];
+        st_opd -> st_bgn[label=",", color="green", fontcolor="green"];
+        st_opd -> st_end[label=""];
 
         st_opr -> st_opd[label="[.0-9]+"];
         st_opr -> st_lps[label="("];
@@ -36,15 +38,14 @@ digraph G {
 
         st_rps -> st_opr[label="+-*/^"];
         st_rps -> st_rps[label=")"];
+        st_rps -> st_bgn[label=",", color="green", fontcolor="green"];
+        st_rps -> st_end[label=""];
 
         st_flg -> st_opd[label="[.0-9]+"];
         st_flg -> st_fnn[label="A-z_", color="red", fontcolor="red"];
 
         st_fnn -> st_fnn[label="[A-z0-9_]+", color="red", fontcolor="red"];
         st_fnn -> st_bgn[label="(", color="red", fontcolor="red"];
-
-        st_opd -> st_end[label=""];
-        st_rps -> st_end[label=""];
     }
 
     {

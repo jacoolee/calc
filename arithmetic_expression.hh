@@ -27,6 +27,7 @@ enum CharType
     CT_RP,
     CT_FLG,
     CT_ALP,
+    CT_COMMA,
     CT_UPPER                    // upper bound
 };
 
@@ -41,10 +42,14 @@ enum ActionType
     AT_FLG,// 6
     AT_ALP,// 7
     AT_SPC,// 8
+    AT_COMMA,// 9
     AT_UPPER
 };
 
-// todo: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
+// TODO: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
+// TODO: to bind argument count for function, so can used paired up with m_comma_count,
+//       for more ux-friendly, eg. error out for case that wrong count of comma been
+//       used for function.
 enum FNN
 {
     FNN_UNDEFINED = 128,
@@ -54,6 +59,8 @@ enum FNN
     ROUND,
     FABS,
     SQRT,
+    FMAX,
+    FMIN,
 };
 
 class ArithmeticExpression
@@ -82,6 +89,7 @@ private:
     bool handleRightParenthesis();
     bool handleAlpha(char c);
     bool handleSpace();
+    bool handleComma();
 
     bool handleAction(ActionType type, char c);
     bool calculate(int opr);
@@ -112,6 +120,9 @@ private:
     std::string m_fnn;
     int m_parse_pos;
     int m_lp_count;
+    // TODO: m_comma_count should be stack to support nested func: eg: func1(func2(func3(...)))
+    // [comma_count_of_func1, comma_count_of_func2, comma_count_of_func3]
+    int m_comma_count;
     int m_flg;
     bool m_fnn_spc_occurred;
 

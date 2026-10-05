@@ -23,6 +23,7 @@ public:
     void push(T val);
     T pop() { return m_tunk[m_sp--]; }
     bool empty() const { return m_sp == STACK_SP_INIT; }
+    int count() const { return m_sp+1; }
 
     void dia(int enable=0){
         if (!enable) return;
