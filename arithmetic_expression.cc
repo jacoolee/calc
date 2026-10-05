@@ -186,27 +186,27 @@ std::string ArithmeticExpression::int2fnn(const int fnni) {
     }
 }
 
-void ArithmeticExpression::dia() {
+void ArithmeticExpression::dia(char* marker) {
     const char& c = m_arithmetic_expression[m_parse_pos];
     CharType type = getCharType(c);
     StateTable* table_item = &m_state_table[m_state][type];
-    Printf("@%d, ST=\"%s\", c='%c', CT=%d, AT=%d, remaining=\"%s\", m_fnn=\"%s\"",
+    Printf("%s @%d %s '%c' CT=%d AT=%d",
+           marker,
            m_parse_pos,
            getCurStateStr(),
            c,
            type,
-           table_item->action_type,
-           &m_arithmetic_expression[m_parse_pos+1], // buggy
-           m_fnn.c_str()
+           table_item->action_type
         );
-    Printf(", opd_stack=");
+    Printf(" opd_stack=");
     m_operand_stack.dia(g_print_enable);
-    Printf(", opr_stack=");
+    Printf(" opr_stack=");
     m_operator_stack.dia(g_print_enable);
-    Printf(", m_lp_count=%d, m_flg='%d', m_fnn_spc_occurred=%s, rpn=\"%s\"\n",
-           m_lp_count,
-           m_flg,
+    Printf(" m_fnn=\"%s\" m_fnn_spc_occurred=%s m_flg='%d' m_lp_count=%d rpn=\"%s\"\n",
+           m_fnn.c_str(),
            m_fnn_spc_occurred?"true":"false",
+           m_flg,
+           m_lp_count,
            m_rpn_expression.c_str()
         );
 }
@@ -226,8 +226,6 @@ bool ArithmeticExpression::handle(char c)
         Printf("invalid char type, argument char='%c'\n", c);
         return false;
     }
-
-    dia();
 
     StateTable* table_item = &m_state_table[m_state][type];
     bool rc = handleAction(table_item->action_type, c);
@@ -282,11 +280,11 @@ bool ArithmeticExpression::handleOperator()
 }
 bool ArithmeticExpression::handleError()
 {
+    dia("E");
     Printf("error occurs pos=\"%d\", tailing=\"%s\", raw=\"%s\"\n",
            m_parse_pos,
            &m_arithmetic_expression[m_parse_pos],
            m_arithmetic_expression.c_str());
-    dia();
     return false;               // always false
 }
 
@@ -397,6 +395,8 @@ bool ArithmeticExpression::handleRightParenthesis()
 
     // pop till '(' or 'f'
     while ( ! m_operator_stack.empty()) {
+        dia("-");
+
         int top = m_operator_stack.top();
         if (top == '(') {
             // done for whole, (...), so pop '('
@@ -420,8 +420,7 @@ bool ArithmeticExpression::handleRightParenthesis()
         // so pop it. and go on to next opr
         int x = m_operator_stack.pop();
         Printf("pop opr:<%d '%c'> after calculate\n", x, x);
-
-        dia();
+        dia("+");
     }
 
     // DO NOT save this operator:')' into stack
@@ -516,6 +515,7 @@ bool ArithmeticExpression::parse()
     }
     while ( m_parse_pos < size ) {
         Printf("> \"%s\"\n", &m_arithmetic_expression[m_parse_pos]);
+        dia("-");
         const char& c = m_arithmetic_expression.at(m_parse_pos);
         if ( ! handle(c) ) {
             Printf("failed to handle, "
@@ -532,6 +532,7 @@ bool ArithmeticExpression::parse()
                 );
             return false;
         }
+        dia("+");
         ++m_parse_pos;
     }
     // check program terminal state
@@ -546,6 +547,7 @@ bool ArithmeticExpression::parse()
     }
     // fulfill m_rpn_expression using operator stack
     while ( ! m_operator_stack.empty() ) {
+        dia("-");
         const int& top = m_operator_stack.top();
         if ( LOWEST_PRIO_OP != top ) {
             appendToRpnExpression(top);
@@ -554,15 +556,15 @@ bool ArithmeticExpression::parse()
         if (! calculate(top)) return false;
         // always pop to go on to next opr
         m_operator_stack.pop();
+        dia("+");
     }
+    dia("z");
 
     Printf("arithmetic expression successfully parsed, rpn=\"%s\"\n", m_rpn_expression.c_str());
     if ( m_operand_stack.empty() ) {
         Printf("no value calculated\n");
-        ;
     } else {
         Printf("value=\"%g\"\n", m_operand_stack.top());
-        ;
     }
     return true;
 }

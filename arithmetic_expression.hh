@@ -89,7 +89,7 @@ private:
     int fnn2int(const std::string& fnn);
     std::string int2fnn(const int fnni);
 
-    void dia();
+    void dia(char* marker);
     void appendToRpnExpression(char c);
 
     bool isOnTerminalState() const {

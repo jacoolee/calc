@@ -26,10 +26,10 @@ public:
 
     void dia(int enable=0){
         if (!enable) return;
-        printf("[ ");
+        printf("[");
         for (int i=0; i< m_sp+1; i++) {
             T& x = m_tunk[i];
-            printf("<%f %d '%c'> ", x,x,x);
+            printf("<%f,%d,'%c'> ", x,x,x);
         }
         printf("]");
     }
