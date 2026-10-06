@@ -21,7 +21,6 @@ ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, 
       m_fnn(""),
       m_parse_pos(0),
       m_lp_count(0),
-      m_comma_count(0),
       m_fnn_spc_occurred(false),
       m_flg(FLG_ACTIVE)
 {
@@ -209,12 +208,13 @@ void ArithmeticExpression::dia(char* marker) {
     m_operand_stack.dia(g_print_enable);
     Printf(" opr_stack=");
     m_operator_stack.dia(g_print_enable);
-    Printf(" m_fnn=\"%s\" m_fnn_spc_occurred=%s m_flg='%d' m_lp_count=%d m_comma_count=%d rpn=\"%s\"\n",
+    Printf(" cmc_stack=");
+    m_fncmcnt_stack.dia(g_print_enable);
+    Printf(" m_fnn=\"%s\" m_fnn_spc_occurred=%s m_flg='%d' m_lp_count=%d rpn=\"%s\"\n",
            m_fnn.c_str(),
            m_fnn_spc_occurred?"true":"false",
            m_flg,
            m_lp_count,
-           m_comma_count,
            m_rpn_expression.c_str()
         );
 }
@@ -384,6 +384,9 @@ bool ArithmeticExpression::handleLeftParenthesis()
         m_operator_stack.push(fni);
         m_fnn = "";
 
+        // NOTE: always record fncmcnt's comma count when fn gotten
+        m_fncmcnt_stack.push(0);
+
         m_operator_stack.push('f'); // means function left parenthesis
         ++m_lp_count;
     } else {
@@ -474,7 +477,11 @@ bool ArithmeticExpression::handleComma() {
         Printf("invalid use of comma, comma can only be used as function argument separator\n");
         return false;
     }
-    ++m_comma_count;
+    if (m_fncmcnt_stack.empty()) {
+        Printf("comma can only be used as function argumet separator");
+        return false;
+    }
+    m_fncmcnt_stack.push(m_fncmcnt_stack.pop() + 1);
     return true;
 }
 
@@ -494,14 +501,54 @@ bool ArithmeticExpression::calculate(int opr)
         int fni = m_operator_stack.top(-1); // get fni
         Printf("fni=%d \n", opr, opr, fni);
 
+        int fncmcnt = m_fncmcnt_stack.top();
+
         switch(fni) {
-        case INT: m_operand_stack.push((int)m_operand_stack.pop()); break;
-        case FLOOR: m_operand_stack.push(floor(m_operand_stack.pop())); break;
-        case CEIL: m_operand_stack.push(ceil(m_operand_stack.pop())); break;
-        case ROUND: m_operand_stack.push(round(m_operand_stack.pop())); break;
-        case FABS: m_operand_stack.push(fabs(m_operand_stack.pop())); break;
+        case INT: {
+            if (fncmcnt != 0) {
+                Printf("int expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
+                return false;
+            }
+            m_operand_stack.push((int)m_operand_stack.pop());
+            break;
+        }
+        case FLOOR: {
+            if (fncmcnt != 0) {
+                Printf("floor expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
+                return false;
+            }
+            m_operand_stack.push(floor(m_operand_stack.pop()));
+            break;
+        }
+        case CEIL: {
+            if (fncmcnt != 0) {
+                Printf("ceil expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
+                return false;
+            }
+            m_operand_stack.push(ceil(m_operand_stack.pop()));
+            break;
+        }
+        case ROUND: {
+            if (fncmcnt != 0) {
+                Printf("round expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
+                return false;
+            }
+            m_operand_stack.push(round(m_operand_stack.pop()));
+            break;
+        }
+        case FABS: {
+            if (fncmcnt != 0) {
+                Printf("fabs expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
+                return false;
+            }
+            m_operand_stack.push(fabs(m_operand_stack.pop()));
+            break;
+        }
         case SQRT: {
-            // TODO: check m_comma_count of current function, should be 0
+            if (fncmcnt != 0) {
+                Printf("sqrt expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
+                return false;
+            }
             double opd = m_operand_stack.pop();
             if (opd < 0) {
                 Printf("sqrt expects unsigned operand, while %f gotten\n", opd);
@@ -511,29 +558,34 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
         case FMAX: {
-            // TODO: check m_comma_count of current function
-            Printf("TODO calculate check fmax's argument count ?= 2, m_comma_count=%d \n", m_comma_count);
+            if (fncmcnt != 1) {
+                Printf("fmax expect 2 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
+                return false;
+            }
             double r_opd = m_operand_stack.pop();
             double l_opd = m_operand_stack.pop();
             m_operand_stack.push(fmax(l_opd, r_opd));
-            // TODO: reset comma count when *function to which comma belongs* been processed
-            m_comma_count = 0;
             break;
         }
         case FMIN: {
-            // TODO: check m_comma_count of current function
-            Printf("TODO calculate check fmin's argument count ?= 2, m_comma_count=%d \n", m_comma_count);
+            if (fncmcnt != 1) {
+                Printf("fmin expect 2 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
+                return false;
+            }
             double r_opd = m_operand_stack.pop();
             double l_opd = m_operand_stack.pop();
             m_operand_stack.push(fmin(l_opd, r_opd));
-            // TODO: reset comma count when *function to which comma belongs* been processed
-            m_comma_count = 0;
             break;
         }
         default:
             Printf("unsupported fnn: %d", fni);
             return false;
         }
+
+        // NOTE: always pop when fn has successfully been processed
+        m_fncmcnt_stack.pop();
+        return true;
+
     } else {
         // two-args opr
         double r_opd = m_operand_stack.pop();
@@ -554,9 +606,9 @@ bool ArithmeticExpression::calculate(int opr)
         default: Printf("unknown operator='<%c %d>'\n", opr, opr); return false;
         }
         Printf("opr='<%c %d>', l_opd=\"%g\", r_opd=\"%g\", rst=\"%g\"\n", opr, opr, l_opd, r_opd, m_operand_stack.top());
-    }
 
-    return true;
+        return true;
+    }
 }
 
 bool ArithmeticExpression::parse()

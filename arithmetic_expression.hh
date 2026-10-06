@@ -47,7 +47,7 @@ enum ActionType
 };
 
 // TODO: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
-// TODO: to bind argument count for function, so can used paired up with m_comma_count,
+// TODO: to bind argument count for function, so can used paired up with m_fncmcnt_stack,
 //       for more ux-friendly, eg. error out for case that wrong count of comma been
 //       used for function.
 enum FNN
@@ -120,9 +120,7 @@ private:
     std::string m_fnn;
     int m_parse_pos;
     int m_lp_count;
-    // TODO: m_comma_count should be stack to support nested func: eg: func1(func2(func3(...)))
-    // [comma_count_of_func1, comma_count_of_func2, comma_count_of_func3]
-    int m_comma_count;
+    Stack<int> m_fncmcnt_stack;
     int m_flg;
     bool m_fnn_spc_occurred;
 
