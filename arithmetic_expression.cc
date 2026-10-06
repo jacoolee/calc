@@ -64,6 +64,18 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     /* ST_FNN */ {{ST_FNN, AT_SPC }, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_BGN, AT_LPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
 };
 
+ArithmeticExpression::FunctionMeta
+ArithmeticExpression::m_function_meta[FNN_UPPER] = {
+    { "int"   , 1 },
+    { "floor" , 1 },
+    { "ceil"  , 1 },
+    { "round" , 1 },
+    { "fabs"  , 1 },
+    { "sqrt"  , 1 },
+    { "fmax"  , 2 },
+    { "fmin"  , 2 },
+};
+
 const char* ArithmeticExpression::getStateStr(State state) const
 {
     if ( state >= ST_UPPER || state < ST_BGN ) {
@@ -164,32 +176,17 @@ CharType ArithmeticExpression::getCharType(int c) {
 }
 
 int ArithmeticExpression::fnn2fni(const std::string& fnn) {
-    if (fnn == "int") return INT;
-    if (fnn == "floor") return FLOOR;
-    if (fnn == "ceil") return CEIL;
-    if (fnn == "round") return ROUND;
-    if (fnn == "fabs") return FABS;
-    if (fnn == "sqrt") return SQRT;
-    if (fnn == "fmax") return FMAX;
-    if (fnn == "fmin") return FMIN;
+    for (int i=0; i<FNN_UPPER; i++) {
+        if (fnn == m_function_meta[i].name) {
+            return i;
+        }
+    }
     Printf("unsupported function name: %s", m_fnn.c_str());
-    return FNN_UNDEFINED;
+    return FNN_UPPER;
 }
 
 std::string ArithmeticExpression::fni2fnn(const int fni) {
-    switch(fni) {
-    case INT: return "int";
-    case FLOOR: return "floor";
-    case CEIL: return "ceil";
-    case ROUND: return "round";
-    case FABS: return "fabs";
-    case SQRT: return "sqrt";
-    case FMAX: return "fmax";
-    case FMIN: return "fmin";
-    default:
-        Printf("unsupported fni=%d", fni);
-        return "";
-    }
+    return m_function_meta[fni].name;
 }
 
 void ArithmeticExpression::dia(char* marker) {
@@ -378,7 +375,8 @@ bool ArithmeticExpression::handleLeftParenthesis()
     Printf("handleLeftParenthesis\n");
     if (m_fnn != "") {
         int fni = fnn2fni(m_fnn);
-        if (fni == FNN_UNDEFINED) {
+        if (fni == FNN_UPPER) {
+            Printf("fni should never be equal to FNN_UPPER, fni=%d, m_fnn=%s\n", fni, m_fnn.c_str());
             return false;
         }
         m_operator_stack.push(fni);
@@ -502,53 +500,35 @@ bool ArithmeticExpression::calculate(int opr)
         Printf("fni=%d \n", opr, opr, fni);
 
         int fncmcnt = m_fncmcnt_stack.top();
+        FunctionMeta fm = m_function_meta[fni];
+
+        if (fncmcnt != fm.args_count-1) {
+            Printf("function: '%s' expect %d arguments, while %d given. (fncmcnt=%d)\n", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
+            return false;
+        }
 
         switch(fni) {
         case INT: {
-            if (fncmcnt != 0) {
-                Printf("int expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
-                return false;
-            }
             m_operand_stack.push((int)m_operand_stack.pop());
             break;
         }
         case FLOOR: {
-            if (fncmcnt != 0) {
-                Printf("floor expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
-                return false;
-            }
             m_operand_stack.push(floor(m_operand_stack.pop()));
             break;
         }
         case CEIL: {
-            if (fncmcnt != 0) {
-                Printf("ceil expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
-                return false;
-            }
             m_operand_stack.push(ceil(m_operand_stack.pop()));
             break;
         }
         case ROUND: {
-            if (fncmcnt != 0) {
-                Printf("round expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
-                return false;
-            }
             m_operand_stack.push(round(m_operand_stack.pop()));
             break;
         }
         case FABS: {
-            if (fncmcnt != 0) {
-                Printf("fabs expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
-                return false;
-            }
             m_operand_stack.push(fabs(m_operand_stack.pop()));
             break;
         }
         case SQRT: {
-            if (fncmcnt != 0) {
-                Printf("sqrt expect 1 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
-                return false;
-            }
             double opd = m_operand_stack.pop();
             if (opd < 0) {
                 Printf("sqrt expects unsigned operand, while %f gotten\n", opd);
@@ -558,20 +538,12 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
         case FMAX: {
-            if (fncmcnt != 1) {
-                Printf("fmax expect 2 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
-                return false;
-            }
             double r_opd = m_operand_stack.pop();
             double l_opd = m_operand_stack.pop();
             m_operand_stack.push(fmax(l_opd, r_opd));
             break;
         }
         case FMIN: {
-            if (fncmcnt != 1) {
-                Printf("fmin expect 2 arguments, while %d given. (fncmcnt=%d)\n", fncmcnt+1, fncmcnt);
-                return false;
-            }
             double r_opd = m_operand_stack.pop();
             double l_opd = m_operand_stack.pop();
             m_operand_stack.push(fmin(l_opd, r_opd));

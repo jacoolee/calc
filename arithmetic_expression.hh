@@ -52,15 +52,16 @@ enum ActionType
 //       used for function.
 enum FNN
 {
-    FNN_UNDEFINED = 128,
-    INT,   // 129
-    FLOOR, // 130
-    CEIL,  // 131
-    ROUND, // 132
-    FABS,  // 133
-    SQRT,  // 134
-    FMAX,  // 135
-    FMIN,  // 136
+    INT,   // 0
+    FLOOR, // 1
+    CEIL,  // 2
+    ROUND, // 3
+    FABS,  // 4
+    SQRT,  // 5
+    FMAX,  // 6
+    FMIN,  // 7
+    // add more
+    FNN_UPPER
 };
 
 class ArithmeticExpression
@@ -137,6 +138,12 @@ private:
         const char* state_str;
     } StateInfo;
     static StateInfo m_state_info[ST_UPPER+1];
+
+    typedef struct {
+        const char* name;
+        const int args_count;
+    } FunctionMeta;
+    static FunctionMeta m_function_meta[FNN_UPPER];
 };
 
 #endif /* INCLUDE_CALCULATOR_HPP */
