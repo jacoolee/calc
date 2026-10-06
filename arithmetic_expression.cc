@@ -7,10 +7,15 @@
 #define FLG_NEGATIVE -1
 #define FLG_ACTIVE 1
 
-#define Printf(...)                             \
+#define log(...)                                \
     do {                                        \
         if (g_print_enable)                     \
             printf(__VA_ARGS__);                \
+    } while (0)
+
+#define error(...)                              \
+    do {                                        \
+        printf(__VA_ARGS__);                    \
     } while (0)
 
 int g_print_enable = 0;
@@ -79,7 +84,7 @@ ArithmeticExpression::m_function_meta[FNN_UPPER] = {
 const char* ArithmeticExpression::getStateStr(State state) const
 {
     if ( state >= ST_UPPER || state < ST_BGN ) {
-        Printf("state is not valid, state=\"%d\"\n", (int)state);
+        log("state is not valid, state=\"%d\"\n", (int)state);
         return m_state_info[ST_UPPER].state_str;
     }
     return m_state_info[state].state_str;
@@ -130,7 +135,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_COMMA: rc = handleComma(); break;
     case AT_ERR: rc = handleError(); break;
     default:
-        Printf("no handler found for action type:%d\n", type);
+        log("no handler found for action type:%d\n", type);
         rc = false;
         break;
     }
@@ -168,7 +173,7 @@ CharType ArithmeticExpression::getCharType(int c) {
         case ST_OPD:
         case ST_RPS: return CT_OP;
         default:
-            Printf("undefined charType: %c applied to state:%d\n", c, m_state);
+            log("undefined charType: %c applied to state:%d\n", c, m_state);
             break;
         }
     }
@@ -181,7 +186,7 @@ int ArithmeticExpression::fnn2fni(const std::string& fnn) {
             return i;
         }
     }
-    Printf("unsupported function name: %s", m_fnn.c_str());
+    log("unsupported function name: %s", m_fnn.c_str());
     return FNN_UPPER;
 }
 
@@ -193,26 +198,26 @@ void ArithmeticExpression::dia(char* marker) {
     const char& c = m_arithmetic_expression[m_parse_pos];
     CharType type = getCharType(c);
     StateTable* table_item = &m_state_table[m_state][type];
-    Printf("%s @%d %s '%c' CT=%d AT=%d",
-           marker,
-           m_parse_pos,
-           getCurStateStr(),
-           c,
-           type,
-           table_item->action_type
+    log("%s @%d %s '%c' CT=%d AT=%d",
+        marker,
+        m_parse_pos,
+        getCurStateStr(),
+        c,
+        type,
+        table_item->action_type
         );
-    Printf(" opd_stack=");
+    log(" opd_stack=");
     m_operand_stack.dia(g_print_enable);
-    Printf(" opr_stack=");
+    log(" opr_stack=");
     m_operator_stack.dia(g_print_enable);
-    Printf(" cmc_stack=");
+    log(" cmc_stack=");
     m_fncmcnt_stack.dia(g_print_enable);
-    Printf(" m_fnn=\"%s\" m_fnn_spc_occurred=%s m_flg='%d' m_lp_count=%d rpn=\"%s\"\n",
-           m_fnn.c_str(),
-           m_fnn_spc_occurred?"true":"false",
-           m_flg,
-           m_lp_count,
-           m_rpn_expression.c_str()
+    log(" m_fnn=\"%s\" m_fnn_spc_occurred=%s m_flg='%d' m_lp_count=%d rpn=\"%s\"\n",
+        m_fnn.c_str(),
+        m_fnn_spc_occurred?"true":"false",
+        m_flg,
+        m_lp_count,
+        m_rpn_expression.c_str()
         );
 }
 
@@ -228,7 +233,7 @@ bool ArithmeticExpression::handle(char c)
 {
     CharType type = getCharType(c);
     if ( CT_UPPER == type) {
-        Printf("invalid char type, argument char='%c'\n", c);
+        error("invalid char type, argument char='%c'\n", c);
         return false;
     }
 
@@ -248,7 +253,7 @@ bool ArithmeticExpression::handleNone()
 
 bool ArithmeticExpression::handleFlag()
 {
-    Printf("handing flags ...\n");
+    log("handing flags ...\n");
     const char& c = m_arithmetic_expression[m_parse_pos];
     if ( '-' == c) {
         m_flg = FLG_NEGATIVE;
@@ -278,18 +283,18 @@ bool ArithmeticExpression::handleOperator()
         m_operator_stack.pop();
         top = m_operator_stack.top();
     }
-    Printf("pushing operator:'%c', rpn:\"%s\"\n",
-           cur_opr, m_rpn_expression.c_str());
+    log("pushing operator:'%c', rpn:\"%s\"\n",
+        cur_opr, m_rpn_expression.c_str());
     m_operator_stack.push(cur_opr);
     return true;
 }
 bool ArithmeticExpression::handleError()
 {
     dia("E");
-    Printf("error occurs pos=\"%d\", c='%c', raw=\"%s\"\n",
-           m_parse_pos,
-           m_arithmetic_expression[m_parse_pos],
-           m_arithmetic_expression.c_str());
+    error("error occurs pos=\"%d\", c='%c', raw=\"%s\"\n",
+          m_parse_pos,
+          m_arithmetic_expression[m_parse_pos],
+          m_arithmetic_expression.c_str());
     return false;               // always false
 }
 
@@ -309,7 +314,7 @@ bool ArithmeticExpression::handleOperand()
             break;
         }
         if ( '.' == c && dot_occurred) {
-            Printf("dot occurs again\n");
+            error("dot occurs again\n");
             return false;
         }
         // now, three combination:
@@ -365,18 +370,18 @@ bool ArithmeticExpression::handleOperand()
         m_rpn_expression.append(" "+std::to_string(num)+" ");
     }
 
-    Printf("m_flg=%d, int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
-           m_flg, int_val, dot_val, dot_occurred ? "yes" : "no");
+    log("m_flg=%d, int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
+        m_flg, int_val, dot_val, dot_occurred ? "yes" : "no");
     return true;
 }
 
 bool ArithmeticExpression::handleLeftParenthesis()
 {
-    Printf("handleLeftParenthesis\n");
+    log("handleLeftParenthesis\n");
     if (m_fnn != "") {
         int fni = fnn2fni(m_fnn);
         if (fni == FNN_UPPER) {
-            Printf("fni should never be equal to FNN_UPPER, fni=%d, m_fnn=%s\n", fni, m_fnn.c_str());
+            error("fni should never be equal to FNN_UPPER, fni=%d, m_fnn=%s\n", fni, m_fnn.c_str());
             return false;
         }
         m_operator_stack.push(fni);
@@ -398,7 +403,7 @@ bool ArithmeticExpression::handleRightParenthesis()
 {
     --m_lp_count;
     if ( m_lp_count < 0 ) {
-        Printf("exists extra right parenthesis\n");
+        error("exists extra right parenthesis\n");
         return false;
     }
 
@@ -410,7 +415,7 @@ bool ArithmeticExpression::handleRightParenthesis()
         if (top == '(') {
             // done for whole, (...), so pop '('
             int x = m_operator_stack.pop();
-            Printf("pop <%d '%c'> in while loop\n", x, x);
+            log("pop <%d '%c'> in while loop\n", x, x);
             break;
         }
 
@@ -431,7 +436,7 @@ bool ArithmeticExpression::handleRightParenthesis()
             // NOTE: if calculate success, means the top opr been consumed,
             // so pop it. and go on to next opr
             int x = m_operator_stack.pop();
-            Printf("pop opr:<%d '%c'> after calculate\n", x, x);
+            log("pop opr:<%d '%c'> after calculate\n", x, x);
         }
 
         if ( LOWEST_PRIO_OP != top ) {
@@ -448,7 +453,7 @@ bool ArithmeticExpression::handleRightParenthesis()
 
 bool ArithmeticExpression::handleAlpha(char c) {
     if (m_fnn_spc_occurred) {
-        Printf("space not allow between alphas\n");
+        error("space not allow between alphas\n");
         return false;
     }
     m_fnn.push_back(c);
@@ -472,11 +477,11 @@ bool ArithmeticExpression::handleComma() {
         m_operator_stack.pop();
     }
     if (m_operator_stack.empty()) {
-        Printf("invalid use of comma, comma can only be used as function argument separator\n");
+        error("invalid use of comma, comma can only be used as function argument separator\n");
         return false;
     }
     if (m_fncmcnt_stack.empty()) {
-        Printf("comma can only be used as function argumet separator");
+        error("comma can only be used as function argumet separator");
         return false;
     }
     m_fncmcnt_stack.push(m_fncmcnt_stack.pop() + 1);
@@ -487,23 +492,23 @@ bool ArithmeticExpression::handleComma() {
 // calculating, keep m_operator_stack stay.
 bool ArithmeticExpression::calculate(int opr)
 {
-    Printf("calculate: opr=<%c %d>\n", opr, opr);
+    log("calculate: opr=<%c %d>\n", opr, opr);
 
     if ( '(' == opr || ')' == opr || LOWEST_PRIO_OP == opr ) {
-        Printf("do nothing for opr='<%c %d>'\n", opr, opr);
+        log("do nothing for opr='<%c %d>'\n", opr, opr);
         return true;
     }
 
     if ('f' == opr) {
-        Printf("opr is 'f'\n");
+        log("opr is 'f'\n");
         int fni = m_operator_stack.top(-1); // get fni
-        Printf("fni=%d \n", opr, opr, fni);
+        log("fni=%d \n", opr, opr, fni);
 
         int fncmcnt = m_fncmcnt_stack.top();
         FunctionMeta fm = m_function_meta[fni];
 
         if (fncmcnt != fm.args_count-1) {
-            Printf("function: '%s' expect %d arguments, while %d given. (fncmcnt=%d)\n", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
+            error("function: '%s' expect %d arguments, while %d given. (fncmcnt=%d)\n", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
             return false;
         }
 
@@ -531,7 +536,7 @@ bool ArithmeticExpression::calculate(int opr)
         case SQRT: {
             double opd = m_operand_stack.pop();
             if (opd < 0) {
-                Printf("sqrt expects unsigned operand, while %f gotten\n", opd);
+                log("sqrt expects unsigned operand, while %f gotten\n", opd);
                 return false;
             }
             m_operand_stack.push(sqrt(opd));
@@ -550,7 +555,7 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
         default:
-            Printf("unsupported fnn: %d", fni);
+            error("unsupported fni: %d", fni);
             return false;
         }
 
@@ -569,15 +574,15 @@ bool ArithmeticExpression::calculate(int opr)
         case '*': m_operand_stack.push( l_opd * r_opd ); break;
         case '/': {
             if ( 0 == r_opd ) {
-                Printf("divide 0\n");
+                error("divide 0\n");
                 return false;
             }
             m_operand_stack.push( l_opd / r_opd);
             break;
         }
-        default: Printf("unknown operator='<%c %d>'\n", opr, opr); return false;
+        default: log("unknown operator='<%c %d>'\n", opr, opr); return false;
         }
-        Printf("opr='<%c %d>', l_opd=\"%g\", r_opd=\"%g\", rst=\"%g\"\n", opr, opr, l_opd, r_opd, m_operand_stack.top());
+        log("opr='<%c %d>', l_opd=\"%g\", r_opd=\"%g\", rst=\"%g\"\n", opr, opr, l_opd, r_opd, m_operand_stack.top());
 
         return true;
     }
@@ -587,25 +592,25 @@ bool ArithmeticExpression::parse()
 {
     int size = m_arithmetic_expression.size();
     if ( size == 0 ) {
-        Printf("empty arithmetic expression\n");
+        log("empty arithmetic expression\n");
         return true;
     }
     while ( m_parse_pos < size ) {
-        Printf("> \"%s\"\n", &m_arithmetic_expression[m_parse_pos]);
+        log("> \"%s\"\n", &m_arithmetic_expression[m_parse_pos]);
         dia("-");
         const char& c = m_arithmetic_expression.at(m_parse_pos);
         if ( ! handle(c) ) {
-            Printf("failed to handle, "
-                   "m_fnn=\"%s\", "
-                   "tailing=\"%s\", pos=%d, "
-                   "char='%c', raw exp=\"%s\", "
-                   "state=\"%s\"\n",
-                   m_fnn.c_str(),
-                   &m_arithmetic_expression[m_parse_pos],
-                   m_parse_pos,
-                   m_arithmetic_expression[m_parse_pos],
-                   m_arithmetic_expression.c_str(),
-                   getCurStateStr()
+            error("failed to handle, "
+                  "m_fnn=\"%s\", "
+                  "tailing=\"%s\", pos=%d, "
+                  "char='%c', raw exp=\"%s\", "
+                  "state=\"%s\"\n",
+                  m_fnn.c_str(),
+                  &m_arithmetic_expression[m_parse_pos],
+                  m_parse_pos,
+                  m_arithmetic_expression[m_parse_pos],
+                  m_arithmetic_expression.c_str(),
+                  getCurStateStr()
                 );
             return false;
         }
@@ -614,12 +619,12 @@ bool ArithmeticExpression::parse()
     }
     // check program terminal state
     if ( ! isOnTerminalState() ) {
-        Printf("program in not on terminal state, current state=\"%s\"\n", getCurStateStr());
+        error("program in not on terminal state, current state=\"%s\"\n", getCurStateStr());
         return false;
     }
     // check whether parenthesis matches
     if ( 0 != m_lp_count ) {
-        Printf("open left parenthesis exists, count=\"%d\"\n", m_lp_count);
+        error("open left parenthesis exists, count=\"%d\"\n", m_lp_count);
         return false;
     }
     // fulfill m_rpn_expression using operator stack
@@ -637,36 +642,36 @@ bool ArithmeticExpression::parse()
     }
     dia("z");
 
-    Printf("m_operand_stack.count() = %d\n", m_operand_stack.count());
+    log("m_operand_stack.count() = %d\n", m_operand_stack.count());
 
     // now, m_operator_stack is empty, we expect m_operand_stack should be
     // only one value, aka. the result of math expression.
     if (m_operand_stack.count() != 1) {
-        Printf("operand stack have %d oprand(s) left after process, should be 1 operand left\n", m_operand_stack.count());
-        Printf("maybe too much argumets have been given to function(s), please check out the math expression\n");
+        error("operand stack have %d oprand(s) left after process, should be 1 operand left\n", m_operand_stack.count());
+        error("maybe too much argumets have been given to function(s), please check out the math expression\n");
         dia("C");
         return false;
     }
 
-    Printf("arithmetic expression successfully parsed, rpn=\"%s\"\n", m_rpn_expression.c_str());
-    Printf("value=\"%g\"\n", m_operand_stack.top());
+    log("arithmetic expression successfully parsed, rpn=\"%s\"\n", m_rpn_expression.c_str());
+    log("value=\"%g\"\n", m_operand_stack.top());
     return true;
 }
 
 bool ArithmeticExpression::getExpressionValue(double &val) const
 {
     if ( !isOnTerminalState() ) {
-        Printf("program in not on terminal state, "
-               "current state=\"%s\"\n",
-               getCurStateStr());
+        error("program in not on terminal state, "
+              "current state=\"%s\"\n",
+              getCurStateStr());
         return false;
     }
     bool stack_empty = m_operand_stack.empty();
     if ( ! stack_empty || (stack_empty && ST_BGN == m_state)) {
         val = stack_empty ? 0 : m_operand_stack.top();
-        Printf("return value=\"%g\"\n", val);
+        log("return value=\"%g\"\n", val);
         return true;
     }
-    Printf("the arithmetic expression is not successfully calculated\n");
+    error("the arithmetic expression is not successfully calculated\n");
     return false;
 }
