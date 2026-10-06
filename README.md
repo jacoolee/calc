@@ -17,3 +17,28 @@ st_fnn stands for function name: int, floor, ceil, round, fabs, sqrt
 $ ./calc 'fabs((-5 + (-00.01 - 0.09) * 10 ^ 2) / 5)'
 3
 ```
+
+## Testcase
+
+```
+7   = 1 + 2 * 3
+9   = (1 + 2) * 3
+-4  = -2^2                   # conventional math precedence
+4   = (-2)^2
+0.3 = 0.1 + 0.2
+8   = 2^3
+512 = 2^3^2                  # right-associative ^
+64  = (2^3)^2
+-3  = (-5 + (-0.01 - 0.09) * 10^2) / 5
+-4  = 1 - 2 - 3
+1   = 10 / 2 / 5
+50  = 2 + 3 * 4^2
+80  = (2 + 3) * 4^2
+
+6   = sqrt(ceil(5.1) + floor(10.2 * 3))
+6   = fabs(-1 * sqrt(ceil(5.1) + floor(10.2 * 3)))
+
+3   = fmax(2,3)
+3   = fmax(fmin(5,1), fmax(0,3))
+6   = fmax(floor(5.1), fmin(ceil(5.1), 7))
+```
