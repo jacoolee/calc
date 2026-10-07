@@ -60,6 +60,8 @@ enum FNN
     SQRT,  // 5
     FMAX,  // 6
     FMIN,  // 7
+    MAX,   // 8
+    MIN,   // 9
     // add more
     FNN_UPPER
 };
@@ -142,6 +144,7 @@ private:
     typedef struct {
         const char* name;
         const int args_count;
+        const int args_va;
     } FunctionMeta;
     static FunctionMeta m_function_meta[FNN_UPPER];
 };

@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <math.h>
+#include <float.h>
 
 #define LOWEST_PRIO_OP '#'
 #define FLG_NEGATIVE -1
@@ -71,14 +72,16 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
 
 ArithmeticExpression::FunctionMeta
 ArithmeticExpression::m_function_meta[FNN_UPPER] = {
-    { "int"   , 1 },
-    { "floor" , 1 },
-    { "ceil"  , 1 },
-    { "round" , 1 },
-    { "fabs"  , 1 },
-    { "sqrt"  , 1 },
-    { "fmax"  , 2 },
-    { "fmin"  , 2 },
+    { "int"   , 1, 0 },
+    { "floor" , 1, 0 },
+    { "ceil"  , 1, 0 },
+    { "round" , 1, 0 },
+    { "fabs"  , 1, 0 },
+    { "sqrt"  , 1, 0 },
+    { "fmax"  , 2, 0 },
+    { "fmin"  , 2, 0 },
+    { "max"   , 2, 1 },
+    { "min"   , 2, 1 },
 };
 
 const char* ArithmeticExpression::getStateStr(State state) const
@@ -502,14 +505,21 @@ bool ArithmeticExpression::calculate(int opr)
     if ('f' == opr) {
         log("opr is 'f'\n");
         int fni = m_operator_stack.top(-1); // get fni
-        log("fni=%d \n", opr, opr, fni);
+        log("fni=%d\n", opr, opr, fni);
 
         int fncmcnt = m_fncmcnt_stack.top();
         FunctionMeta fm = m_function_meta[fni];
 
-        if (fncmcnt != fm.args_count-1) {
-            error("function: '%s' expect %d arguments, while %d given. (fncmcnt=%d)\n", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
-            return false;
+        if (fm.args_va) {
+            if (fncmcnt < fm.args_count-1) {
+                error("function: '%s' expect at least %d arguments, while %d given. (fncmcnt=%d)\n", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
+                return false;
+            }
+        } else {
+            if (fncmcnt != fm.args_count-1) {
+                error("function: '%s' expect %d arguments, while %d given. (fncmcnt=%d)\n", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
+                return false;
+            }
         }
 
         switch(fni) {
@@ -554,8 +564,38 @@ bool ArithmeticExpression::calculate(int opr)
             m_operand_stack.push(fmin(l_opd, r_opd));
             break;
         }
+        case MAX: {
+            int args_count = fncmcnt + 1;
+            float v = FLT_MIN;
+            int opd;
+            while (!m_operand_stack.empty() && args_count--) {
+                opd = m_operand_stack.pop();
+                if (opd > v) v = opd;
+            }
+            if (args_count != 0) {
+                error("no %d args found in operand stack, should not happen\n");
+                return false;
+            }
+            m_operand_stack.push(v);
+            break;
+        }
+        case MIN: {
+            int args_count = fncmcnt + 1;
+            float v = FLT_MAX;
+            int opd;
+            while (!m_operand_stack.empty() && args_count--) {
+                opd = m_operand_stack.pop();
+                if (opd < v) v = opd;
+            }
+            if (args_count != 0) {
+                error("no %d args found in operand stack, should not happen\n");
+                return false;
+            }
+            m_operand_stack.push(v);
+            break;
+        }
         default:
-            error("unsupported fni: %d", fni);
+            error("unsupported fni: %d\n", fni);
             return false;
         }
 
