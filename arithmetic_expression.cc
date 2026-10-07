@@ -118,7 +118,7 @@ ArithmeticExpression::m_function_meta[FNN_UPPER] = {
     { "isnormal", 1, 0},
     { "signbit", 1, 0},
 
-    { "int", 1, 1 },
+    { "int", 1, 0 },
     { "max", 2, 1 },
     { "min", 2, 1 },
 };
