@@ -52,16 +52,68 @@ enum ActionType
 //       used for function.
 enum FNN
 {
-    INT,   // 0
-    FLOOR, // 1
-    CEIL,  // 2
-    ROUND, // 3
-    FABS,  // 4
-    SQRT,  // 5
-    FMAX,  // 6
-    FMIN,  // 7
-    MAX,   // 8
-    MIN,   // 9
+
+    // Basic / rounding
+
+    FABS,
+    FMOD,
+    REMAINDER,
+    CEIL,
+    FLOOR,
+    ROUND,
+    TRUNC,
+
+    // Powers / roots / logarithms
+
+    POW,
+    SQRT,
+    CBRT,
+    HYPOT,
+    EXP,
+    EXP2,
+    EXPM1,
+    LOG,
+    LOG10,
+    LOG2,
+    LOG1P,
+
+    // Trigonometric
+
+    SIN,
+    COS,
+    TAN,
+    ASIN,
+    ACOS,
+    ATAN,
+    ATAN2,
+
+    // Hyperbolic
+
+    SINH,
+    COSH,
+    TANH,
+    ASINH,
+    ACOSH,
+    ATANH,
+
+    // Floating-point utilities
+
+    FMIN,
+    FMAX,
+    FDIM,
+    COPYSIGN,
+    ISFINITE,
+    ISINF,
+    ISNAN,
+    ISNORMAL,
+    SIGNBIT,
+
+    // Shortcuts
+
+    INT,
+    MAX,
+    MIN,
+
     // add more
     FNN_UPPER
 };

@@ -8,7 +8,7 @@
 #define FLG_NEGATIVE -1
 #define FLG_ACTIVE 1
 
-#define log(...)                                \
+#define print(...)                                \
     do {                                        \
         if (g_print_enable)                     \
             printf(__VA_ARGS__);                \
@@ -72,22 +72,61 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
 
 ArithmeticExpression::FunctionMeta
 ArithmeticExpression::m_function_meta[FNN_UPPER] = {
-    { "int"   , 1, 0 },
-    { "floor" , 1, 0 },
-    { "ceil"  , 1, 0 },
-    { "round" , 1, 0 },
-    { "fabs"  , 1, 0 },
-    { "sqrt"  , 1, 0 },
-    { "fmax"  , 2, 0 },
-    { "fmin"  , 2, 0 },
-    { "max"   , 2, 1 },
-    { "min"   , 2, 1 },
+
+    { "fabs", 1, 0},
+    { "fmod", 2, 0},
+    { "remainder", 2, 0},
+    { "ceil", 1, 0},
+    { "floor", 1, 0},
+    { "round", 1, 0},
+    { "trunc", 1, 0},
+
+    { "pow", 2, 0},
+    { "sqrt", 1, 0},
+    { "cbrt", 1, 0},
+    { "hypot", 2, 0},
+    { "exp", 1, 0},
+    { "exp2", 1, 0},
+    { "expm1", 1, 0},
+    { "log", 1, 0},
+    { "log10", 1, 0},
+    { "log2", 1, 0},
+    { "log1p", 1, 0},
+
+    { "sin", 1, 0},
+    { "cos", 1, 0},
+    { "tan", 1, 0},
+    { "asin", 1, 0},
+    { "acos", 1, 0},
+    { "atan", 1, 0},
+    { "atan2", 2, 0},
+
+    { "sinh", 1, 0},
+    { "cosh", 1, 0},
+    { "tanh", 1, 0},
+    { "asinh", 1, 0},
+    { "acosh", 1, 0},
+    { "atanh", 1, 0},
+
+    { "fmin", 2, 0},
+    { "fmax", 2, 0},
+    { "fdim", 2, 0},
+    { "copysign", 2, 0},
+    { "isfinite", 1, 0},
+    { "isinf", 1, 0},
+    { "isnan", 1, 0},
+    { "isnormal", 1, 0},
+    { "signbit", 1, 0},
+
+    { "int", 1, 1 },
+    { "max", 2, 1 },
+    { "min", 2, 1 },
 };
 
 const char* ArithmeticExpression::getStateStr(State state) const
 {
     if ( state >= ST_UPPER || state < ST_BGN ) {
-        log("state is not valid, state=\"%d\"\n", (int)state);
+        print("state is not valid, state=\"%d\"\n", (int)state);
         return m_state_info[ST_UPPER].state_str;
     }
     return m_state_info[state].state_str;
@@ -138,7 +177,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_COMMA: rc = handleComma(); break;
     case AT_ERR: rc = handleError(); break;
     default:
-        log("no handler found for action type:%d\n", type);
+        print("no handler found for action type:%d\n", type);
         rc = false;
         break;
     }
@@ -176,7 +215,7 @@ CharType ArithmeticExpression::getCharType(int c) {
         case ST_OPD:
         case ST_RPS: return CT_OP;
         default:
-            log("undefined charType: %c applied to state:%d\n", c, m_state);
+            print("undefined charType: %c applied to state:%d\n", c, m_state);
             break;
         }
     }
@@ -189,7 +228,7 @@ int ArithmeticExpression::fnn2fni(const std::string& fnn) {
             return i;
         }
     }
-    log("unsupported function name: %s", m_fnn.c_str());
+    print("unsupported function name: %s", m_fnn.c_str());
     return FNN_UPPER;
 }
 
@@ -201,7 +240,7 @@ void ArithmeticExpression::dia(char* marker) {
     const char& c = m_arithmetic_expression[m_parse_pos];
     CharType type = getCharType(c);
     StateTable* table_item = &m_state_table[m_state][type];
-    log("%s @%d %s '%c' CT=%d AT=%d",
+    print("%s @%d %s '%c' CT=%d AT=%d",
         marker,
         m_parse_pos,
         getCurStateStr(),
@@ -209,13 +248,13 @@ void ArithmeticExpression::dia(char* marker) {
         type,
         table_item->action_type
         );
-    log(" opd_stack=");
+    print(" opd_stack=");
     m_operand_stack.dia(g_print_enable);
-    log(" opr_stack=");
+    print(" opr_stack=");
     m_operator_stack.dia(g_print_enable);
-    log(" cmc_stack=");
+    print(" cmc_stack=");
     m_fncmcnt_stack.dia(g_print_enable);
-    log(" m_fnn=\"%s\" m_fnn_spc_occurred=%s m_flg='%d' m_lp_count=%d rpn=\"%s\"\n",
+    print(" m_fnn=\"%s\" m_fnn_spc_occurred=%s m_flg='%d' m_lp_count=%d rpn=\"%s\"\n",
         m_fnn.c_str(),
         m_fnn_spc_occurred?"true":"false",
         m_flg,
@@ -256,7 +295,7 @@ bool ArithmeticExpression::handleNone()
 
 bool ArithmeticExpression::handleFlag()
 {
-    log("handing flags ...\n");
+    print("handing flags ...\n");
     const char& c = m_arithmetic_expression[m_parse_pos];
     if ( '-' == c) {
         m_flg = FLG_NEGATIVE;
@@ -286,7 +325,7 @@ bool ArithmeticExpression::handleOperator()
         m_operator_stack.pop();
         top = m_operator_stack.top();
     }
-    log("pushing operator:'%c', rpn:\"%s\"\n",
+    print("pushing operator:'%c', rpn:\"%s\"\n",
         cur_opr, m_rpn_expression.c_str());
     m_operator_stack.push(cur_opr);
     return true;
@@ -373,14 +412,14 @@ bool ArithmeticExpression::handleOperand()
         m_rpn_expression.append(" "+std::to_string(num)+" ");
     }
 
-    log("m_flg=%d, int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
+    print("m_flg=%d, int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
         m_flg, int_val, dot_val, dot_occurred ? "yes" : "no");
     return true;
 }
 
 bool ArithmeticExpression::handleLeftParenthesis()
 {
-    log("handleLeftParenthesis\n");
+    print("handleLeftParenthesis\n");
     if (m_fnn != "") {
         int fni = fnn2fni(m_fnn);
         if (fni == FNN_UPPER) {
@@ -418,7 +457,7 @@ bool ArithmeticExpression::handleRightParenthesis()
         if (top == '(') {
             // done for whole, (...), so pop '('
             int x = m_operator_stack.pop();
-            log("pop <%d '%c'> in while loop\n", x, x);
+            print("pop <%d '%c'> in while loop\n", x, x);
             break;
         }
 
@@ -439,7 +478,7 @@ bool ArithmeticExpression::handleRightParenthesis()
             // NOTE: if calculate success, means the top opr been consumed,
             // so pop it. and go on to next opr
             int x = m_operator_stack.pop();
-            log("pop opr:<%d '%c'> after calculate\n", x, x);
+            print("pop opr:<%d '%c'> after calculate\n", x, x);
         }
 
         if ( LOWEST_PRIO_OP != top ) {
@@ -495,17 +534,17 @@ bool ArithmeticExpression::handleComma() {
 // calculating, keep m_operator_stack stay.
 bool ArithmeticExpression::calculate(int opr)
 {
-    log("calculate: opr=<%c %d>\n", opr, opr);
+    print("calculate: opr=<%c %d>\n", opr, opr);
 
     if ( '(' == opr || ')' == opr || LOWEST_PRIO_OP == opr ) {
-        log("do nothing for opr='<%c %d>'\n", opr, opr);
+        print("do nothing for opr='<%c %d>'\n", opr, opr);
         return true;
     }
 
     if ('f' == opr) {
-        log("opr is 'f'\n");
+        print("opr is 'f'\n");
         int fni = m_operator_stack.top(-1); // get fni
-        log("fni=%d\n", opr, opr, fni);
+        print("fni=%d\n", opr, opr, fni);
 
         int fncmcnt = m_fncmcnt_stack.top();
         FunctionMeta fm = m_function_meta[fni];
@@ -523,45 +562,197 @@ bool ArithmeticExpression::calculate(int opr)
         }
 
         switch(fni) {
-        case INT: {
-            m_operand_stack.push((int)m_operand_stack.pop());
+
+        case FABS: {
+            m_operand_stack.push(fabs(m_operand_stack.pop()));
             break;
         }
-        case FLOOR: {
-            m_operand_stack.push(floor(m_operand_stack.pop()));
+        case FMOD: {
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push(fmod(l_opd, r_opd));
+            break;
+        }
+        case REMAINDER: {
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push(remainder(l_opd, r_opd));
             break;
         }
         case CEIL: {
             m_operand_stack.push(ceil(m_operand_stack.pop()));
             break;
         }
+        case FLOOR: {
+            m_operand_stack.push(floor(m_operand_stack.pop()));
+            break;
+        }
         case ROUND: {
             m_operand_stack.push(round(m_operand_stack.pop()));
             break;
         }
-        case FABS: {
-            m_operand_stack.push(fabs(m_operand_stack.pop()));
+        case TRUNC: {
+            m_operand_stack.push(trunc(m_operand_stack.pop()));
+            break;
+        }
+
+        case POW: {
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push(pow(l_opd, r_opd));
             break;
         }
         case SQRT: {
             double opd = m_operand_stack.pop();
             if (opd < 0) {
-                log("sqrt expects unsigned operand, while %f gotten\n", opd);
+                print("sqrt expects unsigned operand, while %f gotten\n", opd);
                 return false;
             }
             m_operand_stack.push(sqrt(opd));
             break;
         }
-        case FMAX: {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(fmax(l_opd, r_opd));
+        case CBRT: {
+            m_operand_stack.push(cbrt(m_operand_stack.pop()));
             break;
         }
-        case FMIN: {
+        case HYPOT: {
             double r_opd = m_operand_stack.pop();
             double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(fmin(l_opd, r_opd));
+            m_operand_stack.push(hypot(l_opd, r_opd));
+            break;
+        }
+        case EXP: {
+            m_operand_stack.push(exp(m_operand_stack.pop()));
+            break;
+        }
+        case EXP2: {
+            m_operand_stack.push(exp2(m_operand_stack.pop()));
+            break;
+        }
+        case EXPM1: {
+            m_operand_stack.push(expm1(m_operand_stack.pop()));
+            break;
+        }
+        case LOG: {
+            m_operand_stack.push(log(m_operand_stack.pop()));
+            break;
+        }
+        case LOG10: {
+            m_operand_stack.push(log10(m_operand_stack.pop()));
+            break;
+        }
+        case LOG2: {
+            m_operand_stack.push(log2(m_operand_stack.pop()));
+            break;
+        }
+        case LOG1P: {
+            m_operand_stack.push(log1p(m_operand_stack.pop()));
+            break;
+        }
+
+        case SIN: {
+            m_operand_stack.push(sin(m_operand_stack.pop()));
+            break;
+        }
+        case COS: {
+            m_operand_stack.push(cos(m_operand_stack.pop()));
+            break;
+        }
+        case TAN: {
+            m_operand_stack.push(tan(m_operand_stack.pop()));
+            break;
+        }
+        case ASIN: {
+            m_operand_stack.push(asin(m_operand_stack.pop()));
+            break;
+        }
+        case ACOS: {
+            m_operand_stack.push(acos(m_operand_stack.pop()));
+            break;
+        }
+        case ATAN: {
+            m_operand_stack.push(atan(m_operand_stack.pop()));
+            break;
+        }
+        case ATAN2: {
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push(atan2(l_opd,r_opd));
+            break;
+        }
+
+        case SINH: {
+            m_operand_stack.push(sinh(m_operand_stack.pop()));
+            break;
+        }
+        case COSH: {
+            m_operand_stack.push(cosh(m_operand_stack.pop()));
+            break;
+        }
+        case TANH: {
+            m_operand_stack.push(tanh(m_operand_stack.pop()));
+            break;
+        }
+        case ASINH: {
+            m_operand_stack.push(asinh(m_operand_stack.pop()));
+            break;
+        }
+        case ACOSH: {
+            m_operand_stack.push(acosh(m_operand_stack.pop()));
+            break;
+        }
+        case ATANH: {
+            m_operand_stack.push(atanh(m_operand_stack.pop()));
+            break;
+        }
+
+        case FMIN: {
+            double x = m_operand_stack.pop();
+            double y = m_operand_stack.pop();
+            m_operand_stack.push(fmin(y,x));
+            break;
+        }
+        case FMAX: {
+            double x = m_operand_stack.pop();
+            double y = m_operand_stack.pop();
+            m_operand_stack.push(fmax(y,x));
+            break;
+        }
+        case FDIM: {
+            double x = m_operand_stack.pop();
+            double y = m_operand_stack.pop();
+            m_operand_stack.push(fdim(y,x));
+            break;
+        }
+        case COPYSIGN: {
+            double x = m_operand_stack.pop();
+            double y = m_operand_stack.pop();
+            m_operand_stack.push(copysign(y,x));
+            break;
+        }
+        case ISFINITE: {
+            m_operand_stack.push(isfinite(m_operand_stack.pop()));
+            break;
+        }
+        case ISINF: {
+            m_operand_stack.push(isinf(m_operand_stack.pop()));
+            break;
+        }
+        case ISNAN: {
+            m_operand_stack.push(isnan(m_operand_stack.pop()));
+            break;
+        }
+        case ISNORMAL: {
+            m_operand_stack.push(isnormal(m_operand_stack.pop()));
+            break;
+        }
+        case SIGNBIT: {
+            m_operand_stack.push(signbit(m_operand_stack.pop()));
+            break;
+        }
+
+        case INT: {
+            m_operand_stack.push((int)m_operand_stack.pop());
             break;
         }
         case MAX: {
@@ -620,9 +811,9 @@ bool ArithmeticExpression::calculate(int opr)
             m_operand_stack.push( l_opd / r_opd);
             break;
         }
-        default: log("unknown operator='<%c %d>'\n", opr, opr); return false;
+        default: print("unknown operator='<%c %d>'\n", opr, opr); return false;
         }
-        log("opr='<%c %d>', l_opd=\"%g\", r_opd=\"%g\", rst=\"%g\"\n", opr, opr, l_opd, r_opd, m_operand_stack.top());
+        print("opr='<%c %d>', l_opd=\"%g\", r_opd=\"%g\", rst=\"%g\"\n", opr, opr, l_opd, r_opd, m_operand_stack.top());
 
         return true;
     }
@@ -632,11 +823,11 @@ bool ArithmeticExpression::parse()
 {
     int size = m_arithmetic_expression.size();
     if ( size == 0 ) {
-        log("empty arithmetic expression\n");
+        print("empty arithmetic expression\n");
         return true;
     }
     while ( m_parse_pos < size ) {
-        log("> \"%s\"\n", &m_arithmetic_expression[m_parse_pos]);
+        print("> \"%s\"\n", &m_arithmetic_expression[m_parse_pos]);
         dia("-");
         const char& c = m_arithmetic_expression.at(m_parse_pos);
         if ( ! handle(c) ) {
@@ -682,7 +873,7 @@ bool ArithmeticExpression::parse()
     }
     dia("z");
 
-    log("m_operand_stack.count() = %d\n", m_operand_stack.count());
+    print("m_operand_stack.count() = %d\n", m_operand_stack.count());
 
     // now, m_operator_stack is empty, we expect m_operand_stack should be
     // only one value, aka. the result of math expression.
@@ -693,8 +884,8 @@ bool ArithmeticExpression::parse()
         return false;
     }
 
-    log("arithmetic expression successfully parsed, rpn=\"%s\"\n", m_rpn_expression.c_str());
-    log("value=\"%g\"\n", m_operand_stack.top());
+    print("arithmetic expression successfully parsed, rpn=\"%s\"\n", m_rpn_expression.c_str());
+    print("value=\"%g\"\n", m_operand_stack.top());
     return true;
 }
 
@@ -709,7 +900,7 @@ bool ArithmeticExpression::getExpressionValue(double &val) const
     bool stack_empty = m_operand_stack.empty();
     if ( ! stack_empty || (stack_empty && ST_BGN == m_state)) {
         val = stack_empty ? 0 : m_operand_stack.top();
-        log("return value=\"%g\"\n", val);
+        print("return value=\"%g\"\n", val);
         return true;
     }
     error("the arithmetic expression is not successfully calculated\n");
