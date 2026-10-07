@@ -21,6 +21,8 @@ $ ./calc 'fabs((-5 + (-00.01 - 0.09) * 10 ^ 2) / 5)'
 ## Testcase
 
 ```
+# basic
+
 7   = 1 + 2 * 3
 9   = (1 + 2) * 3
 -4  = -2^2                   # conventional math precedence
@@ -35,10 +37,19 @@ $ ./calc 'fabs((-5 + (-00.01 - 0.09) * 10 ^ 2) / 5)'
 50  = 2 + 3 * 4^2
 80  = (2 + 3) * 4^2
 
+# fn
+
 6   = sqrt(ceil(5.1) + floor(10.2 * 3))
 6   = fabs(-1 * sqrt(ceil(5.1) + floor(10.2 * 3)))
+
+# fn args
 
 3   = fmax(2,3)
 3   = fmax(fmin(5,1), fmax(0,3))
 6   = fmax(floor(5.1), fmin(ceil(5.1), 7))
+
+# fn variable args
+
+7   = max(1,2,3,4,5,6,7)
+1   = min(1,2,3,4,5,6,7)
 ```
