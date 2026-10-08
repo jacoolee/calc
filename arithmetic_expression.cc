@@ -24,10 +24,10 @@ int g_print_enable = 0;
 ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, int print_enable=0)
     : m_state(ST_BGN),
       m_arithmetic_expression(infix_expression),
-      m_fnn(""),
+      m_id(""),
       m_parse_pos(0),
       m_lp_count(0),
-      m_fnn_spc_occurred(false),
+      m_id_spc_occurred(false),
       m_flg(FLG_ACTIVE)
 {
     m_operator_stack.push(LOWEST_PRIO_OP);
@@ -43,7 +43,7 @@ ArithmeticExpression::m_state_info[] = {
     {ST_LPS, "ST_LPS"},
     {ST_RPS, "ST_RPS"},
     {ST_FLG, "ST_FLG"},
-    {ST_FNN, "ST_FNN"},
+    {ST_IDF, "ST_IDF"},
     {ST_ERR, "ST_ERR"},
     // to add
     {ST_UPPER, "ST_UPPER"}
@@ -61,13 +61,13 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
     //           {CT_WHITESPACE},    {CT_OP},          {CT_NUM},         {CT_LP},          {CT_RP},          {CT_FLG},         {CT_ALP}          CT_COMMA
-    /* ST_BGN */ {{ST_BGN, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
-    /* ST_OPR */ {{ST_OPR, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
+    /* ST_BGN */ {{ST_BGN, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR}},
+    /* ST_OPR */ {{ST_OPR, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR}},
     /* ST_OPD */ {{ST_OPD, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_BGN, AT_COMMA}},
-    /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
+    /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR}},
     /* ST_RPS */ {{ST_RPS, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_BGN, AT_COMMA}},
-    /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
-    /* ST_FNN */ {{ST_FNN, AT_SPC }, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_BGN, AT_LPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_FNN, AT_ALP}, {ST_ERR, AT_ERR}},
+    /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR}},
+    /* ST_IDF */ {{ST_IDF, AT_SPC }, {ST_OPR, AT_OPR}, {ST_IDF, AT_ALP}, {ST_BGN, AT_LPS}, {ST_RPS, AT_RPS}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_BGN, AT_COMMA}},
 };
 
 ArithmeticExpression::FunctionMeta
@@ -213,6 +213,7 @@ CharType ArithmeticExpression::getCharType(int c) {
         case ST_LPS:
         case ST_FLG: return CT_FLG;
         case ST_OPD:
+        case ST_IDF:
         case ST_RPS: return CT_OP;
         default:
             print("undefined charType: %c applied to state:%d\n", c, m_state);
@@ -228,7 +229,7 @@ int ArithmeticExpression::fnn2fni(const std::string& fnn) {
             return i;
         }
     }
-    print("unsupported function name: %s", m_fnn.c_str());
+    print("unsupported function name: %s", m_id.c_str());
     return FNN_UPPER;
 }
 
@@ -254,9 +255,9 @@ void ArithmeticExpression::dia(char* marker) {
     m_operator_stack.dia(g_print_enable);
     print(" cmc_stack=");
     m_fncmcnt_stack.dia(g_print_enable);
-    print(" m_fnn=\"%s\" m_fnn_spc_occurred=%s m_flg='%d' m_lp_count=%d rpn=\"%s\"\n",
-        m_fnn.c_str(),
-        m_fnn_spc_occurred?"true":"false",
+    print(" m_id=\"%s\" m_id_spc_occurred=%s m_flg='%d' m_lp_count=%d rpn=\"%s\"\n",
+        m_id.c_str(),
+        m_id_spc_occurred?"true":"false",
         m_flg,
         m_lp_count,
         m_rpn_expression.c_str()
@@ -307,6 +308,17 @@ bool ArithmeticExpression::handleFlag()
 
 bool ArithmeticExpression::handleOperator()
 {
+    if (m_state == ST_IDF) {
+        if (m_id_spc_occurred) {
+            m_id_spc_occurred = false;
+        }
+        if (!m_id.empty()) {
+            if (m_id == "a") m_operand_stack.push(m_flg*1);
+            if (m_id == "b") m_operand_stack.push(m_flg*2);
+            m_id = "";          // reset
+        }
+    }
+
     const char& cur_opr = m_arithmetic_expression[m_parse_pos];
     char top = m_operator_stack.top();
     while ( getPriority(top) >= getPriority(cur_opr) && '(' != top ) {
@@ -419,15 +431,21 @@ bool ArithmeticExpression::handleOperand()
 
 bool ArithmeticExpression::handleLeftParenthesis()
 {
+    if (m_state == ST_IDF) {
+        if (m_id_spc_occurred) {
+            m_id_spc_occurred = false;
+        }
+    }
+
     print("handleLeftParenthesis\n");
-    if (m_fnn != "") {
-        int fni = fnn2fni(m_fnn);
+    if (m_id != "") {
+        int fni = fnn2fni(m_id);
         if (fni == FNN_UPPER) {
-            error("fni should never be equal to FNN_UPPER, fni=%d, m_fnn=%s\n", fni, m_fnn.c_str());
+            error("fni should never be equal to FNN_UPPER, fni=%d, m_id=%s\n", fni, m_id.c_str());
             return false;
         }
         m_operator_stack.push(fni);
-        m_fnn = "";
+        m_id = "";
 
         // NOTE: always record fncmcnt's comma count when fn gotten
         m_fncmcnt_stack.push(0);
@@ -443,6 +461,17 @@ bool ArithmeticExpression::handleLeftParenthesis()
 
 bool ArithmeticExpression::handleRightParenthesis()
 {
+    if (m_state == ST_IDF) {
+        if (m_id_spc_occurred) {
+            m_id_spc_occurred = false;
+        }
+        if (!m_id.empty()) {
+            if (m_id == "a") m_operand_stack.push(m_flg*1);
+            if (m_id == "b") m_operand_stack.push(m_flg*2);
+            m_id = "";          // reset
+        }
+    }
+
     --m_lp_count;
     if ( m_lp_count < 0 ) {
         error("exists extra right parenthesis\n");
@@ -494,23 +523,34 @@ bool ArithmeticExpression::handleRightParenthesis()
 }
 
 bool ArithmeticExpression::handleAlpha(char c) {
-    if (m_fnn_spc_occurred) {
+    if (m_id_spc_occurred) {
         error("space not allow between alphas\n");
         return false;
     }
-    m_fnn.push_back(c);
-    m_fnn_spc_occurred = false;
+    m_id.push_back(c);
+    m_id_spc_occurred = false;
     return true;
 }
 
 bool ArithmeticExpression::handleSpace() {
-    if (ST_FNN == m_state) {
-        m_fnn_spc_occurred = true;
+    if (m_state == ST_IDF) {
+        m_id_spc_occurred = true;
     }
     return true;
 }
 
 bool ArithmeticExpression::handleComma() {
+    if (m_state == ST_IDF) {
+        if (m_id_spc_occurred) {
+            m_id_spc_occurred = false;
+        }
+        if (!m_id.empty()) {
+            if (m_id == "a") m_operand_stack.push(m_flg*1);
+            if (m_id == "b") m_operand_stack.push(m_flg*2);
+            m_id = "";          // reset
+        }
+    }
+
     int top;
     while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != 'f') {
         dia("c");
@@ -832,11 +872,11 @@ bool ArithmeticExpression::parse()
         const char& c = m_arithmetic_expression.at(m_parse_pos);
         if ( ! handle(c) ) {
             error("failed to handle, "
-                  "m_fnn=\"%s\", "
+                  "m_id=\"%s\", "
                   "tailing=\"%s\", pos=%d, "
                   "char='%c', raw exp=\"%s\", "
                   "state=\"%s\"\n",
-                  m_fnn.c_str(),
+                  m_id.c_str(),
                   &m_arithmetic_expression[m_parse_pos],
                   m_parse_pos,
                   m_arithmetic_expression[m_parse_pos],
@@ -853,6 +893,18 @@ bool ArithmeticExpression::parse()
         error("program in not on terminal state, current state=\"%s\"\n", getCurStateStr());
         return false;
     }
+
+    if (m_state == ST_IDF) {
+        if (m_id_spc_occurred) {
+            m_id_spc_occurred = false;
+        }
+        if (!m_id.empty()) {
+            if (m_id == "a") m_operand_stack.push(m_flg*1);
+            if (m_id == "b") m_operand_stack.push(m_flg*2);
+            m_id = "";          // reset
+        }
+    }
+
     // check whether parenthesis matches
     if ( 0 != m_lp_count ) {
         error("open left parenthesis exists, count=\"%d\"\n", m_lp_count);

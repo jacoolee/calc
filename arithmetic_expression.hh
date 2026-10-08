@@ -13,7 +13,7 @@ enum State
     ST_LPS,
     ST_RPS,
     ST_FLG,
-    ST_FNN,
+    ST_IDF,                     // fn or id, id is just another form of opd
     ST_ERR,
     ST_UPPER                    // upper bound
 };
@@ -158,6 +158,7 @@ private:
     bool isOnTerminalState() const {
         return (ST_OPD == m_state ||
                 ST_RPS == m_state ||
+                ST_IDF == m_state ||
                 ST_BGN == m_state);
     }
 
@@ -172,12 +173,12 @@ private:
 
     State m_state;
     std::string m_arithmetic_expression;
-    std::string m_fnn;
+    std::string m_id;
     int m_parse_pos;
     int m_lp_count;
     Stack<int> m_fncmcnt_stack;
     int m_flg;
-    bool m_fnn_spc_occurred;
+    bool m_id_spc_occurred;
 
     std::string m_rpn_expression;
 
