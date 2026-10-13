@@ -3,31 +3,35 @@
 #define INCLUDE_CALCULATOR_HPP
 
 #include <string>
+#include <unordered_map>
 #include "stack.hh"
 
 enum State
 {
     ST_BGN = 0,
-    ST_OPR,                     // operator
-    ST_OPD,                     // operand
-    ST_LPS,
-    ST_RPS,
-    ST_FLG,
-    ST_IDF,                     // fn or id, id is just another form of opd
-    ST_ERR,
+    ST_OPR,                     // 1
+    ST_OPD,                     // 2
+    ST_LPS,                     // 3
+    ST_RPS,                     // 4
+    ST_FLG,                     // 5
+    ST_IDF,                     // 6, fn or id, id is just another form of opd
+    ST_ERR,                     // 7
+    ST_END,                     // 8
     ST_UPPER                    // upper bound
 };
 
 enum CharType
 {
     CT_WHITESPACE = 0,
-    CT_OP,
-    CT_NUM,
-    CT_LP,
-    CT_RP,
-    CT_FLG,
-    CT_ALP,
-    CT_COMMA,
+    CT_OP,                      // 1
+    CT_NUM,                     // 2
+    CT_LP,                      // 3
+    CT_RP,                      // 4
+    CT_FLG,                     // 5
+    CT_ALP,                     // 6
+    CT_COMMA,                   // 7
+    CT_SEMICOLON,               // 8
+    CT_ASSIGN,                  // 9
     CT_UPPER                    // upper bound
 };
 
@@ -43,7 +47,14 @@ enum ActionType
     AT_ALP,// 7
     AT_SPC,// 8
     AT_COMMA,// 9
+    AT_SEMICOLON, // 10
+    AT_ASSIGN,    // 11
     AT_UPPER
+};
+
+enum StmtType {
+    STMT_NON, // 0
+    STMT_ASSIGN // 1
 };
 
 // TODO: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
@@ -114,6 +125,9 @@ enum FNN
     MAX,
     MIN,
 
+    PRINTID,
+    RESULT,
+
     // add more
     FNN_UPPER
 };
@@ -145,6 +159,8 @@ private:
     bool handleAlpha(char c);
     bool handleSpace();
     bool handleComma();
+    bool handleSemicolon();
+    bool handleAssign();
 
     bool handleAction(ActionType type, char c);
     bool calculate(int opr);
@@ -159,6 +175,7 @@ private:
         return (ST_OPD == m_state ||
                 ST_RPS == m_state ||
                 ST_IDF == m_state ||
+                ST_END == m_state ||
                 ST_BGN == m_state);
     }
 
@@ -173,12 +190,16 @@ private:
 
     State m_state;
     std::string m_arithmetic_expression;
-    std::string m_id;
     int m_parse_pos;
     int m_lp_count;
     Stack<int> m_fncmcnt_stack;
     int m_flg;
+
+    std::string m_id;
+    std::unordered_map<std::string,double> m_id_map;
     bool m_id_spc_occurred;
+    int m_stmt;
+    std::string m_stmt_assign_key;
 
     std::string m_rpn_expression;
 
@@ -200,6 +221,8 @@ private:
         const int args_va;
     } FunctionMeta;
     static FunctionMeta m_function_meta[FNN_UPPER];
+
+    double m_result;
 };
 
 #endif /* INCLUDE_CALCULATOR_HPP */

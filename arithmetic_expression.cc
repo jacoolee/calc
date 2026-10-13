@@ -25,6 +25,8 @@ ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, 
     : m_state(ST_BGN),
       m_arithmetic_expression(infix_expression),
       m_id(""),
+      m_stmt(STMT_NON),
+      m_stmt_assign_key(""),
       m_parse_pos(0),
       m_lp_count(0),
       m_id_spc_occurred(false),
@@ -45,6 +47,7 @@ ArithmeticExpression::m_state_info[] = {
     {ST_FLG, "ST_FLG"},
     {ST_IDF, "ST_IDF"},
     {ST_ERR, "ST_ERR"},
+    {ST_END, "ST_END"},
     // to add
     {ST_UPPER, "ST_UPPER"}
 };
@@ -60,14 +63,14 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // //    the second item is the type of process action of the transition                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
-    //           {CT_WHITESPACE},    {CT_OP},          {CT_NUM},         {CT_LP},          {CT_RP},          {CT_FLG},         {CT_ALP}          CT_COMMA
-    /* ST_BGN */ {{ST_BGN, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR}},
-    /* ST_OPR */ {{ST_OPR, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR}},
-    /* ST_OPD */ {{ST_OPD, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_BGN, AT_COMMA}},
-    /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR}},
-    /* ST_RPS */ {{ST_RPS, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_BGN, AT_COMMA}},
-    /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR}},
-    /* ST_IDF */ {{ST_IDF, AT_SPC }, {ST_OPR, AT_OPR}, {ST_IDF, AT_ALP}, {ST_BGN, AT_LPS}, {ST_RPS, AT_RPS}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_BGN, AT_COMMA}},
+    //           {CT_WHITESPACE},    {CT_OP},          {CT_NUM},         {CT_LP},          {CT_RP},          {CT_FLG},         {CT_ALP}          CT_COMMA             CT_SEMICOLON            CT_ASSIGN
+    /* ST_BGN */ {{ST_BGN, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR},   {ST_ERR, AT_ERR},       {ST_ERR, AT_ERR}},
+    /* ST_OPR */ {{ST_OPR, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR},   {ST_ERR, AT_ERR},       {ST_ERR, AT_ERR}},
+    /* ST_OPD */ {{ST_OPD, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_BGN, AT_COMMA}, {ST_END, AT_SEMICOLON}, {ST_ERR, AT_ERR}},
+    /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR},   {ST_ERR, AT_ERR},       {ST_ERR, AT_ERR}},
+    /* ST_RPS */ {{ST_RPS, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_BGN, AT_COMMA}, {ST_END, AT_SEMICOLON}, {ST_ERR, AT_ERR}},
+    /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR},   {ST_ERR, AT_ERR},       {ST_ERR, AT_ERR}},
+    /* ST_IDF */ {{ST_IDF, AT_SPC }, {ST_OPR, AT_OPR}, {ST_IDF, AT_ALP}, {ST_BGN, AT_LPS}, {ST_RPS, AT_RPS}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_BGN, AT_COMMA}, {ST_END, AT_SEMICOLON}, {ST_BGN, AT_ASSIGN}},
 };
 
 ArithmeticExpression::FunctionMeta
@@ -121,6 +124,9 @@ ArithmeticExpression::m_function_meta[FNN_UPPER] = {
     { "int", 1, 1 },
     { "max", 2, 1 },
     { "min", 2, 1 },
+
+    {"printid", 1, 0},
+    { "result", 1, 0},
 };
 
 const char* ArithmeticExpression::getStateStr(State state) const
@@ -140,26 +146,20 @@ const char* ArithmeticExpression::getCurStateStr() const
 
 int ArithmeticExpression::getPriority(char c)
 {
-    /* priority order for high to low:
-     * 4: '('
-     * 3: '*' '/'
-     * 2: '+' '-'
-     * 1: ')'
-     * 0: LOWEST_PRIO_OP
-     */
-    int prio = 0;
+    /* priority order for high to low */
     switch (c) {
-    case '(': prio = 5; break;
-    case '^': prio = 4; break;
+    case '(': return 6;
+    case '^': return 5;
     case '*':
-    case '/': prio = 3; break;
+    case '/': return 4;
     case '+':
-    case '-': prio = 2; break;
-    case ')': prio = 1; break;
-    case LOWEST_PRIO_OP: prio = 0; break;
-    default: prio = 0; break;
+    case '-': return 3;
+    case ')': return 2;
+    case '>':
+    case '<': return 1;
+    case LOWEST_PRIO_OP: return 0;
+    default: return 0;
     }
-    return prio;
 }
 
 bool ArithmeticExpression::handleAction(ActionType type, char c)
@@ -175,6 +175,8 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_ALP: rc = handleAlpha(c); break;
     case AT_SPC: rc = handleSpace(); break;
     case AT_COMMA: rc = handleComma(); break;
+    case AT_SEMICOLON: rc = handleSemicolon(); break;
+    case AT_ASSIGN: rc = handleAssign(); break;
     case AT_ERR: rc = handleError(); break;
     default:
         print("no handler found for action type:%d\n", type);
@@ -201,7 +203,7 @@ CharType ArithmeticExpression::getCharType(int c) {
     if ( ')' == c ) {
         return CT_RP;
     }
-    if ( '*' == c || '/' == c || '^' == c) {
+    if ( '*' == c || '/' == c || '^' == c || '>' == c || '<' == c) {
         return CT_OP;
     }
     // process CT_OP (+,-) and CT_FLG separately, make
@@ -220,6 +222,8 @@ CharType ArithmeticExpression::getCharType(int c) {
             break;
         }
     }
+    if ( ';' == c) return CT_SEMICOLON;
+    if ( '=' == c) return CT_ASSIGN;
     return CT_UPPER;
 }
 
@@ -242,12 +246,12 @@ void ArithmeticExpression::dia(char* marker) {
     CharType type = getCharType(c);
     StateTable* table_item = &m_state_table[m_state][type];
     print("%s @%d %s '%c' CT=%d AT=%d",
-        marker,
-        m_parse_pos,
-        getCurStateStr(),
-        c,
-        type,
-        table_item->action_type
+          marker,
+          m_parse_pos,
+          getCurStateStr(),
+          c,
+          type,
+          table_item->action_type
         );
     print(" opd_stack=");
     m_operand_stack.dia(g_print_enable);
@@ -255,12 +259,17 @@ void ArithmeticExpression::dia(char* marker) {
     m_operator_stack.dia(g_print_enable);
     print(" cmc_stack=");
     m_fncmcnt_stack.dia(g_print_enable);
-    print(" m_id=\"%s\" m_id_spc_occurred=%s m_flg='%d' m_lp_count=%d rpn=\"%s\"\n",
-        m_id.c_str(),
-        m_id_spc_occurred?"true":"false",
-        m_flg,
-        m_lp_count,
-        m_rpn_expression.c_str()
+    for (const auto& item : m_id_map) {
+        print(" m_id_map[\"%s\"]=%f ", item.first.c_str(), item.second);
+    }
+    print(" m_id=\"%s\" m_id_spc_occurred=%s m_flg='%d' m_lp_count=%d m_stmt=%d m_result=%g rpn=\"%s\"\n",
+          m_id.c_str(),
+          m_id_spc_occurred?"true":"false",
+          m_flg,
+          m_lp_count,
+          m_stmt,
+          m_result,
+          m_rpn_expression.c_str()
         );
 }
 
@@ -313,9 +322,12 @@ bool ArithmeticExpression::handleOperator()
             m_id_spc_occurred = false;
         }
         if (!m_id.empty()) {
-            if (m_id == "a") m_operand_stack.push(m_flg*1);
-            if (m_id == "b") m_operand_stack.push(m_flg*2);
-            m_id = "";          // reset
+            // if (m_id == "a") m_operand_stack.push(m_flg*1);
+            // if (m_id == "b") m_operand_stack.push(m_flg*2);
+
+            m_operand_stack.push(m_id_map[m_id]);
+            // m_id = "";          // reset
+            // m_id_spc_occurred = false;
         }
     }
 
@@ -461,14 +473,18 @@ bool ArithmeticExpression::handleLeftParenthesis()
 
 bool ArithmeticExpression::handleRightParenthesis()
 {
+
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) {
             m_id_spc_occurred = false;
         }
         if (!m_id.empty()) {
-            if (m_id == "a") m_operand_stack.push(m_flg*1);
-            if (m_id == "b") m_operand_stack.push(m_flg*2);
-            m_id = "";          // reset
+            // if (m_id == "a") m_operand_stack.push(m_flg*1);
+            // if (m_id == "b") m_operand_stack.push(m_flg*2);
+
+            m_operand_stack.push(m_id_map[m_id]);
+
+            // m_id = "";          // reset
         }
     }
 
@@ -480,7 +496,7 @@ bool ArithmeticExpression::handleRightParenthesis()
 
     // pop till '(' or 'f'
     while ( ! m_operator_stack.empty()) {
-        dia("-");
+        dia("-)");
 
         int top = m_operator_stack.top();
         if (top == '(') {
@@ -515,7 +531,7 @@ bool ArithmeticExpression::handleRightParenthesis()
             appendToRpnExpression(' ');
         }
 
-        dia("+");
+        dia(")+");
     }
 
     // DO NOT save this operator:')' into stack
@@ -523,10 +539,13 @@ bool ArithmeticExpression::handleRightParenthesis()
 }
 
 bool ArithmeticExpression::handleAlpha(char c) {
-    if (m_id_spc_occurred) {
-        error("space not allow between alphas\n");
-        return false;
-    }
+    // TODO: [2026-10-10] parse like handleOperand to ignore m_id_spc_occurred.
+
+    // if (m_id_spc_occurred) {
+    //     error("space not allow between alphas\n");
+    //     return false;
+    // }
+
     m_id.push_back(c);
     m_id_spc_occurred = false;
     return true;
@@ -545,8 +564,11 @@ bool ArithmeticExpression::handleComma() {
             m_id_spc_occurred = false;
         }
         if (!m_id.empty()) {
-            if (m_id == "a") m_operand_stack.push(m_flg*1);
-            if (m_id == "b") m_operand_stack.push(m_flg*2);
+            // if (m_id == "a") m_operand_stack.push(m_flg*1);
+            // if (m_id == "b") m_operand_stack.push(m_flg*2);
+
+            m_operand_stack.push(m_id_map[m_id]);
+
             m_id = "";          // reset
         }
     }
@@ -567,6 +589,51 @@ bool ArithmeticExpression::handleComma() {
         return false;
     }
     m_fncmcnt_stack.push(m_fncmcnt_stack.pop() + 1);
+    return true;
+}
+
+bool ArithmeticExpression::handleSemicolon() {
+    print("TODO: handleSemicolon should consume everything.\n");
+
+    if (m_id_spc_occurred) {
+        m_id_spc_occurred = false;
+    }
+
+    if (m_state == ST_IDF) {
+        if (!m_id.empty()) {
+            // if (m_id == "a") m_operand_stack.push(m_flg*1);
+            // if (m_id == "b") m_operand_stack.push(m_flg*2);
+
+            m_operand_stack.push(m_id_map[m_id]);
+
+            m_id = "";          // reset
+        }
+    }
+
+    int top;
+    while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
+        if (!calculate(top)) return false;
+        m_operator_stack.pop();
+    }
+
+    if (m_stmt == STMT_ASSIGN) {
+        // TODO: check if condition fit
+        m_id_map[m_stmt_assign_key] = m_operand_stack.pop();
+    }
+
+    // reset everything
+    m_id = "";
+
+    dia(";+");
+
+    return true;
+}
+
+bool ArithmeticExpression::handleAssign() {
+    print("TODO: HandleAssign\n");
+    m_stmt = STMT_ASSIGN;
+    m_stmt_assign_key = m_id;
+    m_id = "";
     return true;
 }
 
@@ -825,6 +892,15 @@ bool ArithmeticExpression::calculate(int opr)
             m_operand_stack.push(v);
             break;
         }
+        case PRINTID: {
+            // TODO: check conditon fit
+            printf("PRINTID: key=\"%s\", value=%g\n ", m_id.c_str(), m_id_map[m_id]);
+            break;
+        }
+        case RESULT: {
+            m_result = m_operand_stack.top();
+            break;
+        }
         default:
             error("unsupported fni: %d\n", fni);
             return false;
@@ -849,6 +925,14 @@ bool ArithmeticExpression::calculate(int opr)
                 return false;
             }
             m_operand_stack.push( l_opd / r_opd);
+            break;
+        }
+        case '>': {
+            m_operand_stack.push(l_opd > r_opd? 1: 0);
+            break;
+        }
+        case '<': {
+            m_operand_stack.push(l_opd < r_opd? 1: 0);
             break;
         }
         default: print("unknown operator='<%c %d>'\n", opr, opr); return false;
@@ -899,9 +983,12 @@ bool ArithmeticExpression::parse()
             m_id_spc_occurred = false;
         }
         if (!m_id.empty()) {
-            if (m_id == "a") m_operand_stack.push(m_flg*1);
-            if (m_id == "b") m_operand_stack.push(m_flg*2);
-            m_id = "";          // reset
+            // if (m_id == "a") m_operand_stack.push(m_flg*1);
+            // if (m_id == "b") m_operand_stack.push(m_flg*2);
+
+            m_operand_stack.push(m_id_map[m_id]);
+
+            //m_id = "";          // reset
         }
     }
 
@@ -911,8 +998,9 @@ bool ArithmeticExpression::parse()
         return false;
     }
     // fulfill m_rpn_expression using operator stack
-    while ( ! m_operator_stack.empty() ) {
-        dia("-");
+    int top;
+    while ( ! m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
+        dia("[");
         const int& top = m_operator_stack.top();
         if ( LOWEST_PRIO_OP != top ) {
             appendToRpnExpression(top);
@@ -921,40 +1009,29 @@ bool ArithmeticExpression::parse()
         if (! calculate(top)) return false;
         // always pop to go on to next opr
         m_operator_stack.pop();
-        dia("+");
+        dia("]");
     }
     dia("z");
 
     print("m_operand_stack.count() = %d\n", m_operand_stack.count());
 
-    // now, m_operator_stack is empty, we expect m_operand_stack should be
-    // only one value, aka. the result of math expression.
-    if (m_operand_stack.count() != 1) {
-        error("operand stack have %d oprand(s) left after process, should be 1 operand left\n", m_operand_stack.count());
-        error("maybe too much argumets have been given to function(s), please check out the math expression\n");
-        dia("C");
-        return false;
+    if (m_stmt == STMT_NON) {
+        // now, m_operator_stack is empty, we expect m_operand_stack should be
+        // only one value, aka. the result of math expression.
+        if (m_operand_stack.count() != 1) {
+            error("operand stack have %d oprand(s) left after process, should be 1 operand left\n", m_operand_stack.count());
+            dia("C");
+            return false;
+        }
+        m_result = m_operand_stack.pop();
     }
 
     print("arithmetic expression successfully parsed, rpn=\"%s\"\n", m_rpn_expression.c_str());
-    print("value=\"%g\"\n", m_operand_stack.top());
     return true;
 }
 
 bool ArithmeticExpression::getExpressionValue(double &val) const
 {
-    if ( !isOnTerminalState() ) {
-        error("program in not on terminal state, "
-              "current state=\"%s\"\n",
-              getCurStateStr());
-        return false;
-    }
-    bool stack_empty = m_operand_stack.empty();
-    if ( ! stack_empty || (stack_empty && ST_BGN == m_state)) {
-        val = stack_empty ? 0 : m_operand_stack.top();
-        print("return value=\"%g\"\n", val);
-        return true;
-    }
-    error("the arithmetic expression is not successfully calculated\n");
-    return false;
+    val = m_result;
+    return true;
 }
