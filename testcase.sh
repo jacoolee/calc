@@ -8,6 +8,10 @@ grep '=' testcase.txt | while read i; do
     # echo "$v2" "$v" "$e"
     if [ ${v2// /} != ${v// /} ]; then
         echo "WRONG: calc: $v2, raw: $i"
+    else
+        if [ $# -ge 1 ]; then
+            echo "OK calc: $v2, raw: $i"
+        fi
     fi
 done
 
