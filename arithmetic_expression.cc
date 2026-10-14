@@ -141,11 +141,6 @@ const char* ArithmeticExpression::getStateStr(State state) const
     return m_state_info[state].state_str;
 }
 
-const char* ArithmeticExpression::getCurStateStr() const
-{
-    return getStateStr(m_state);
-}
-
 int ArithmeticExpression::getPriority(char c)
 {
     /* priority order for high to low */
@@ -254,7 +249,7 @@ void ArithmeticExpression::dia(char* marker) {
     print("%s @%d %s '%c' CT=%d AT=%d",
           marker,
           m_parse_pos,
-          getCurStateStr(),
+          getStateStr(m_state),
           c,
           type,
           table_item->action_type
@@ -300,7 +295,7 @@ bool ArithmeticExpression::handle(char c)
     if ( rc ) {
         // update state only when action runs successfully
         m_state = table_item->new_state;
-        print("handle: m_state: %s, m_state_next_certained: %s, m_parse_pos:%d, m_arithmetic_expression.size():%d\n", getCurStateStr(), getStateStr(m_state_next_certained), m_parse_pos, m_arithmetic_expression.size());
+        print("handle: m_state: %s, m_state_next_certained: %s, m_parse_pos:%d, m_arithmetic_expression.size():%d\n", getStateStr(m_state), getStateStr(m_state_next_certained), m_parse_pos, m_arithmetic_expression.size());
 
         // certain-ty uncertained state
         if (m_state == ST_UNC) {
@@ -1073,7 +1068,7 @@ bool ArithmeticExpression::parse()
                   m_parse_pos,
                   m_arithmetic_expression[m_parse_pos],
                   m_arithmetic_expression.c_str(),
-                  getCurStateStr()
+                  getStateStr(m_state)
                 );
             return false;
         }
@@ -1085,7 +1080,7 @@ bool ArithmeticExpression::parse()
 
     // check program terminal state
     if ( ! isOnTerminalState() ) {
-        error("error: program in not on terminal state, current state=\"%s\"\n", getCurStateStr());
+        error("error: program in not on terminal state, current state=\"%s\"\n", getStateStr(m_state));
         return false;
     }
 

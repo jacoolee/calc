@@ -190,7 +190,6 @@ private:
     int getPriority(char c);
     CharType getCharType(int c);
     const char* getStateStr(State) const;
-    const char* getCurStateStr() const;
 
 private:
     Stack<double> m_operand_stack;
