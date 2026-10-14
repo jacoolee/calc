@@ -31,7 +31,7 @@ ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, 
       m_parse_pos(0),
       m_lp_count(0),
       m_id_spc_occurred(false),
-      m_result(-1)
+      m_result(NAN)
 {
     m_operator_stack.push(LOWEST_PRIO_OP);
     g_print_enable = print_enable;
@@ -312,7 +312,7 @@ bool ArithmeticExpression::handle(char c)
         if (m_state == ST_END && m_parse_pos < m_arithmetic_expression.size()-1) {
             m_state = ST_BGN;
             // extra: reset m_result;
-            m_result = -1;
+            m_result = NAN;
         }
     }
     return rc;
@@ -647,7 +647,7 @@ bool ArithmeticExpression::handleSemicolon() {
     m_lp_count = 0;
     m_stmt = STMT_NON;
     m_stmt_assign_key = "";
-    m_result = -1;
+    m_result = NAN;
 
     if (m_operand_stack.count() > 1) {
         error("error: more than 1 operand left\n");
@@ -1120,13 +1120,11 @@ bool ArithmeticExpression::parse()
         // now, m_operator_stack is empty, we expect m_operand_stack should be
         // only one value, aka. the result of math expression.
         // AND m_result have not been set.
-        if (m_result == -1) {   // not been set yet
+        if (isnan(m_result)) {   // not been set yet
             if (m_operand_stack.count() != 1) {
-                if (m_result == -1) {
-                    error("error: operand stack have %d oprand(s) left after process, should be 1 operand left\n", m_operand_stack.count());
-                    dia("C");
-                    return false;
-                }
+                error("error: operand stack have %d oprand(s) left after process, should be 1 operand left\n", m_operand_stack.count());
+                dia("C");
+                return false;
             } else {
                 m_result = m_operand_stack.pop();
             }
@@ -1139,6 +1137,11 @@ bool ArithmeticExpression::parse()
 
 bool ArithmeticExpression::getExpressionValue(double &val) const
 {
+    if (isnan(m_result)) {
+        error("error: no result been set\n");
+        val = NAN;
+        return false;
+    }
     val = m_result;
     return true;
 }
