@@ -9,15 +9,16 @@
 enum State
 {
     ST_BGN = 0,
-    ST_OPR,                     // 1
-    ST_OPD,                     // 2
-    ST_LPS,                     // 3
-    ST_RPS,                     // 4
-    ST_FLG,                     // 5
-    ST_IDF,                     // 6, fn or id, id is just another form of opd
-    ST_ERR,                     // 7
-    ST_END,                     // 8
-    ST_UPPER                    // upper bound
+    ST_OPR,//1
+    ST_OPD,//2
+    ST_LPS,//3
+    ST_RPS,//4
+    ST_FLG,//5
+    ST_IDF,//6
+    ST_UNC,                     // 7,uncertain, more needed to determine state
+    ST_ERR,//8
+    ST_END,//9
+    ST_UPPER//10 // upper bound
 };
 
 enum CharType
@@ -31,7 +32,7 @@ enum CharType
     CT_ALP,                     // 6
     CT_COMMA,                   // 7
     CT_SEMICOLON,               // 8
-    CT_ASSIGN,                  // 9
+    CT_SYMBOL_EQUAL,            // 9
     CT_UPPER                    // upper bound
 };
 
@@ -48,7 +49,7 @@ enum ActionType
     AT_SPC,// 8
     AT_COMMA,// 9
     AT_SEMICOLON, // 10
-    AT_ASSIGN,    // 11
+    AT_SYMBOL_EQUAL,    // 11
     AT_UPPER
 };
 
@@ -152,7 +153,7 @@ private:
     bool handleNone();
     bool handleFlag();
     bool handleError();
-    bool handleOperator();
+    bool handleOperator(char opr);
     bool handleOperand();
     bool handleLeftParenthesis();
     bool handleRightParenthesis();
@@ -160,7 +161,9 @@ private:
     bool handleSpace();
     bool handleComma();
     bool handleSemicolon();
-    bool handleAssign();
+    bool handleSymbolEqual();
+
+    bool pushIdfValueToOperandStack(std::string idf);
 
     bool handleAction(ActionType type, char c);
     bool calculate(int opr);
@@ -189,6 +192,8 @@ private:
     Stack<int> m_operator_stack;
 
     State m_state;
+    State m_state_next_certained;
+
     std::string m_arithmetic_expression;
     int m_parse_pos;
     int m_lp_count;

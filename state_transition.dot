@@ -5,54 +5,56 @@ digraph G {
     {
 
         st_start [shape=circle,peripheries=2,style=filled, label="Start"]
-        st_bgn [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_bgn"]
-        st_opr [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_opr"]
-        st_opd [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_opd"]
-        st_lps [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_lps"]
-        st_rps [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_rps"]
-        st_flg [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_flg"]
-        st_id  [shape=circle,peripheries=2,color=lightblue,style=filled,label="st_id"]
-        st_end [shape=circle,peripheries=2,style=filled,label="End"]
+        st_bgn [shape=circle,peripheries=2,style=filled,label="st_bgn"]
+        st_opr [shape=circle,peripheries=2,color="#4f8f00",style=filled,label="st_opr"]
+        st_opd [shape=circle,peripheries=2,color="#ff8ad8",style=filled,label="st_opd"]
+        st_lps [shape=circle,peripheries=2,style=filled,label="st_lps"]
+        st_rps [shape=circle,peripheries=2,style=filled,label="st_rps"]
+        st_flg [shape=circle,peripheries=2,color="cyan",style=filled,label="st_flg"]
+        st_id  [shape=circle,peripheries=2,color="orange",style=filled,label="st_id"]
+        st_end [shape=circle,peripheries=2,style=filled,label="st_end"]
 
         st_start -> st_bgn;
 
-        st_bgn -> st_opd[label="[.0-9]+"];
+        st_bgn -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
         st_bgn -> st_lps[label="("];
-        st_bgn -> st_flg[label="+-"];
-        st_bgn -> st_id[label="A-z_", color="red", fontcolor="red"];
+        st_bgn -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
+        st_bgn -> st_id[label="A-z_", color="orange", fontcolor="orange"];
+        st_bgn -> st_end[label="nothing left or ;"];
 
-        st_opd -> st_opr[label="+-*/^><"];
+        st_opd -> st_opr[label="+-*/^<> ==", color="#4f8f00", fontcolor="#4f8f00"];
         st_opd -> st_rps[label=")"];
         st_opd -> st_bgn[label=",", color="green", fontcolor="green"];
-        st_opd -> st_end[label="'' or ;"];
+        st_opd -> st_end[label="nothing left or ;"];
 
-        st_opr -> st_opd[label="[.0-9]+"];
+        st_opr -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
         st_opr -> st_lps[label="("];
-        st_opr -> st_flg[label="+-"];
-        st_opr -> st_id[label="A-z_", color="red", fontcolor="red"];
+        st_opr -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
+        st_opr -> st_id[label="A-z_", color="orange", fontcolor="orange"];
 
-        st_lps -> st_opd[label="[.0-9]+"];
+        st_lps -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
         st_lps -> st_lps[label="("];
-        st_lps -> st_flg[label="+-"];
-        st_lps -> st_id[label="A-z_", color="red", fontcolor="red"];
+        st_lps -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
+        st_lps -> st_id[label="A-z_", color="orange", fontcolor="orange"];
 
-        st_rps -> st_opr[label="+-*/^><"];
+        st_rps -> st_opr[label="+-*/^<> ==", color="#4f8f00", fontcolor="#4f8f00"];
         st_rps -> st_rps[label=")"];
         st_rps -> st_bgn[label=",", color="green", fontcolor="green"];
-        st_rps -> st_end[label="'' or ;"];
+        st_rps -> st_end[label="nothing left or ;"];
 
-        st_flg -> st_opd[label="[.0-9]+"];
-        st_flg -> st_id[label="A-z_", color="red", fontcolor="red"];
+        st_flg -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
+        st_flg -> st_id[label="A-z_", color="orange", fontcolor="orange"];
 
-        st_id -> st_id[label="[A-z0-9_]+", color="red", fontcolor="red"];
-        st_id -> st_bgn[label="(", color="red", fontcolor="red"];
+        st_id -> st_id[label="[A-z0-9_]+", color="orange", fontcolor="orange"];
+        st_id -> st_bgn[label="("];
 
-        st_id -> st_opr[label="+-*/^><", color="blue", fontcolor="blue"];
-        st_id -> st_rps[label=")", color="blue", fontcolor="blue"];
-        st_id -> st_bgn[label=",", color="blue", fontcolor="blue"];
-        st_id -> st_end[label="", color="blue", fontcolor="blue"];
+        st_id -> st_opr[label="+-*/^<> ==", color="#4f8f00", fontcolor="#4f8f00"];
+        st_id -> st_rps[label=")"];
+        st_id -> st_bgn[label=",", color="green", fontcolor="green"];
+        st_id -> st_end[label="nothing left or ;"];
 
+        st_end -> st_bgn[label="chars left"];
 
-        st_id -> st_bgn[label="=", color="gold", fontcolor="gold"];
+        st_id -> st_bgn[label="= (assign-stmt)", color="purple", fontcolor="purple"];
     }
 }
