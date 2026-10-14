@@ -688,7 +688,7 @@ bool ArithmeticExpression::handleSymbolEqual() {
             m_id = "";
             m_state_next_certained = ST_BGN;
         } else {
-            error("error: single '=' can only be used as 'idf = xxxx'\n");
+            error("error: single '=' can only be used as assign statement: 'id = ...;'\n");
             dia("handleSymbolEqual");
             return false;
         }
