@@ -66,14 +66,14 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // //    the second item is the type of process action of the transition                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
-    //           {CT_WHITESPACE},    {CT_OP},          {CT_NUM},         {CT_LP},          {CT_RP},          {CT_FLG},         {CT_ALP}          CT_COMMA             CT_SEMICOLON            CT_SYMBOL_EQUAL
-    /* ST_BGN */ {{ST_BGN, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR},   {ST_END, AT_SEMICOLON}, {ST_ERR, AT_ERR}},
-    /* ST_OPR */ {{ST_OPR, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR},   {ST_ERR, AT_ERR},       {ST_ERR, AT_ERR}},
-    /* ST_OPD */ {{ST_OPD, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_BGN, AT_COMMA}, {ST_END, AT_SEMICOLON}, {ST_UNC, AT_SYMBOL_EQUAL}},
-    /* ST_LPS */ {{ST_LPS, AT_NON }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_LPS, AT_LPS}, {ST_ERR, AT_ERR}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR},   {ST_ERR, AT_ERR},       {ST_ERR, AT_ERR}},
-    /* ST_RPS */ {{ST_RPS, AT_NON }, {ST_OPR, AT_OPR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_RPS, AT_RPS}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_BGN, AT_COMMA}, {ST_END, AT_SEMICOLON}, {ST_UNC, AT_SYMBOL_EQUAL}},
-    /* ST_FLG */ {{ST_ERR, AT_ERR }, {ST_ERR, AT_ERR}, {ST_OPD, AT_OPD}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_ERR, AT_ERR}, {ST_IDF, AT_ALP}, {ST_ERR, AT_ERR},   {ST_ERR, AT_ERR},       {ST_ERR, AT_ERR}},
-    /* ST_IDF */ {{ST_IDF, AT_SPC }, {ST_OPR, AT_OPR}, {ST_IDF, AT_ALP}, {ST_BGN, AT_LPS}, {ST_RPS, AT_RPS}, {ST_FLG, AT_FLG}, {ST_IDF, AT_ALP}, {ST_BGN, AT_COMMA}, {ST_END, AT_SEMICOLON}, {ST_UNC, AT_SYMBOL_EQUAL}},
+    //              CT_WHITESPACE     CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_COMMA            CT_SEMICOLON            CT_SYMBOL_EQUAL
+    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_SEMICOLON, ST_END}, {AT_ERR, ST_ERR}},
+    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR}},
+    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}},
+    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR}},
+    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}},
+    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR}},
+    /* ST_IDF */ {{AT_SPC, ST_IDF}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}},
 };
 
 ArithmeticExpression::FunctionMeta

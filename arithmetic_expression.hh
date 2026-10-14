@@ -209,8 +209,8 @@ private:
     std::string m_rpn_expression;
 
     typedef struct {
-        State new_state;
         ActionType action_type;
+        State new_state;
     } StateTable;
     static StateTable m_state_table[ST_UPPER][CT_UPPER];
 
