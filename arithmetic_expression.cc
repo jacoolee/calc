@@ -31,7 +31,6 @@ ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, 
       m_parse_pos(0),
       m_lp_count(0),
       m_id_spc_occurred(false),
-      m_flg(FLG_ACTIVE),
       m_result(-1)
 {
     m_operator_stack.push(LOWEST_PRIO_OP);
@@ -66,14 +65,14 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // //    the second item is the type of process action of the transition                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
-    //              CT_WHITESPACE     CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_COMMA            CT_SEMICOLON            CT_SYMBOL_EQUAL
-    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_SEMICOLON, ST_END}, {AT_ERR, ST_ERR}},
-    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR}},
-    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}},
-    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR}},
-    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}},
-    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR}},
-    /* ST_IDF */ {{AT_SPC, ST_IDF}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}},
+    //              CT_WHITESPACE     CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_COMMA            CT_SEMICOLON            CT_SYMBOL_EQUAL           CT_EXCLAMATION
+    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_SEMICOLON, ST_END}, {AT_ERR, ST_ERR},          {AT_EXCLAMATION, ST_OPR}},
+    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_EXCLAMATION, ST_OPR}},
+    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_ERR, ST_ERR}},
+    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_EXCLAMATION, ST_OPR}},
+    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_ERR, ST_ERR}},
+    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_EXCLAMATION, ST_OPR}},
+    /* ST_IDF */ {{AT_SPC, ST_IDF}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_ERR, ST_ERR}},
 };
 
 ArithmeticExpression::FunctionMeta
@@ -150,16 +149,17 @@ int ArithmeticExpression::getPriority(char c)
 {
     /* priority order for high to low */
     switch (c) {
-    case '(': return 6;
-    case '^': return 5;
+    case '(': return 66;
+    case '!': return 56;
+    case '^': return 55;
     case '*':
-    case '/': return 4;
+    case '/': return 44;
     case '+':
-    case '-': return 3;
-    case ')': return 2;
+    case '-': return 33;
+    case ')': return 22;
     case '>':
     case 'e':
-    case '<': return 1;
+    case '<': return 11;
     case LOWEST_PRIO_OP: return 0;
     default: return 0;
     }
@@ -170,7 +170,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     bool rc = false;
     switch (type) {
     case AT_NON: rc = handleNone(); break;
-    case AT_FLG: rc = handleFlag(); break;
+    case AT_FLG: rc = handleFlag(c); break;
     case AT_OPR: rc = handleOperator(c); break;
     case AT_OPD: rc = handleOperand(); break;
     case AT_LPS: rc = handleLeftParenthesis(); break;
@@ -180,6 +180,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_COMMA: rc = handleComma(); break;
     case AT_SEMICOLON: rc = handleSemicolon(); break;
     case AT_SYMBOL_EQUAL: rc = handleSymbolEqual(); break;
+    case AT_EXCLAMATION: rc = handleExclamation(); break;
     case AT_ERR: rc = handleError(); break;
     default:
         print("no handler found for action type:%d\n", type);
@@ -227,6 +228,7 @@ CharType ArithmeticExpression::getCharType(int c) {
     }
     if ( ';' == c) return CT_SEMICOLON;
     if ( '=' == c) return CT_SYMBOL_EQUAL;
+    if ( '!' == c) return CT_EXCLAMATION;
     return CT_UPPER;
 }
 
@@ -265,10 +267,9 @@ void ArithmeticExpression::dia(char* marker) {
     for (const auto& item : m_id_map) {
         print(" m_id_map[\"%s\"]=%f ", item.first.c_str(), item.second);
     }
-    print(" m_id = \"%s\" m_id_spc_occurred = %s m_flg = '%d' m_lp_count = %d m_stmt = %d m_result = %g m_state_next_certained = %s rpn = \"%s\"\n",
+    print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_stmt = %d m_result = %g m_state_next_certained = %s rpn = \"%s\"\n",
           m_id.c_str(),
           m_id_spc_occurred?"true":"false",
-          m_flg,
           m_lp_count,
           m_stmt,
           m_result,
@@ -326,14 +327,12 @@ bool ArithmeticExpression::handleNone()
     return true;
 }
 
-bool ArithmeticExpression::handleFlag()
+bool ArithmeticExpression::handleFlag(char flag)
 {
     print("handing flags ...\n");
-    const char& c = m_arithmetic_expression[m_parse_pos];
-    if ( '-' == c) {
-        m_flg = FLG_NEGATIVE;
-    } else {
-        m_flg = FLG_ACTIVE;
+    if ( '-' == flag) {
+        m_operand_stack.push(-1);
+        m_operator_stack.push('*');
     }
     return true;
 }
@@ -367,11 +366,15 @@ bool ArithmeticExpression::handleOperator(char opr)
         // opr and top are '^', do not calculate immediately.
         if (opr == top && opr == '^') break;
 
+        // right-associative for !, do not calculate immediately, case: !!1
+        if (opr == top && opr == '!') break;
+
+        if (! calculate(top)) return false;
+
         // update rpn
         appendToRpnExpression(top);
         appendToRpnExpression(' ');
 
-        if (! calculate(top)) return false;
         // if calcute success, means cur opr consumed,
         // so pop, and go on to next opr.
         m_operator_stack.pop();
@@ -442,33 +445,10 @@ bool ArithmeticExpression::handleOperand()
     }
 
     double num = int_val + dot_val;
+    m_operand_stack.push(num);
 
-    if (m_flg == FLG_NEGATIVE) {
-        // NOTE: to support conventional math precedence like "-2^2"
-        // we expand "-2^2" as "-1 * 2 ^ 2", so to process "-2",
-        // split into 3 steps:
-        // 1. push -1 => opd_stack
-        // 2. push  2 => opd_stack
-        // 3. push  * => opr_stack
-        m_operand_stack.push(-1);
-        m_operand_stack.push(num);
-        m_operator_stack.push('*');
-        // NOTICE: important, reset m_flg to be +
-        m_flg = FLG_ACTIVE;
-
-        // m_rpn_expression
-        // '*' will be filled by m_operator_stack
-        m_rpn_expression.append(" -1 "+std::to_string(num)+" ");
-
-    } else {
-        m_operand_stack.push(num);
-
-        // m_rpn_expression
-        m_rpn_expression.append(" "+std::to_string(num)+" ");
-    }
-
-    print("m_flg=%d, int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
-        m_flg, int_val, dot_val, dot_occurred ? "yes" : "no");
+    print("int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"\n",
+        int_val, dot_val, dot_occurred ? "yes" : "no");
     return true;
 }
 
@@ -713,6 +693,10 @@ bool ArithmeticExpression::handleSymbolEqual() {
         }
     }
     return true;
+}
+
+bool ArithmeticExpression::handleExclamation() {
+    return handleOperator('!');
 }
 
 // NOTE: for easier maintainance, only modify m_operand_stack when
@@ -989,38 +973,64 @@ bool ArithmeticExpression::calculate(int opr)
         return true;
 
     } else {
-        // two-args opr
-        double r_opd = m_operand_stack.pop();
-        double l_opd = m_operand_stack.pop();
         switch (opr) {
-        case '^': m_operand_stack.push( pow(l_opd,r_opd) ); break;
-        case '+': m_operand_stack.push( l_opd + r_opd ); break;
-        case '-': m_operand_stack.push( l_opd - r_opd ); break;
-        case '*': m_operand_stack.push( l_opd * r_opd ); break;
+        case '^': {
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push( pow(l_opd,r_opd) ); break;
+        }
+        case '+': {
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push( l_opd + r_opd ); break;
+        }
+        case '-': {
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push( l_opd - r_opd ); break;
+        }
+        case '*': {
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push( l_opd * r_opd ); break;
+        }
         case '/': {
+            double r_opd = m_operand_stack.pop();
             if ( 0 == r_opd ) {
                 error("error: divide 0\n");
                 return false;
             }
+            double l_opd = m_operand_stack.pop();
             m_operand_stack.push( l_opd / r_opd);
             break;
         }
         case '>': {
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
             m_operand_stack.push(l_opd > r_opd? 1: 0);
             break;
         }
         case '<': {
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
             m_operand_stack.push(l_opd < r_opd? 1: 0);
             break;
         }
-        case 'e': {
+        case 'e': {             // "=="
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
             m_operand_stack.push(l_opd == r_opd? 1: 0);
             break;
         }
-        default: print("unknown operator='<%c %d>'\n", opr, opr); return false;
+        case '!': {
+            double r_opd = m_operand_stack.pop();
+            m_operand_stack.push(r_opd == 0? 1: 0);
+            break;
         }
-        print("opr='<%c %d>', l_opd=\"%g\", r_opd=\"%g\", rst=\"%g\"\n", opr, opr, l_opd, r_opd, m_operand_stack.top());
-
+        default: {
+            error("error: unsuppored operator='<%c %d>'\n", opr, opr); return false;
+        }
+        }
         return true;
     }
 }
@@ -1057,6 +1067,9 @@ bool ArithmeticExpression::parse()
         dia("parse+");
         ++m_parse_pos;
     }
+
+    print("\n");
+
     // check program terminal state
     if ( ! isOnTerminalState() ) {
         error("error: program in not on terminal state, current state=\"%s\"\n", getCurStateStr());
@@ -1080,7 +1093,7 @@ bool ArithmeticExpression::parse()
     // fulfill m_rpn_expression using operator stack
     int top;
     while ( ! m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
-        dia("[");
+        dia("-post-process");
         const int& top = m_operator_stack.top();
         if ( LOWEST_PRIO_OP != top ) {
             appendToRpnExpression(top);
@@ -1089,7 +1102,7 @@ bool ArithmeticExpression::parse()
         if (! calculate(top)) return false;
         // always pop to go on to next opr
         m_operator_stack.pop();
-        dia("]");
+        dia("post-process+");
     }
     dia("z");
 

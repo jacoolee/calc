@@ -33,6 +33,7 @@ enum CharType
     CT_COMMA,                   // 7
     CT_SEMICOLON,               // 8
     CT_SYMBOL_EQUAL,            // 9
+    CT_EXCLAMATION,             // 10 !
     CT_UPPER                    // upper bound
 };
 
@@ -49,7 +50,8 @@ enum ActionType
     AT_SPC,// 8
     AT_COMMA,// 9
     AT_SEMICOLON, // 10
-    AT_SYMBOL_EQUAL,    // 11
+    AT_SYMBOL_EQUAL, // 11
+    AT_EXCLAMATION, // 11
     AT_UPPER
 };
 
@@ -151,7 +153,7 @@ public:
 private:
     bool handle(char c);
     bool handleNone();
-    bool handleFlag();
+    bool handleFlag(char flag);
     bool handleError();
     bool handleOperator(char opr);
     bool handleOperand();
@@ -162,6 +164,7 @@ private:
     bool handleComma();
     bool handleSemicolon();
     bool handleSymbolEqual();
+    bool handleExclamation();
 
     bool pushIdfValueToOperandStack(std::string idf);
 
@@ -198,7 +201,6 @@ private:
     int m_parse_pos;
     int m_lp_count;
     Stack<int> m_fncmcnt_stack;
-    int m_flg;
 
     std::string m_id;
     std::unordered_map<std::string,double> m_id_map;

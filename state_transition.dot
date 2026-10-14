@@ -21,6 +21,7 @@ digraph G {
         st_bgn -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
         st_bgn -> st_id[label="A-z_", color="orange", fontcolor="orange"];
         st_bgn -> st_end[label="nothing left or ;"];
+        st_bgn -> st_opr[label="!",color="#ff7e79",fontcolor="#ff7e79"];
 
         st_opd -> st_opr[label="+-*/^<> ==", color="#4f8f00", fontcolor="#4f8f00"];
         st_opd -> st_rps[label=")"];
@@ -31,11 +32,13 @@ digraph G {
         st_opr -> st_lps[label="("];
         st_opr -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
         st_opr -> st_id[label="A-z_", color="orange", fontcolor="orange"];
+        st_opr -> st_opr[label="!",color="#ff7e79",fontcolor="#ff7e79"];
 
         st_lps -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
         st_lps -> st_lps[label="("];
         st_lps -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
         st_lps -> st_id[label="A-z_", color="orange", fontcolor="orange"];
+        st_lps -> st_opr[label="!",color="#ff7e79",fontcolor="#ff7e79"];
 
         st_rps -> st_opr[label="+-*/^<> ==", color="#4f8f00", fontcolor="#4f8f00"];
         st_rps -> st_rps[label=")"];
@@ -44,17 +47,16 @@ digraph G {
 
         st_flg -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
         st_flg -> st_id[label="A-z_", color="orange", fontcolor="orange"];
+        st_flg -> st_opr[label="!",color="#ff7e79",fontcolor="#ff7e79"];
 
         st_id -> st_id[label="[A-z0-9_]+", color="orange", fontcolor="orange"];
         st_id -> st_bgn[label="("];
-
         st_id -> st_opr[label="+-*/^<> ==", color="#4f8f00", fontcolor="#4f8f00"];
         st_id -> st_rps[label=")"];
         st_id -> st_bgn[label=",", color="green", fontcolor="green"];
         st_id -> st_end[label="nothing left or ;"];
+        st_id -> st_bgn[label="= (assign-stmt)", color="purple", fontcolor="purple"];
 
         st_end -> st_bgn[label="chars left"];
-
-        st_id -> st_bgn[label="= (assign-stmt)", color="purple", fontcolor="purple"];
     }
 }
