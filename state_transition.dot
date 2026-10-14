@@ -23,7 +23,7 @@ digraph G {
         st_bgn -> st_end[label="nothing left or ;"];
         st_bgn -> st_opr[label="!",color="#ff7e79",fontcolor="#ff7e79"];
 
-        st_opd -> st_opr[label="+-*/^<> ==", color="#4f8f00", fontcolor="#4f8f00"];
+        st_opd -> st_opr[label="+-*/^<> == &&", color="#4f8f00", fontcolor="#4f8f00"];
         st_opd -> st_rps[label=")"];
         st_opd -> st_bgn[label=",", color="green", fontcolor="green"];
         st_opd -> st_end[label="nothing left or ;"];
@@ -40,7 +40,7 @@ digraph G {
         st_lps -> st_id[label="A-z_", color="orange", fontcolor="orange"];
         st_lps -> st_opr[label="!",color="#ff7e79",fontcolor="#ff7e79"];
 
-        st_rps -> st_opr[label="+-*/^<> ==", color="#4f8f00", fontcolor="#4f8f00"];
+        st_rps -> st_opr[label="+-*/^<> == &&", color="#4f8f00", fontcolor="#4f8f00"];
         st_rps -> st_rps[label=")"];
         st_rps -> st_bgn[label=",", color="green", fontcolor="green"];
         st_rps -> st_end[label="nothing left or ;"];
@@ -51,7 +51,7 @@ digraph G {
 
         st_id -> st_id[label="[A-z0-9_]+", color="orange", fontcolor="orange"];
         st_id -> st_bgn[label="("];
-        st_id -> st_opr[label="+-*/^<> ==", color="#4f8f00", fontcolor="#4f8f00"];
+        st_id -> st_opr[label="+-*/^<> == &&", color="#4f8f00", fontcolor="#4f8f00"];
         st_id -> st_rps[label=")"];
         st_id -> st_bgn[label=",", color="green", fontcolor="green"];
         st_id -> st_end[label="nothing left or ;"];

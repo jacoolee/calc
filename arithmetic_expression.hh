@@ -32,8 +32,9 @@ enum CharType
     CT_ALP,                     // 6
     CT_COMMA,                   // 7
     CT_SEMICOLON,               // 8
-    CT_SYMBOL_EQUAL,            // 9
-    CT_EXCLAMATION,             // 10 !
+    CT_SYMBOL_EQUAL,            // =
+    CT_SYMBOL_AMPERSAND,        // &
+    CT_EXCLAMATION,             // !
     CT_UPPER                    // upper bound
 };
 
@@ -51,7 +52,8 @@ enum ActionType
     AT_COMMA,// 9
     AT_SEMICOLON, // 10
     AT_SYMBOL_EQUAL, // 11
-    AT_EXCLAMATION, // 11
+    AT_SYMBOL_AMPERSAND,
+    AT_EXCLAMATION,
     AT_UPPER
 };
 
@@ -166,6 +168,7 @@ private:
     bool handleComma();
     bool handleSemicolon();
     bool handleSymbolEqual();
+    bool handleSymbolAmpersand();
     bool handleExclamation();
 
     bool pushIdfValueToOperandStack(std::string idf);
