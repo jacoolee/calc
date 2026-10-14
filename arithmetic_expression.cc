@@ -126,6 +126,7 @@ ArithmeticExpression::m_function_meta[FNN_UPPER] = {
     { "int", 1, 1 },
     { "max", 2, 1 },
     { "min", 2, 1 },
+    { "cmp", 3, 0 },
 
     {"printid", 1, 0},
     { "result", 1, 0},
@@ -559,7 +560,7 @@ bool ArithmeticExpression::handleAlpha(char _c) {
     int size = m_arithmetic_expression.size();
     while ( m_parse_pos < size ) {
         c = m_arithmetic_expression[m_parse_pos];
-        if (getCharType(c) != CT_ALP) {
+        if (!(getCharType(c) == CT_ALP || (c >= '0' && c <= '9'))) {
             break;
         }
         m_id.push_back(c);
@@ -926,7 +927,7 @@ bool ArithmeticExpression::calculate(int opr)
         }
         case MAX: {
             int args_count = fncmcnt + 1;
-            float v = FLT_MIN;
+            double v = FLT_MIN;
             int opd;
             while (!m_operand_stack.empty() && args_count--) {
                 opd = m_operand_stack.pop();
@@ -941,7 +942,7 @@ bool ArithmeticExpression::calculate(int opr)
         }
         case MIN: {
             int args_count = fncmcnt + 1;
-            float v = FLT_MAX;
+            double v = FLT_MAX;
             int opd;
             while (!m_operand_stack.empty() && args_count--) {
                 opd = m_operand_stack.pop();
@@ -951,6 +952,18 @@ bool ArithmeticExpression::calculate(int opr)
                 error("error: no args found in operand stack, should not happen\n");
                 return false;
             }
+            m_operand_stack.push(v);
+            break;
+        }
+        case CMP: {
+            if (m_operand_stack.count() < 3) {
+                error("cpm(v1,v2,v3) expects three operands, while %d left\n", m_operand_stack.count());
+                return false;
+            }
+            double v3 = m_operand_stack.pop();
+            double v2 = m_operand_stack.pop();
+            double v1 = m_operand_stack.pop();
+            double v = v1 != 0? v2: v3;
             m_operand_stack.push(v);
             break;
         }

@@ -128,6 +128,8 @@ enum FNN
     MAX,
     MIN,
 
+    CMP,
+
     PRINTID,
     RESULT,
 
