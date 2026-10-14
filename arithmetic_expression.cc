@@ -65,14 +65,14 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // //    the second item is the type of process action of the transition                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
-    //              CT_WHITESPACE     CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_COMMA            CT_SEMICOLON            CT_SYMBOL_EQUAL           CT_SYMBOL_AMPERSAND            CT_EXCLAMATION
-    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_SEMICOLON, ST_END}, {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_EXCLAMATION, ST_OPR}},
-    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_EXCLAMATION, ST_OPR}},
-    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_ERR, ST_ERR}},
-    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_EXCLAMATION, ST_OPR}},
-    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_ERR, ST_ERR}},
-    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_EXCLAMATION, ST_OPR}},
-    /* ST_IDF */ {{AT_SPC, ST_IDF}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_ERR, ST_ERR}},
+    //              CT_WHITESPACE     CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_COMMA            CT_SEMICOLON            CT_SYMBOL_EQUAL           CT_SYMBOL_AMPERSAND            CT_SYMBOL_VBAR            CT_EXCLAMATION
+    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_SEMICOLON, ST_END}, {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}},
+    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}},
+    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR}},
+    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}},
+    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR}},
+    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}},
+    /* ST_IDF */ {{AT_SPC, ST_IDF}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_END}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR}},
 };
 
 ArithmeticExpression::FunctionMeta
@@ -156,7 +156,8 @@ int ArithmeticExpression::getPriority(char c)
     case '>':
     case '<': return 11;
     case 'e': return 9;
-    case 'a': return 5;
+    case 'a':
+    case 'o': return 5;
     case LOWEST_PRIO_OP: return 0;
     default: return 0;
     }
@@ -178,6 +179,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_SEMICOLON: rc = handleSemicolon(); break;
     case AT_SYMBOL_EQUAL: rc = handleSymbolEqual(); break;
     case AT_SYMBOL_AMPERSAND: rc = handleSymbolAmpersand(); break;
+    case AT_SYMBOL_VBAR: rc = handleSymbolVbar(); break;
     case AT_EXCLAMATION: rc = handleExclamation(); break;
     case AT_ERR: rc = handleError(); break;
     default:
@@ -227,6 +229,7 @@ CharType ArithmeticExpression::getCharType(int c) {
     if ( ';' == c) return CT_SEMICOLON;
     if ( '=' == c) return CT_SYMBOL_EQUAL;
     if ( '&' == c) return CT_SYMBOL_AMPERSAND;
+    if ( '|' == c) return CT_SYMBOL_VBAR;
     if ( '!' == c) return CT_EXCLAMATION;
     return CT_UPPER;
 }
@@ -714,7 +717,28 @@ bool ArithmeticExpression::handleSymbolAmpersand() {
     return true;
 }
 
+bool ArithmeticExpression::handleSymbolVbar() {
+    dia("-handleSymbolVbar");
+
+    // ||
+    bool hasAtLeastTwoSymbolVbar = (m_parse_pos+1) < m_arithmetic_expression.size() && m_arithmetic_expression[m_parse_pos+1] == '|';
+
+    if (hasAtLeastTwoSymbolVbar) {
+        // treat it as '||' operator
+        ++m_parse_pos;
+        m_state_next_certained = ST_OPR;
+        return handleOperator('o'); // or
+    } else {
+        error("error: single '|' not supported yet\n");
+        dia("handleSymbolVbar+");
+        return false;
+    }
+    dia("handleSymbolVbar+");
+    return true;
+}
+
 bool ArithmeticExpression::handleExclamation() {
+    // TODO: handleExclamation is useless, use handleOperator directly
     return handleOperator('!');
 }
 
@@ -1057,6 +1081,12 @@ bool ArithmeticExpression::calculate(int opr)
             double r_opd = m_operand_stack.pop();
             double l_opd = m_operand_stack.pop();
             m_operand_stack.push(l_opd !=0 && r_opd != 0? 1: 0);
+            break;
+        }
+        case 'o': {             // "||" and
+            double r_opd = m_operand_stack.pop();
+            double l_opd = m_operand_stack.pop();
+            m_operand_stack.push(l_opd !=0 || r_opd != 0? 1: 0);
             break;
         }
         case '!': {

@@ -34,6 +34,7 @@ enum CharType
     CT_SEMICOLON,               // 8
     CT_SYMBOL_EQUAL,            // =
     CT_SYMBOL_AMPERSAND,        // &
+    CT_SYMBOL_VBAR,             // |
     CT_EXCLAMATION,             // !
     CT_UPPER                    // upper bound
 };
@@ -53,6 +54,7 @@ enum ActionType
     AT_SEMICOLON, // 10
     AT_SYMBOL_EQUAL, // 11
     AT_SYMBOL_AMPERSAND,
+    AT_SYMBOL_VBAR,
     AT_EXCLAMATION,
     AT_UPPER
 };
@@ -169,6 +171,7 @@ private:
     bool handleSemicolon();
     bool handleSymbolEqual();
     bool handleSymbolAmpersand();
+    bool handleSymbolVbar();
     bool handleExclamation();
 
     bool pushIdfValueToOperandStack(std::string idf);
