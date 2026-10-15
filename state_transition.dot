@@ -1,18 +1,18 @@
 digraph G {
-
     rankdir=LR;
-
     {
-
         st_start [shape=circle,peripheries=2,style=filled, label="Start"]
         st_bgn [shape=circle,peripheries=2,style=filled,label="st_bgn"]
         st_opr [shape=circle,peripheries=2,color="#4f8f00",style=filled,label="st_opr"]
         st_opd [shape=circle,peripheries=2,color="#ff8ad8",style=filled,label="st_opd"]
         st_lps [shape=circle,peripheries=2,color="lightblue",style=filled,label="st_lps"]
         st_rps [shape=circle,peripheries=2,color="lightblue",style=filled,label="st_rps"]
+        st_lcb [shape=circle,peripheries=2,color="lightgreen",style=filled,label="st_lcb"]
+        st_rcb [shape=circle,peripheries=2,color="lightgreen",style=filled,label="st_rcb"]
         st_flg [shape=circle,peripheries=2,color="cyan",style=filled,label="st_flg"]
         st_id  [shape=circle,peripheries=2,color="orange",style=filled,label="st_id"]
-        st_end [shape=circle,peripheries=2,style=filled,label="st_end"]
+        st_stt [shape=circle,peripheries=2,color="#7a81ff",style=filled,label="st_stt"] // statement terminal
+        st_fin [shape=circle,peripheries=2,style=filled,label="Final"]
 
         st_start -> st_bgn;
 
@@ -20,13 +20,17 @@ digraph G {
         st_bgn -> st_lps[label="("];
         st_bgn -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
         st_bgn -> st_id[label="A-z_", color="orange", fontcolor="orange"];
-        st_bgn -> st_end[label="nothing left or ;"];
         st_bgn -> st_opr[label="!",color="#ff7e79",fontcolor="#ff7e79"];
+        st_bgn -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
+        st_bgn -> st_fin[label="'\\0'"];
 
         st_opd -> st_opr[label="+-*/^<> == && ||", color="#4f8f00", fontcolor="#4f8f00"];
         st_opd -> st_rps[label=")"];
         st_opd -> st_bgn[label=",", color="green", fontcolor="green"];
-        st_opd -> st_end[label="nothing left or ;"];
+        st_opd -> st_lcb[label="{ (with stmt==if)"];
+        st_opd -> st_rcb[label="}"];
+        st_opd -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
+        st_opd -> st_fin[label="'\\0'"];
 
         st_opr -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
         st_opr -> st_lps[label="("];
@@ -43,7 +47,10 @@ digraph G {
         st_rps -> st_opr[label="+-*/^<> == && ||", color="#4f8f00", fontcolor="#4f8f00"];
         st_rps -> st_rps[label=")"];
         st_rps -> st_bgn[label=",", color="green", fontcolor="green"];
-        st_rps -> st_end[label="nothing left or ;"];
+        st_rps -> st_lcb[label="{ (with stmt==if)"];
+        st_rps -> st_rcb[label="}"];
+        st_rps -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
+        st_rps -> st_fin[label="'\\0'"];
 
         st_flg -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
         st_flg -> st_id[label="A-z_", color="orange", fontcolor="orange"];
@@ -54,9 +61,18 @@ digraph G {
         st_id -> st_opr[label="+-*/^<> == && ||", color="#4f8f00", fontcolor="#4f8f00"];
         st_id -> st_rps[label=")"];
         st_id -> st_bgn[label=",", color="green", fontcolor="green"];
-        st_id -> st_end[label="nothing left or ;"];
-        st_id -> st_bgn[label="= (assign-stmt)", color="purple", fontcolor="purple"];
+        st_id -> st_bgn[label="= (stmt:assign)", color="purple", fontcolor="purple"];
+        st_id -> st_bgn[label="SPC with id==\"if\" (stmt:if)", color="red", fontcolor="red"];
+        st_id -> st_lcb[label="{ (with stmt==if)"];
+        st_id -> st_rcb[label="}"];
+        st_id -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
+        st_id -> st_fin[label="'\\0'"];
 
-        st_end -> st_bgn[label="chars left"];
+        st_lcb -> st_bgn[label="auto switch"];
+        st_lcb -> st_rcb[label="}"];
+
+        st_stt -> st_bgn[label="chars left"];
+        st_stt -> st_rcb[label="}"];
+        st_stt -> st_fin[label="'\\0'"];
     }
 }
