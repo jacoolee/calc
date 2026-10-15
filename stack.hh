@@ -30,7 +30,7 @@ public:
         printf("[");
         for (int i=0; i< m_sp+1; i++) {
             T& x = m_tunk[i];
-            printf("<%f,%d,'%c'> ", x,x,x);
+            printf("<%f,%d,'%c'> ", (float)x,(int)x,(char)x);
         }
         printf("]");
     }

@@ -17,7 +17,7 @@ enum State
     ST_IDF,//6
     ST_UNC,                     // 7,uncertain, more needed to determine state
     ST_ERR,//8
-    ST_END,//9
+    ST_STT,//9
     ST_UPPER//10 // upper bound
 };
 
@@ -182,14 +182,14 @@ private:
     int fnn2fni(const std::string& fnn);
     std::string fni2fnn(const int fni);
 
-    void dia(char* marker);
+    void dia(const std::string& marker);
     void appendToRpnExpression(char c);
 
     bool isOnTerminalState() const {
         return (ST_OPD == m_state ||
                 ST_RPS == m_state ||
                 ST_IDF == m_state ||
-                ST_END == m_state ||
+                ST_STT == m_state ||
                 ST_BGN == m_state);
     }
 
