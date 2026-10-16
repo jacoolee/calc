@@ -134,6 +134,9 @@
 0 = x=0; r=0; if x { r=2; } result(r);
 2 = x=1; r=0; if x { r=2; } result(r);
 
+2 = x=0; r=0; if !x { r=2; } result(r);
+0 = x=1; r=0; if !x { r=2; } result(r);
+
 2 = x=1; r=0; if x > 0 { r=2; } else { r=3; } result(r);
 2 = x=0; r=0; if x == 0 { r=2; } else { r=3; } result(r);
 3 = x=0; r=0; if x < 0 { r=2; } else { r=3; } result(r);

@@ -835,15 +835,16 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
     print("handleLeftCurlyBrace: calculate all oprs");
 
+    // NOTE: process case "if|elif idf {}" specifically
+    // get opd stack well-prepared before calculate with opr stack.
+    if (m_operand_stack.empty() && !m_id.empty() && ( m_id != "else" )) {
+        if (!pushIdfValueToOperandStack(m_id)) return false;
+    }
+
     int top;
     while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
         if (!calculate(top)) return false;
         m_operator_stack.pop();
-    }
-
-    // NOTE: process case "if idf {}" specifically
-    if (m_operand_stack.empty() && !m_id.empty() && ( m_id != "else" )) {
-        if (!pushIdfValueToOperandStack(m_id)) return false;
     }
 
     dia("-:handleLeftCurlyBrace:after-calculate");

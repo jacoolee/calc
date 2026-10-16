@@ -261,7 +261,7 @@ private:
     } FunctionMeta;
     static FunctionMeta m_function_meta[FNN_UPPER];
 
-    double m_result;            // TODO: normalize its definition
+    double m_result;            // TODO: buggy - normalize its definition
 };
 
 #endif /* INCLUDE_CALCULATOR_HPP */
