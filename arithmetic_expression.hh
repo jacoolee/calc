@@ -17,6 +17,7 @@ enum State
     ST_IDF,//6
     ST_UNC,                     // 7,uncertain, more needed to determine state
     ST_LCB,
+    ST_RCB,
     ST_ERR,//8
     ST_STT,//9
     ST_UPPER//10 // upper bound
@@ -38,6 +39,7 @@ enum CharType
     CT_SYMBOL_VBAR,             // |
     CT_EXCLAMATION,             // !
     CT_LCB,                     // {
+    CT_RCB,                     // }
     CT_UPPER                    // upper bound
 };
 
@@ -59,6 +61,7 @@ enum ActionType
     AT_SYMBOL_VBAR,
     AT_EXCLAMATION,
     AT_LCB,
+    AT_RCB,
     AT_UPPER
 };
 
@@ -179,6 +182,7 @@ private:
     bool handleSymbolVbar();
     bool handleExclamation();
     bool handleLeftCurlyBrace();
+    bool handleRightCurlyBrace();
 
     bool pushIdfValueToOperandStack(std::string idf);
 
@@ -192,16 +196,21 @@ private:
     void appendToRpnExpression(char c);
 
     bool isOnTerminalState() const {
-        return (ST_OPD == m_state ||
-                ST_RPS == m_state ||
-                ST_IDF == m_state ||
-                ST_STT == m_state ||
-                ST_BGN == m_state);
+        return (
+            ST_BGN == m_state
+            || ST_OPD == m_state
+            || ST_IDF == m_state
+            || ST_RPS == m_state
+            || ST_RCB == m_state
+            || ST_STT == m_state
+            );
     }
 
     int getPriority(char c);
     CharType getCharType(int c);
     const char* getStateStr(State) const;
+
+    bool findBalancedRightCurlyBraceAndSkipToIt();
 
 private:
     Stack<double> m_operand_stack;

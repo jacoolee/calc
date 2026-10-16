@@ -72,6 +72,7 @@ ArithmeticExpression::m_state_info[] = {
     {ST_IDF, "ST_IDF"},
     {ST_UNC, "ST_UNC(ertain)"},
     {ST_LCB, "ST_LCB"},
+    {ST_RCB, "ST_RCB"},
     {ST_ERR, "ST_ERR"},
     {ST_STT, "ST_STT"},         // statement terminal
     // to add
@@ -89,14 +90,15 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // //    the second item is the type of process action of the transition                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
-    //              CT_WHITESPACE     CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_COMMA            CT_SEMICOLON            CT_SYMBOL_EQUAL           CT_SYMBOL_AMPERSAND            CT_SYMBOL_VBAR            CT_EXCLAMATION            CT_LCB
-    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_SEMICOLON, ST_STT}, {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}},
-    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}},
-    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_STT}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}},
-    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}},
-    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_STT}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}},
-    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}},
-    /* ST_IDF */ {{AT_SPC, ST_UNC}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_STT}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}},
+    //             CT_WHITESPACE     CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_COMMA            CT_SEMICOLON ;          CT_SYMBOL_EQUAL =          CT_SYMBOL_AMPERSAND &          CT_SYMBOL_VBAR |          CT_EXCLAMATION !          CT_LCB {          CT_RCB }
+    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_SEMICOLON, ST_STT}, {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}, {AT_RCB, ST_RCB}},
+    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_STT}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
+    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_STT}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
+    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_IDF */ {{AT_SPC, ST_UNC}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_STT}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
+    /* ST_LCB */ {{AT_NON, ST_LCB}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_BGN}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_SEMICOLON, ST_STT}, {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}, {AT_NON, ST_UNC}},
 };
 
 ArithmeticExpression::FunctionMeta
@@ -206,6 +208,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_SYMBOL_VBAR: rc = handleSymbolVbar(); break;
     case AT_EXCLAMATION: rc = handleExclamation(); break;
     case AT_LCB: rc = handleLeftCurlyBrace(); break;
+    case AT_RCB: rc = handleRightCurlyBrace(); break;
     case AT_ERR: rc = handleError(); break;
     default:
         print("no handler found for action type:%d", type);
@@ -257,6 +260,7 @@ CharType ArithmeticExpression::getCharType(int c) {
     if ( '|' == c) return CT_SYMBOL_VBAR;
     if ( '!' == c) return CT_EXCLAMATION;
     if ( '{' == c) return CT_LCB;
+    if ( '}' == c) return CT_RCB;
     return CT_UPPER;
 }
 
@@ -295,10 +299,11 @@ void ArithmeticExpression::dia(const std::string& marker) {
     for (const auto& item : m_id_map) {
         __print(" m_id_map[\"%s\"]=%f ", item.first.c_str(), item.second);
     }
-    __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_stmt = %d m_result = %g m_state_next_certained = %s rpn = \"%s\"\n",
+    __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_stmt = %d m_result = %g m_state_next_certained = %s rpn = \"%s\"\n",
             m_id.c_str(),
             m_id_spc_occurred?"true":"false",
             m_lp_count,
+            m_lcb_count,
             m_stmt,
             m_result,
             getStateStr(m_state_next_certained),
@@ -427,7 +432,7 @@ bool ArithmeticExpression::handleOperator(char opr)
 bool ArithmeticExpression::handleError()
 {
     dia("-handleError");
-    error("error occurs pos=\"%d\", c='%c', raw=\"%s\"",
+    error("invalid syntax error: pos=\"%d\", c='%c', raw=\"%s\"",
           m_parse_pos,
           m_arithmetic_expression[m_parse_pos],
           m_arithmetic_expression.c_str());
@@ -798,6 +803,7 @@ bool ArithmeticExpression::handleExclamation() {
 
 bool ArithmeticExpression::handleLeftCurlyBrace() {
     print("TODO handleLeftCurlyBrace");
+
     ++m_lcb_count;
     m_state_next_certained = ST_BGN;
 
@@ -805,14 +811,67 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         // TODO: check condition is true or false
         double top = m_operand_stack.pop();
         if (top != 0) {
+            m_stmt = STMT_IF_BLOCK;
             print("TODO: to process if-block");
         } else {
-            print("TODO: ignore if-block");
+            print("TODO: to ignore if-block, just skip to balanced '}', no syntax check for skipped content");
+            if (!findBalancedRightCurlyBraceAndSkipToIt()) {
+                error("no balanced } found");
+                return false;
+            }
         }
-        // TODO
-
-        m_stmt = STMT_IF_BLOCK;
     }
+    return true;
+}
+
+bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt() {
+    int size = m_arithmetic_expression.size();
+    int n_skiped_lcb = 0;
+    bool found = false;
+
+    // starting from next char right after current '{'
+    while (++m_parse_pos < size) {
+        const char& c = m_arithmetic_expression.at(m_parse_pos);
+        print("findBalancedRightCurlyBraceAndSkipToIt: c='%c'", c);
+
+        switch(c) {
+        case '{': ++n_skiped_lcb; break;
+        case '}': --n_skiped_lcb; break;
+        default: break;
+        }
+        if (n_skiped_lcb == -1) { // balanced } for starting '{' found
+            print("balanced } found");
+            dia("balanced-}-found");
+            found = true;
+            break;
+        }
+    }
+
+    if (found) {
+        print("findBalancedRightCurlyBraceAndSkipToIt: } found:%d", (int)found);
+        --m_parse_pos;          // restore '}', so parse get chance to process it
+    }
+
+    return found;
+}
+
+bool ArithmeticExpression::handleRightCurlyBrace() {
+    print("TODO handleRightCurlyBrace");
+    if (m_lcb_count == 0) {
+        error("no balanced left curly brace found");
+        return false;
+    }
+    --m_lcb_count;
+
+    // chars left, goto st_bgn
+    if (m_state == ST_STT && m_parse_pos < m_arithmetic_expression.size()-1) {
+        m_state = ST_BGN;
+        // extra: reset m_result;
+        m_result = NAN;
+    }
+
+    m_stmt = STMT_NON;
+
     return true;
 }
 
@@ -1085,7 +1144,7 @@ bool ArithmeticExpression::calculate(int opr)
         }
         case PRINTID: {
             // TODO: check conditon fit
-            printf("PRINTID: key=\"%s\", value=%g\n ", m_id.c_str(), m_id_map[m_id]);
+            printf("PRINTID: key=\"%s\", value=%g\n", m_id.c_str(), m_id_map[m_id]);
             break;
         }
         case RESULT: {
