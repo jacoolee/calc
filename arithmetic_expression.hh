@@ -70,7 +70,9 @@ enum StmtType {
     STMT_NON, // 0
     STMT_ASSIGN,
     STMT_IF_COND,
+    STMT_ELIF_COND,
     STMT_IF_BLOCK,
+    STMT_ELIF_BLOCK,
     STMT_ELSE_BLOCK,
 };
 
@@ -236,7 +238,7 @@ private:
 
     int m_stmt;
     std::string m_stmt_assign_key;
-    std::unordered_map<int,int> m_stmt_if_cond;
+    std::unordered_map<int,std::vector<int>> m_stmt_if_cond;
 
     std::string m_rpn_expression;
 

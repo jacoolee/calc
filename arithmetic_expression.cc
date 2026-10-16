@@ -307,8 +307,13 @@ void ArithmeticExpression::dia(const std::string& marker) {
     }
 
     for (const auto& item : m_stmt_if_cond) {
-        __print(" m_stmt_if_cond[\"%d\"]=%d ", item.first, item.second);
+        __print(" m_stmt_if_cond[\"%d\"]=[", item.first);
+        for (int x : item.second) {
+            __print("%d ", x);
+        }
+        __print("]");
     }
+
     __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_stmt = %d m_result = %g m_state_next_certained = %s rpn = \"%s\"\n",
             m_id.c_str(),
             m_id_spc_occurred?"true":"false",
@@ -413,7 +418,7 @@ bool ArithmeticExpression::pushIdfValueToOperandStack(std::string idf) {
 
 bool ArithmeticExpression::handleOperator(char opr)
 {
-    dia("-handleOperator");
+    dia("-:handleOperator");
 
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
@@ -447,13 +452,13 @@ bool ArithmeticExpression::handleOperator(char opr)
     print("pushing operator:'%c', rpn:\"%s\"", opr, m_rpn_expression.c_str());
     m_operator_stack.push(opr);
 
-    dia("handleOperator+");
+    dia("handleOperator:+");
     return true;
 }
 
 bool ArithmeticExpression::handleError()
 {
-    dia("-handleError");
+    dia("-:handleError");
     error("invalid syntax error: pos=\"%d\", c='%c', raw=\"%s\"",
           m_parse_pos,
           m_arithmetic_expression[m_parse_pos],
@@ -527,6 +532,9 @@ bool ArithmeticExpression::handleLeftParenthesis()
         if (m_id == "if") {     // keyword
             ++m_lp_count;
 
+        } else if (m_id == "elif") {     // keyword
+            ++m_lp_count;
+
         } else {
             int fni = fnn2fni(m_id);
             if (fni == FNN_UPPER) {
@@ -568,7 +576,7 @@ bool ArithmeticExpression::handleRightParenthesis()
 
     // pop till '(' or 'f'
     while ( ! m_operator_stack.empty()) {
-        dia("-handleRightParenthesis");
+        dia("-:handleRightParenthesis");
 
         int top = m_operator_stack.top();
         if (top == '(') {
@@ -603,7 +611,7 @@ bool ArithmeticExpression::handleRightParenthesis()
             appendToRpnExpression(' ');
         }
 
-        dia("handleRightParenthesis+");
+        dia("handleRightParenthesis:+");
     }
 
     // DO NOT save this operator:')' into stack
@@ -615,6 +623,10 @@ bool ArithmeticExpression::handleAlpha(char _c) {
 
     // for case "id<SPC+>id"
     if (m_id_spc_occurred) {
+        if (m_id == "else") {
+            error("identifer can not follow keyword: \"%s\"", m_id.c_str());
+            return false;
+        }
         error("space not allow between alphas");
         return false;
     }
@@ -641,7 +653,7 @@ bool ArithmeticExpression::handleAlpha(char _c) {
 
     m_id_spc_occurred = false;
 
-    dia("handleAlpha+");
+    dia("handleAlpha:+");
 
     return true;
 }
@@ -650,6 +662,9 @@ bool ArithmeticExpression::handleSpace() {
     if (m_state == ST_IDF) {
         if (m_id == "if") {
             m_stmt = STMT_IF_COND;
+            m_state_next_certained = ST_BGN;
+        } else if (m_id == "elif") {
+            m_stmt = STMT_ELIF_COND;
             m_state_next_certained = ST_BGN;
         } else {
             m_id_spc_occurred = true;
@@ -670,9 +685,9 @@ bool ArithmeticExpression::handleComma() {
 
     int top;
     while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != 'f') {
-        dia("-handleComma");
+        dia("-:handleComma");
         if(!calculate(top)) return false;
-        dia("handleComma+");
+        dia("handleComma:+");
         m_operator_stack.pop();
     }
     if (m_operator_stack.empty()) {
@@ -689,7 +704,7 @@ bool ArithmeticExpression::handleComma() {
 
 bool ArithmeticExpression::handleSemicolon() {
     print("TODO: handleSemicolon should consume everything.");
-    dia("-handleSemicolon");
+    dia("-:handleSemicolon");
 
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
@@ -704,7 +719,7 @@ bool ArithmeticExpression::handleSemicolon() {
         return false;
     }
 
-    dia("-handleSemicolon+1");
+    dia("-:handleSemicolon+1");
 
     int top;
     while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
@@ -735,13 +750,13 @@ bool ArithmeticExpression::handleSemicolon() {
         m_result = m_operand_stack.pop();
     }
 
-    dia("handleSemicolon+");
+    dia("handleSemicolon:+");
 
     return true;
 }
 
 bool ArithmeticExpression::handleSymbolEqual() {
-    dia("-handleSymbolEqual");
+    dia("-:handleSymbolEqual");
 
     // = or ==
     bool hasAtLeastTwoSymbolEqual = (m_parse_pos+1) < m_arithmetic_expression.size() && m_arithmetic_expression[m_parse_pos+1] == '=';
@@ -769,7 +784,7 @@ bool ArithmeticExpression::handleSymbolEqual() {
 }
 
 bool ArithmeticExpression::handleSymbolAmpersand() {
-    dia("-handleSymbolAmpersand");
+    dia("-:handleSymbolAmpersand");
 
     // &&
     bool hasAtLeastTwoSymbolAmpersand = (m_parse_pos+1) < m_arithmetic_expression.size() && m_arithmetic_expression[m_parse_pos+1] == '&';
@@ -781,15 +796,15 @@ bool ArithmeticExpression::handleSymbolAmpersand() {
         return handleOperator('a'); // and
     } else {
         error("single '&' not supported yet");
-        dia("handleSymbolAmpersand+");
+        dia("handleSymbolAmpersand:+");
         return false;
     }
-    dia("handleSymbolAmpersand+");
+    dia("handleSymbolAmpersand:+");
     return true;
 }
 
 bool ArithmeticExpression::handleSymbolVbar() {
-    dia("-handleSymbolVbar");
+    dia("-:handleSymbolVbar");
 
     // ||
     bool hasAtLeastTwoSymbolVbar = (m_parse_pos+1) < m_arithmetic_expression.size() && m_arithmetic_expression[m_parse_pos+1] == '|';
@@ -801,10 +816,10 @@ bool ArithmeticExpression::handleSymbolVbar() {
         return handleOperator('o'); // or
     } else {
         error("single '|' not supported yet");
-        dia("handleSymbolVbar+");
+        dia("handleSymbolVbar:+");
         return false;
     }
-    dia("handleSymbolVbar+");
+    dia("handleSymbolVbar:+");
     return true;
 }
 
@@ -814,13 +829,48 @@ bool ArithmeticExpression::handleExclamation() {
 }
 
 bool ArithmeticExpression::handleLeftCurlyBrace() {
+    dia("-:handleLeftCurlyBrace");
+
     print("TODO handleLeftCurlyBrace: m_stmt=%d", m_stmt);
-    dia("-handleLeftCurlyBrace");
+
+    print("handleLeftCurlyBrace: calculate all oprs");
+
+    int top;
+    while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
+        if (!calculate(top)) return false;
+        m_operator_stack.pop();
+    }
+
+    // NOTE: process case "if idf {}" specifically
+    if (m_operand_stack.empty() && !m_id.empty() && ( m_id != "else" )) {
+        if (!pushIdfValueToOperandStack(m_id)) return false;
+    }
+
+    dia("-:handleLeftCurlyBrace:after-calculate");
+
+    if (m_id_spc_occurred) m_id_spc_occurred = false;
+
     m_state_next_certained = ST_BGN;
+
+    // NOTE: clear m_stmt_if_cond
+    // for those key larger than m_lcb_count, clear the value
+    // TODO: maybe just clean vector value is good enough, for later reuse.
+
+    for (auto it = m_stmt_if_cond.begin(); it != m_stmt_if_cond.end();) {
+        if (it->first > m_lcb_count) {
+            print("NOTE: erase m_stmt_if_cond[%d], coz m_lcb_count=%d", it->first, m_lcb_count);
+            it = m_stmt_if_cond.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // check conditions
+    std::vector<int>& v = m_stmt_if_cond[m_lcb_count];
+
     if (m_stmt == STMT_IF_COND) {
-        // TODO: check condition is true or false
-        double cond = m_operand_stack.pop();
-        m_stmt_if_cond[m_lcb_count] = cond;
+        int cond = m_operand_stack.pop() != 0? 1: 0;
+        v.push_back(cond);
 
         if (cond != 0) {
             m_stmt = STMT_IF_BLOCK;
@@ -828,23 +878,66 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         } else {
             print("TODO: to ignore if-block, just skip to balanced '}', no syntax check for skipped content");
             if (!findBalancedRightCurlyBraceAndSkipToIt()) {
-                error("no balanced } found");
+                error("if: no balanced } found");
                 return false;
             }
         }
+    } else if (m_stmt == STMT_ELIF_COND) {
+        if (v.size() == 0) {
+            error("elif statement must follow if-statement");
+            return false;
+        }
+
+        double elif_cond = m_operand_stack.pop() !=0? 1: 0;
+
+        bool pre_cond_all_zero = true;
+        for (int i = 0; i < v.size(); i++) {
+            if (v[i] != 0) {
+                pre_cond_all_zero = false;
+                break;
+            }
+        }
+
+        // always record elif_cond
+        v.push_back(elif_cond);
+
+        int cond = (pre_cond_all_zero == true && elif_cond != 0)? 1: 0;
+
+        if (cond != 0) {
+            m_stmt = STMT_ELIF_BLOCK;
+            print("TODO: to process elif-block");
+        } else {
+            print("TODO: to ignore elif-block, just skip to balanced '}', no syntax check for skipped content");
+            if (!findBalancedRightCurlyBraceAndSkipToIt()) {
+                error("elif: no balanced } found");
+                return false;
+            }
+        }
+
     } else {
         if (m_id == "else") {
+            if (v.size() == 0) {
+                error("else statement must follow if-statement");
+                return false;
+            }
+
             if (m_id_spc_occurred) m_id_spc_occurred = false;
 
-            double cond = !m_stmt_if_cond[m_lcb_count];
+            bool pre_cond_all_zero = true;
+            for (int i = 0; i < v.size(); i++) {
+                if (v[i] != 0) {
+                    pre_cond_all_zero = false;
+                    break;
+                }
+            }
 
-            if (cond != 0) {
+            if (pre_cond_all_zero == true) {
                 m_stmt = STMT_ELSE_BLOCK;
                 print("TODO: to process else-block");
             } else {
                 print("TODO: to ignore else-block, just skip to balanced '}', no syntax check for skipped content");
                 if (!findBalancedRightCurlyBraceAndSkipToIt()) {
-                    error("no balanced } found");
+                    error("else: no balanced } found");
                     return false;
                 }
             }
@@ -854,7 +947,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         }
     }
 
-    dia("handleLeftCurlyBrace+");
+    dia("handleLeftCurlyBrace:+");
 
     ++m_lcb_count;
     return true;
@@ -893,6 +986,8 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt() {
 
 bool ArithmeticExpression::handleRightCurlyBrace() {
     print("TODO handleRightCurlyBrace");
+
+    if (m_id_spc_occurred) m_id_spc_occurred = false;
 
     // firstly, ensure balanced left curly brace exists
     if (m_lcb_count == 0) {
@@ -1245,6 +1340,7 @@ bool ArithmeticExpression::calculate(int opr)
         case 'e': {             // "=="
             double r_opd = m_operand_stack.pop();
             double l_opd = m_operand_stack.pop();
+            print("e: l_opd=%g r_opd=%g ?=%d", l_opd, r_opd, l_opd == r_opd);
             m_operand_stack.push(l_opd == r_opd? 1: 0);
             break;
         }
@@ -1285,7 +1381,7 @@ bool ArithmeticExpression::parse()
 
     while ( m_parse_pos < size ) {
         print("\n> \"%s\"", &m_arithmetic_expression[m_parse_pos]);
-        dia("-parse");
+        dia("-:parse");
         const char& c = m_arithmetic_expression.at(m_parse_pos);
         if ( ! handle(c) ) {
             error("failed to handle, "
@@ -1302,7 +1398,7 @@ bool ArithmeticExpression::parse()
                 );
             return false;
         }
-        dia("parse+");
+        dia("parse:+");
         ++m_parse_pos;
     }
 
@@ -1336,7 +1432,7 @@ bool ArithmeticExpression::parse()
     // fulfill m_rpn_expression using operator stack
     int top;
     while ( ! m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
-        dia("-post-process");
+        dia("-:post-process");
         const int& top = m_operator_stack.top();
         if ( LOWEST_PRIO_OP != top ) {
             appendToRpnExpression(top);
@@ -1345,7 +1441,7 @@ bool ArithmeticExpression::parse()
         if (! calculate(top)) return false;
         // always pop to go on to next opr
         m_operator_stack.pop();
-        dia("post-process+");
+        dia("post-process:+");
     }
     dia("z");
 

@@ -123,3 +123,23 @@
 
 1 = 3>1 && 3<1 || 1
 0 = 3>1 && 3<1 && 1
+
+# if, elif (multiple), else
+
+1 = x=0; if 1 {x=1;} elif 1 {x=2;} elif 1 {x=3;} else {x=4;} result(x);
+2 = x=0; if 0 {x=1;} elif 1 {x=2;} elif 1 {x=3;} else {x=4;} result(x);
+3 = x=0; if 0 {x=1;} elif 0 {x=2;} elif 1 {x=3;} else {x=4;} result(x);
+4 = x=0; if 0 {x=1;} elif 0 {x=2;} elif 0 {x=3;} else {x=4;} result(x);
+
+0 = x=0; r=0; if x { r=2; } result(r);
+2 = x=1; r=0; if x { r=2; } result(r);
+
+2 = x=1; r=0; if x > 0 { r=2; } else { r=3; } result(r);
+2 = x=0; r=0; if x == 0 { r=2; } else { r=3; } result(r);
+3 = x=0; r=0; if x < 0 { r=2; } else { r=3; } result(r);
+
+# test m_stmt_if_cond
+
+111  = x=0; if 1 { x=1; if 1 { x=11; if 1 { x=111; } } elif 1 { x=21; if 1 { x=211; if 1 {x=2111; } } } } result(x);
+2111 = x=0; if 1 { x=1; if 0 { x=11; if 1 { x=111; } } elif 1 { x=21; if 1 { x=211; if 1 {x=2111; } } } } result(x);
+0    = x=0; if 0 { x=1; if 0 { x=11; if 1 { x=111; } } elif 1 { x=21; if 1 { x=211; if 1 {x=2111; } } } } result(x);
