@@ -7,8 +7,8 @@ digraph G {
         st_opd [shape=circle,peripheries=2,color="#ff8ad8",style=filled,label="st_opd"]
         st_lps [shape=circle,peripheries=2,color="lightblue",style=filled,label="st_lps"]
         st_rps [shape=circle,peripheries=2,color="lightblue",style=filled,label="st_rps"]
-        st_lcb [shape=circle,peripheries=2,color="lightgreen",style=filled,label="st_lcb"]
-        st_rcb [shape=circle,peripheries=2,color="lightgreen",style=filled,label="st_rcb"]
+        st_lcb [shape=circle,peripheries=2,color="purple",style=filled,label="st_lcb"]
+        st_rcb [shape=circle,peripheries=2,color="green",style=filled,label="st_rcb"]
         st_flg [shape=circle,peripheries=2,color="cyan",style=filled,label="st_flg"]
         st_id  [shape=circle,peripheries=2,color="orange",style=filled,label="st_id"]
         st_stt [shape=circle,peripheries=2,color="#7a81ff",style=filled,label="st_stt"] // statement terminal
@@ -21,15 +21,15 @@ digraph G {
         st_bgn -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
         st_bgn -> st_id[label="A-z_", color="orange", fontcolor="orange"];
         st_bgn -> st_opr[label="!",color="#ff7e79",fontcolor="#ff7e79"];
-        st_bgn -> st_rcb[label="} (pair with st_lcb/auto-switch)",color="lightgreen",fontcolor="lightgreen"];
+        st_bgn -> st_rcb[label="} (if balanced '{' exists)",color="green",fontcolor="green"];
         st_bgn -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
         st_bgn -> st_fin[label="'\\0'"];
 
         st_opd -> st_opr[label="+-*/^<> == && ||", color="#4f8f00", fontcolor="#4f8f00"];
         st_opd -> st_rps[label=")"];
         st_opd -> st_bgn[label=","];
-        st_opd -> st_lcb[label="{ (with stmt==if)",color="lightgreen",fontcolor="lightgreen"];
-        st_opd -> st_rcb[label="}",color="lightgreen",fontcolor="lightgreen"];
+        st_opd -> st_lcb[label="{ (with stmt==if)",color="purple",fontcolor="purple"];
+        st_opd -> st_rcb[label="}",color="green",fontcolor="green"];
         st_opd -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
         st_opd -> st_fin[label="'\\0'"];
 
@@ -48,8 +48,8 @@ digraph G {
         st_rps -> st_opr[label="+-*/^<> == && ||", color="#4f8f00", fontcolor="#4f8f00"];
         st_rps -> st_rps[label=")"];
         st_rps -> st_bgn[label=","];
-        st_rps -> st_lcb[label="{ (with stmt==if)",color="lightgreen",fontcolor="lightgreen"];
-        st_rps -> st_rcb[label="}",color="lightgreen",fontcolor="lightgreen"];
+        st_rps -> st_lcb[label="{ (with stmt==if)",color="purple",fontcolor="purple"];
+        st_rps -> st_rcb[label="}",color="green",fontcolor="green"];
         st_rps -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
         st_rps -> st_fin[label="'\\0'"];
 
@@ -64,17 +64,19 @@ digraph G {
         st_id -> st_bgn[label=","];
         st_id -> st_bgn[label="= (stmt:assign)"];
         st_id -> st_bgn[label="SPC with id==\"if\" (stmt:if)"];
-        st_id -> st_lcb[label="{ (with stmt==if)",color="lightgreen",fontcolor="lightgreen"];
-        st_id -> st_rcb[label="}",color="lightgreen",fontcolor="lightgreen"];
+        st_id -> st_lcb[label="{ (with stmt==if|else)",color="purple",fontcolor="purple"];
+        st_id -> st_rcb[label="}",color="green",fontcolor="green"];
         st_id -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
         st_id -> st_fin[label="'\\0'"];
 
         st_lcb -> st_bgn[label="auto-switch"];
 
+        st_rcb -> st_id[label="keyword:[e]lse"];
+        st_rcb -> st_bgn[label="chars left"];
         st_rcb -> st_fin[label="'\\0'"];
 
         st_stt -> st_bgn[label="chars left"];
-        st_stt -> st_rcb[label="}",color="lightgreen",fontcolor="lightgreen"];
+        st_stt -> st_rcb[label="}",color="green",fontcolor="green"];
         st_stt -> st_fin[label="'\\0'"];
     }
 }

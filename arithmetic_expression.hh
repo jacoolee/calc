@@ -9,35 +9,36 @@
 enum State
 {
     ST_BGN = 0,
-    ST_OPR,//1
-    ST_OPD,//2
-    ST_LPS,//3
-    ST_RPS,//4
-    ST_FLG,//5
-    ST_IDF,//6
-    ST_UNC,                     // 7,uncertain, more needed to determine state
+    ST_OPR,
+    ST_OPD,
+    ST_LPS,
+    ST_RPS,
+    ST_FLG,
+    ST_IDF,
     ST_LCB,
     ST_RCB,
-    ST_ERR,//8
-    ST_STT,//9
-    ST_UPPER//10 // upper bound
+
+    ST_UNC,                     // 7,uncertain, more needed to determine state
+    ST_ERR,
+    ST_STT,
+    ST_UPPER // aka. NON
 };
 
 enum CharType
 {
-    CT_WHITESPACE = 0,
+    CT_SPC = 0,
     CT_OP,                      // 1
     CT_NUM,                     // 2
     CT_LP,                      // 3
     CT_RP,                      // 4
     CT_FLG,                     // 5
     CT_ALP,                     // 6
-    CT_COMMA,                   // 7
-    CT_SEMICOLON,               // 8
-    CT_SYMBOL_EQUAL,            // =
-    CT_SYMBOL_AMPERSAND,        // &
-    CT_SYMBOL_VBAR,             // |
-    CT_EXCLAMATION,             // !
+    CT_CMA,                   // 7
+    CT_SMC,               // 8
+    CT_SEQ,            // =
+    CT_AMP,        // &
+    CT_VBR,             // |
+    CT_EXM,             // !
     CT_LCB,                     // {
     CT_RCB,                     // }
     CT_UPPER                    // upper bound
@@ -54,12 +55,12 @@ enum ActionType
     AT_FLG,// 6
     AT_ALP,// 7
     AT_SPC,// 8
-    AT_COMMA,// 9
-    AT_SEMICOLON, // 10
-    AT_SYMBOL_EQUAL, // 11
-    AT_SYMBOL_AMPERSAND,
-    AT_SYMBOL_VBAR,
-    AT_EXCLAMATION,
+    AT_CMA,// 9
+    AT_SMC, // 10
+    AT_SEQ, // 11
+    AT_AMP,
+    AT_VBR,
+    AT_EXM,
     AT_LCB,
     AT_RCB,
     AT_UPPER
@@ -70,6 +71,7 @@ enum StmtType {
     STMT_ASSIGN,
     STMT_IF_COND,
     STMT_IF_BLOCK,
+    STMT_ELSE_BLOCK,
 };
 
 // TODO: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
@@ -216,20 +218,25 @@ private:
     Stack<double> m_operand_stack;
     Stack<int> m_operator_stack;
 
+    State m_state_prev;
     State m_state;
     State m_state_next_certained;
 
     std::string m_arithmetic_expression;
     int m_parse_pos;
+
     int m_lp_count;
     int m_lcb_count;
+
     Stack<int> m_fncmcnt_stack;
 
     std::string m_id;
     std::unordered_map<std::string,double> m_id_map;
     bool m_id_spc_occurred;
+
     int m_stmt;
     std::string m_stmt_assign_key;
+    std::unordered_map<int,int> m_stmt_if_cond;
 
     std::string m_rpn_expression;
 
@@ -252,7 +259,7 @@ private:
     } FunctionMeta;
     static FunctionMeta m_function_meta[FNN_UPPER];
 
-    double m_result;
+    double m_result;            // TODO: normalize its definition
 };
 
 #endif /* INCLUDE_CALCULATOR_HPP */

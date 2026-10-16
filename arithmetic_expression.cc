@@ -40,7 +40,8 @@
 int g_print_enable = 0;
 
 ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, int print_enable=0)
-    : m_state(ST_BGN),
+    : m_state_prev(ST_UPPER),
+      m_state(ST_BGN),
       m_state_next_certained(ST_UPPER),
       m_arithmetic_expression(infix_expression),
 
@@ -70,9 +71,10 @@ ArithmeticExpression::m_state_info[] = {
     {ST_RPS, "ST_RPS"},
     {ST_FLG, "ST_FLG"},
     {ST_IDF, "ST_IDF"},
-    {ST_UNC, "ST_UNC(ertain)"},
     {ST_LCB, "ST_LCB"},
     {ST_RCB, "ST_RCB"},
+
+    {ST_UNC, "ST_UNC"}, // uncertained
     {ST_ERR, "ST_ERR"},
     {ST_STT, "ST_STT"},         // statement terminal
     // to add
@@ -90,15 +92,16 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // //    the second item is the type of process action of the transition                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
-    //             CT_WHITESPACE     CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_COMMA            CT_SEMICOLON ;          CT_SYMBOL_EQUAL =          CT_SYMBOL_AMPERSAND &          CT_SYMBOL_VBAR |          CT_EXCLAMATION !          CT_LCB {          CT_RCB }
-    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_SEMICOLON, ST_STT}, {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}, {AT_RCB, ST_RCB}},
-    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
-    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_STT}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
-    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
-    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_STT}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
-    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_ERR, ST_ERR},       {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_EXCLAMATION, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
-    /* ST_IDF */ {{AT_SPC, ST_UNC}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_COMMA, ST_BGN}, {AT_SEMICOLON, ST_STT}, {AT_SYMBOL_EQUAL, ST_UNC}, {AT_SYMBOL_AMPERSAND, ST_UNC}, {AT_SYMBOL_VBAR, ST_UNC}, {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
-    /* ST_LCB */ {{AT_NON, ST_LCB}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_BGN}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR},   {AT_SEMICOLON, ST_STT}, {AT_ERR, ST_ERR},          {AT_ERR, ST_ERR},              {AT_ERR, ST_ERR},         {AT_ERR, ST_ERR},         {AT_LCB, ST_LCB}, {AT_NON, ST_UNC}},
+    //             CT_SPC            CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_CMA ,          CT_SMC ;          CT_SEQ =          CT_AMP &          CT_VBR |          CT_EXM !          CT_LCB {          CT_RCB }
+    //
+    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_RCB, ST_RCB}},
+    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
+    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
+    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_IDF */ {{AT_SPC, ST_UNC}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
+    /* ST_LCB */ {{AT_NON, ST_LCB}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_BGN}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_NON, ST_UNC}},
 };
 
 ArithmeticExpression::FunctionMeta
@@ -201,12 +204,12 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_RPS: rc = handleRightParenthesis(); break;
     case AT_ALP: rc = handleAlpha(c); break;
     case AT_SPC: rc = handleSpace(); break;
-    case AT_COMMA: rc = handleComma(); break;
-    case AT_SEMICOLON: rc = handleSemicolon(); break;
-    case AT_SYMBOL_EQUAL: rc = handleSymbolEqual(); break;
-    case AT_SYMBOL_AMPERSAND: rc = handleSymbolAmpersand(); break;
-    case AT_SYMBOL_VBAR: rc = handleSymbolVbar(); break;
-    case AT_EXCLAMATION: rc = handleExclamation(); break;
+    case AT_CMA: rc = handleComma(); break;
+    case AT_SMC: rc = handleSemicolon(); break;
+    case AT_SEQ: rc = handleSymbolEqual(); break;
+    case AT_AMP: rc = handleSymbolAmpersand(); break;
+    case AT_VBR: rc = handleSymbolVbar(); break;
+    case AT_EXM: rc = handleExclamation(); break;
     case AT_LCB: rc = handleLeftCurlyBrace(); break;
     case AT_RCB: rc = handleRightCurlyBrace(); break;
     case AT_ERR: rc = handleError(); break;
@@ -219,9 +222,9 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
 }
 
 CharType ArithmeticExpression::getCharType(int c) {
-    if ( ',' == c ) return CT_COMMA;
+    if ( ',' == c ) return CT_CMA;
     if ( ' ' == c || '\t' == c ) {
-        return CT_WHITESPACE;
+        return CT_SPC;
     }
     if ( (c <= '9' && c >= '0') || '.' == c ) {
         return CT_NUM;
@@ -254,11 +257,11 @@ CharType ArithmeticExpression::getCharType(int c) {
             break;
         }
     }
-    if ( ';' == c) return CT_SEMICOLON;
-    if ( '=' == c) return CT_SYMBOL_EQUAL;
-    if ( '&' == c) return CT_SYMBOL_AMPERSAND;
-    if ( '|' == c) return CT_SYMBOL_VBAR;
-    if ( '!' == c) return CT_EXCLAMATION;
+    if ( ';' == c) return CT_SMC;
+    if ( '=' == c) return CT_SEQ;
+    if ( '&' == c) return CT_AMP;
+    if ( '|' == c) return CT_VBR;
+    if ( '!' == c) return CT_EXM;
     if ( '{' == c) return CT_LCB;
     if ( '}' == c) return CT_RCB;
     return CT_UPPER;
@@ -282,13 +285,16 @@ void ArithmeticExpression::dia(const std::string& marker) {
     const char& c = m_arithmetic_expression[m_parse_pos];
     CharType type = getCharType(c);
     StateTable* table_item = &m_state_table[m_state][type];
-    __print("%s @%d %s '%c' CT=%d AT=%d",
+
+    __print("dia: %s @%d [(%s) %s + '%c'(CT=%d,AT=%d) => %s]",
             marker.c_str(),
             m_parse_pos,
+            getStateStr(m_state_prev),
             getStateStr(m_state),
             c,
             type,
-            table_item->action_type
+            table_item->action_type,
+            getStateStr(table_item->new_state)
         );
     __print(" opd_stack=");
     m_operand_stack.dia(g_print_enable);
@@ -298,6 +304,10 @@ void ArithmeticExpression::dia(const std::string& marker) {
     m_fncmcnt_stack.dia(g_print_enable);
     for (const auto& item : m_id_map) {
         __print(" m_id_map[\"%s\"]=%f ", item.first.c_str(), item.second);
+    }
+
+    for (const auto& item : m_stmt_if_cond) {
+        __print(" m_stmt_if_cond[\"%d\"]=%d ", item.first, item.second);
     }
     __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_stmt = %d m_result = %g m_state_next_certained = %s rpn = \"%s\"\n",
             m_id.c_str(),
@@ -331,6 +341,7 @@ bool ArithmeticExpression::handle(char c)
     bool rc = handleAction(table_item->action_type, c);
     if ( rc ) {
         // update state only when action runs successfully
+        m_state_prev = m_state;
         m_state = table_item->new_state;
         print("handle: m_state: %s, m_state_next_certained: %s, m_parse_pos:%d, m_arithmetic_expression.size():%zu", getStateStr(m_state), getStateStr(m_state_next_certained), m_parse_pos, m_arithmetic_expression.size());
 
@@ -338,17 +349,30 @@ bool ArithmeticExpression::handle(char c)
         if (m_state == ST_UNC) {
             if (m_state_next_certained != ST_UPPER) {
                 m_state = m_state_next_certained;
+                m_state_next_certained = ST_UPPER;
             } else {
                 error("uncertained state occurs");
                 dia("handle[uncertained state]");
                 return false;
             }
         }
+
+        // lcb auto-switch
         else if (m_state == ST_LCB) {
             if (m_state_next_certained != ST_UPPER) {
                 m_state = m_state_next_certained;
+                m_state_next_certained = ST_UPPER;
             }
         }
+
+        // rcb auto-switch
+        else if (m_state == ST_RCB) {
+            if (m_state_next_certained != ST_UPPER) {
+                m_state = m_state_next_certained;
+                m_state_next_certained = ST_UPPER;
+            }
+        }
+
         else {
             // nothing
         }
@@ -392,9 +416,7 @@ bool ArithmeticExpression::handleOperator(char opr)
     dia("-handleOperator");
 
     if (m_state == ST_IDF) {
-        if (m_id_spc_occurred) {
-            m_id_spc_occurred = false;
-        }
+        if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
             if (!pushIdfValueToOperandStack(m_id)) return false;
         }
@@ -496,18 +518,16 @@ bool ArithmeticExpression::handleOperand()
 bool ArithmeticExpression::handleLeftParenthesis()
 {
     if (m_state == ST_IDF) {
-        if (m_id_spc_occurred) {
-            m_id_spc_occurred = false;
-        }
+        if (m_id_spc_occurred) m_id_spc_occurred = false;
     }
 
-    print("handleLeftParenthesis");
+    print("handleLeftParenthesis: m_id=%s", m_id.c_str());
     if (m_id != "") {
 
-        bool is_keyword = m_id == "if";
-        bool is_fnn = ! is_keyword;
+        if (m_id == "if") {     // keyword
+            ++m_lp_count;
 
-        if (is_fnn) {
+        } else {
             int fni = fnn2fni(m_id);
             if (fni == FNN_UPPER) {
                 error("fni should never be equal to FNN_UPPER, fni=%d, m_id=%s", fni, m_id.c_str());
@@ -520,9 +540,6 @@ bool ArithmeticExpression::handleLeftParenthesis()
             m_fncmcnt_stack.push(0);
 
             m_operator_stack.push('f'); // means function left parenthesis
-            ++m_lp_count;
-        } else {
-            // is_keyword
             ++m_lp_count;
         }
 
@@ -537,9 +554,7 @@ bool ArithmeticExpression::handleRightParenthesis()
 {
 
     if (m_state == ST_IDF) {
-        if (m_id_spc_occurred) {
-            m_id_spc_occurred = false;
-        }
+        if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
             if (!pushIdfValueToOperandStack(m_id)) return false;
         }
@@ -646,9 +661,7 @@ bool ArithmeticExpression::handleSpace() {
 
 bool ArithmeticExpression::handleComma() {
     if (m_state == ST_IDF) {
-        if (m_id_spc_occurred) {
-            m_id_spc_occurred = false;
-        }
+        if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
             if (!pushIdfValueToOperandStack(m_id)) return false;
             m_id = "";          // reset
@@ -679,9 +692,7 @@ bool ArithmeticExpression::handleSemicolon() {
     dia("-handleSemicolon");
 
     if (m_state == ST_IDF) {
-        if (m_id_spc_occurred) {
-            m_id_spc_occurred = false;
-        }
+        if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (m_id != "") {
             if (!pushIdfValueToOperandStack(m_id)) return false;
             m_id = "";          // reset
@@ -746,6 +757,7 @@ bool ArithmeticExpression::handleSymbolEqual() {
             m_stmt = STMT_ASSIGN;
             m_stmt_assign_key = m_id;
             m_id = "";
+            if (m_id_spc_occurred) m_id_spc_occurred = false;
             m_state_next_certained = ST_BGN;
         } else {
             error("single '=' can only be used as assign statement: 'id = ...;'");
@@ -802,15 +814,15 @@ bool ArithmeticExpression::handleExclamation() {
 }
 
 bool ArithmeticExpression::handleLeftCurlyBrace() {
-    print("TODO handleLeftCurlyBrace");
-
-    ++m_lcb_count;
+    print("TODO handleLeftCurlyBrace: m_stmt=%d", m_stmt);
+    dia("-handleLeftCurlyBrace");
     m_state_next_certained = ST_BGN;
-
     if (m_stmt == STMT_IF_COND) {
         // TODO: check condition is true or false
-        double top = m_operand_stack.pop();
-        if (top != 0) {
+        double cond = m_operand_stack.pop();
+        m_stmt_if_cond[m_lcb_count] = cond;
+
+        if (cond != 0) {
             m_stmt = STMT_IF_BLOCK;
             print("TODO: to process if-block");
         } else {
@@ -820,7 +832,31 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
                 return false;
             }
         }
+    } else {
+        if (m_id == "else") {
+            if (m_id_spc_occurred) m_id_spc_occurred = false;
+
+            double cond = !m_stmt_if_cond[m_lcb_count];
+
+            if (cond != 0) {
+                m_stmt = STMT_ELSE_BLOCK;
+                print("TODO: to process else-block");
+            } else {
+                print("TODO: to ignore else-block, just skip to balanced '}', no syntax check for skipped content");
+                if (!findBalancedRightCurlyBraceAndSkipToIt()) {
+                    error("no balanced } found");
+                    return false;
+                }
+            }
+        } else {
+            error("unsupported id:\"%s\" before {", m_id.c_str());
+            return false;
+        }
     }
+
+    dia("handleLeftCurlyBrace+");
+
+    ++m_lcb_count;
     return true;
 }
 
@@ -857,16 +893,18 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt() {
 
 bool ArithmeticExpression::handleRightCurlyBrace() {
     print("TODO handleRightCurlyBrace");
+
+    // firstly, ensure balanced left curly brace exists
     if (m_lcb_count == 0) {
         error("no balanced left curly brace found");
         return false;
     }
+
     --m_lcb_count;
 
     // chars left, goto st_bgn
-    if (m_state == ST_STT && m_parse_pos < m_arithmetic_expression.size()-1) {
-        m_state = ST_BGN;
-        // extra: reset m_result;
+    if (m_parse_pos < m_arithmetic_expression.size()-1) {
+        m_state_next_certained = ST_BGN;
         m_result = NAN;
     }
 
@@ -1277,9 +1315,7 @@ bool ArithmeticExpression::parse()
     }
 
     if (m_state == ST_IDF) {
-        if (m_id_spc_occurred) {
-            m_id_spc_occurred = false;
-        }
+        if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
             if (!pushIdfValueToOperandStack(m_id)) return false;
         }
