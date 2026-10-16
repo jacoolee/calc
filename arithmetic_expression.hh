@@ -16,6 +16,7 @@ enum State
     ST_FLG,//5
     ST_IDF,//6
     ST_UNC,                     // 7,uncertain, more needed to determine state
+    ST_LCB,
     ST_ERR,//8
     ST_STT,//9
     ST_UPPER//10 // upper bound
@@ -36,6 +37,7 @@ enum CharType
     CT_SYMBOL_AMPERSAND,        // &
     CT_SYMBOL_VBAR,             // |
     CT_EXCLAMATION,             // !
+    CT_LCB,                     // {
     CT_UPPER                    // upper bound
 };
 
@@ -56,12 +58,15 @@ enum ActionType
     AT_SYMBOL_AMPERSAND,
     AT_SYMBOL_VBAR,
     AT_EXCLAMATION,
+    AT_LCB,
     AT_UPPER
 };
 
 enum StmtType {
     STMT_NON, // 0
-    STMT_ASSIGN // 1
+    STMT_ASSIGN,
+    STMT_IF_COND,
+    STMT_IF_BLOCK,
 };
 
 // TODO: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
@@ -173,6 +178,7 @@ private:
     bool handleSymbolAmpersand();
     bool handleSymbolVbar();
     bool handleExclamation();
+    bool handleLeftCurlyBrace();
 
     bool pushIdfValueToOperandStack(std::string idf);
 
@@ -207,6 +213,7 @@ private:
     std::string m_arithmetic_expression;
     int m_parse_pos;
     int m_lp_count;
+    int m_lcb_count;
     Stack<int> m_fncmcnt_stack;
 
     std::string m_id;

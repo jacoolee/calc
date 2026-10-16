@@ -76,3 +76,4 @@ digraph G {
         st_stt -> st_fin[label="'\\0'"];
     }
 }
+
