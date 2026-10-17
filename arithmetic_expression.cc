@@ -424,6 +424,7 @@ bool ArithmeticExpression::handleOperator(char opr)
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
             if (!pushIdfValueToOperandStack(m_id)) return false;
+            m_id = ""; // reset after consumed
         }
     }
 
@@ -568,6 +569,7 @@ bool ArithmeticExpression::handleRightParenthesis()
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
             if (!pushIdfValueToOperandStack(m_id)) return false;
+            m_id = ""; // reset after consumed
         }
     }
 
@@ -682,7 +684,7 @@ bool ArithmeticExpression::handleComma() {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
             if (!pushIdfValueToOperandStack(m_id)) return false;
-            m_id = "";          // reset
+            m_id = ""; // reset after consumed
         }
     }
 
@@ -713,7 +715,7 @@ bool ArithmeticExpression::handleSemicolon() {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (m_id != "") {
             if (!pushIdfValueToOperandStack(m_id)) return false;
-            m_id = "";          // reset
+            m_id = ""; // reset after consumed
         }
     }
 
@@ -842,6 +844,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     // get opd stack well-prepared before calculate with opr stack.
     if (m_operand_stack.empty() && !m_id.empty() && ( m_id != "else" )) {
         if (!pushIdfValueToOperandStack(m_id)) return false;
+        m_id = ""; // reset after consumed
     }
 
     int top;
@@ -992,7 +995,33 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt() {
 bool ArithmeticExpression::handleRightCurlyBrace() {
     print("TODO handleRightCurlyBrace");
 
-    if (m_id_spc_occurred) m_id_spc_occurred = false;
+    ////////////////////////////////////////////////////////////////
+    // support syntax: "idf}", so last statement of block can ignore ';'
+    // TODO: maybe normalize syntax to *always && must* use ';' as statement terminal
+    //
+    // x=2; if 1{y=x} result(y)
+    //              ^^
+
+    if (m_state == ST_IDF) {
+        if (m_id_spc_occurred) m_id_spc_occurred = false;
+        if (!m_id.empty()) {
+            if (!pushIdfValueToOperandStack(m_id)) return false;
+            m_id = ""; // reset after consumed
+        }
+    }
+
+    int top;
+    while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
+        if (!calculate(top)) return false;
+        m_operator_stack.pop();
+    }
+
+    if (m_stmt == STMT_ASSIGN) {
+        // TODO: check if condition fit
+        m_id_map[m_stmt_assign_key] = m_operand_stack.pop();
+    }
+
+    ////////////////////////////////////////////////////////////////
 
     // firstly, ensure balanced left curly brace exists
     if (m_lcb_count == 0) {
@@ -1419,6 +1448,7 @@ bool ArithmeticExpression::parse()
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
             if (!pushIdfValueToOperandStack(m_id)) return false;
+            m_id = ""; // reset after consumed
         }
     }
 
