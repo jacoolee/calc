@@ -212,7 +212,9 @@ private:
 
     int getPriority(char c);
     CharType getCharType(int c);
+
     const char* getStateStr(State) const;
+    const char* getCharTypeStr(int) const;
 
     bool findBalancedRightCurlyBraceAndSkipToIt();
 
@@ -228,13 +230,23 @@ private:
     int m_parse_pos;
 
     int m_lp_count;
-    int m_lcb_count;
+    int m_lcb_count;            // aka. block depth
 
     Stack<int> m_fncmcnt_stack;
 
     std::string m_id;
     std::unordered_map<std::string,double> m_id_map;
     bool m_id_spc_occurred;
+
+    // The main design purpose of {} in C is to group statements into a block,
+    // so they can be treated as a single unit of code.
+
+    // record id's value
+    // { id: {block_depth: id_value} }
+    std::unordered_map<std::string,std::unordered_map<int,double>> m_id_mapp;
+    // record redeclared id in multiple block_depth
+    // { block_depth: { id: 1 }}
+    std::unordered_map<int, std::unordered_map<std::string,int>> m_id_redeclared;
 
     int m_stmt;
     std::string m_stmt_assign_key;
@@ -253,6 +265,12 @@ private:
         const char* state_str;
     } StateInfo;
     static StateInfo m_state_info[ST_UPPER+1];
+
+    typedef struct {
+        CharType char_type;
+        const char* str;
+    } CharTypeInfo;
+    static CharTypeInfo m_char_type_info[CT_UPPER+1];
 
     typedef struct {
         const char* name;

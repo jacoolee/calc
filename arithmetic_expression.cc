@@ -1,5 +1,6 @@
 #include "arithmetic_expression.hh"
 
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <float.h>
@@ -28,6 +29,12 @@
         printf("error: ");                      \
         printf(__VA_ARGS__);                    \
         printf("\n");                           \
+    } while (0)
+
+#define __error(...)                            \
+    do {                                        \
+        printf("error: ");                      \
+        printf(__VA_ARGS__);                    \
     } while (0)
 
 #define warn(...)                               \
@@ -102,6 +109,26 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
     /* ST_IDF */ {{AT_SPC, ST_UNC}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
     /* ST_LCB */ {{AT_NON, ST_LCB}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_BGN}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_NON, ST_UNC}},
+};
+
+ArithmeticExpression::CharTypeInfo
+ArithmeticExpression::m_char_type_info[] = {
+    {CT_SPC, " "},
+    {CT_OP,  "operators"},
+    {CT_NUM, "0-9"},
+    {CT_LP,  "{"},
+    {CT_RP,  "}"},
+    {CT_FLG, "flag:+-"},
+    {CT_ALP, "alphas"},
+    {CT_CMA, ","},
+    {CT_SMC, ";"},
+    {CT_SEQ, "="},
+    {CT_AMP, "&"},
+    {CT_VBR, "|"},
+    {CT_EXM, "!"},
+    {CT_LCB, "{"},
+    {CT_RCB, "}"},
+    {CT_UPPER, "CT_UPPER"}
 };
 
 ArithmeticExpression::FunctionMeta
@@ -219,6 +246,15 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
         break;
     }
     return rc;
+}
+
+const char* ArithmeticExpression::getCharTypeStr(int ct) const {
+    const CharTypeInfo& item = m_char_type_info[ct];
+    if (item.char_type != ct) {
+        error("*DEV ERROR* unmatched chartype in m_char_type_info, ct=%d, item.char_type=%d", ct, item.char_type);
+        exit(-1);
+    }
+    return item.str;
 }
 
 CharType ArithmeticExpression::getCharType(int c) {
@@ -464,6 +500,26 @@ bool ArithmeticExpression::handleError()
           m_parse_pos,
           m_arithmetic_expression[m_parse_pos],
           m_arithmetic_expression.c_str());
+
+    // TODO: [2026-10-17] support char: '\n'.
+
+    __error("\u200B\n");
+    __error("%s\n", m_arithmetic_expression.c_str());
+    __error("%*s^\n", m_parse_pos, "");
+    __error("%*s%d\n", m_parse_pos, "", m_parse_pos);
+    __error("\u200B\n");
+
+    // better readable error message
+    __error("%s expects", getStateStr(m_state));
+    StateTable* l = m_state_table[m_state];
+    for (int i=0; i<CT_UPPER; i++) {
+        if (l[i].action_type != AT_ERR) {
+            __print(" '%s'", getCharTypeStr(i));
+        }
+    }
+    __print(", while '%c' gotten\n", m_arithmetic_expression[m_parse_pos]);
+
+
     return false;               // always false
 }
 

@@ -13,7 +13,7 @@ $ ./calc 'fabs((-5 + (-00.01 - 0.09) * 10 ^ 2) / 5)'
 
 - simplicity over complexity
 - working over perfection
-- machinism over cases
+- mechanism over cases
 
 ## Testcase
 
