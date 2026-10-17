@@ -24,6 +24,11 @@
         }                                       \
     } while (0)
 
+#define __printalw(...)                         \
+    do {                                        \
+        printf(__VA_ARGS__);                    \
+    } while (0)
+
 #define error(...)                              \
     do {                                        \
         printf("error: ");                      \
@@ -514,11 +519,10 @@ bool ArithmeticExpression::handleError()
     StateTable* l = m_state_table[m_state];
     for (int i=0; i<CT_UPPER; i++) {
         if (l[i].action_type != AT_ERR) {
-            __print(" '%s'", getCharTypeStr(i));
+            __printalw(" '%s'", getCharTypeStr(i));
         }
     }
-    __print(", while '%c' gotten\n", m_arithmetic_expression[m_parse_pos]);
-
+    __printalw(", while '%c' gotten\n", m_arithmetic_expression[m_parse_pos]);
 
     return false;               // always false
 }
