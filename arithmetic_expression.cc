@@ -528,12 +528,15 @@ bool ArithmeticExpression::handleLeftParenthesis()
 
     print("handleLeftParenthesis: m_id=%s", m_id.c_str());
     if (m_id != "") {
-
         if (m_id == "if") {     // keyword
             ++m_lp_count;
+            m_stmt = STMT_IF_COND;
+            m_state_next_certained = ST_BGN;
 
         } else if (m_id == "elif") {     // keyword
             ++m_lp_count;
+            m_stmt = STMT_ELIF_COND;
+            m_state_next_certained = ST_BGN;
 
         } else {
             int fni = fnn2fni(m_id);
@@ -916,6 +919,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         }
 
     } else {
+        dia("xxxxxxxxxxxxxxxx");
         if (m_id == "else") {
             if (v.size() == 0) {
                 error("else statement must follow if-statement");
