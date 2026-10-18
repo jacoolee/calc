@@ -163,3 +163,7 @@
 0 = x = 0; if 1 { x:=1; if 1 { x:=2; } } print(x)
 
 0 = x = 0; if 1 { x:=1; } if 1 { print(x) }
+
+# string
+
+hello world = print("hello world")

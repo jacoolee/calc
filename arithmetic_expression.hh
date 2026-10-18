@@ -43,6 +43,7 @@ enum CharType
     CT_LCB,                     // {
     CT_RCB,                     // }
     CT_CLN,
+    CT_DBQ,                     // "
 
     CT_UPPER                    // upper bound
 };
@@ -67,6 +68,7 @@ enum ActionType
     AT_LCB,
     AT_RCB,
     AT_CLN,
+    AT_DBQ,
 
     AT_UPPER
 };
@@ -194,6 +196,7 @@ private:
     bool handleLeftCurlyBrace();
     bool handleRightCurlyBrace();
     bool handleColon();
+    bool handleDoubleQuote();
 
     bool handleAction(ActionType type, char c);
     bool calculate(int opr);

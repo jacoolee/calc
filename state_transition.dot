@@ -17,7 +17,7 @@ digraph G {
 
         st_start -> st_bgn;
 
-        st_bgn -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
+        st_bgn -> st_opd[label="[.0-9]+ or \"", color="#ff8ad8", fontcolor="#ff8ad8"];
         st_bgn -> st_lps[label="("];
         st_bgn -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
         st_bgn -> st_id[label="A-z_", color="orange", fontcolor="orange"];
@@ -34,13 +34,13 @@ digraph G {
         st_opd -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
         st_opd -> st_fin[label="'\\0'"];
 
-        st_opr -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
+        st_opr -> st_opd[label="[.0-9]+ or \"", color="#ff8ad8", fontcolor="#ff8ad8"];
         st_opr -> st_lps[label="("];
         st_opr -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
         st_opr -> st_id[label="A-z_", color="orange", fontcolor="orange"];
         st_opr -> st_opr[label="!",color="#ff7e79",fontcolor="#ff7e79"];
 
-        st_lps -> st_opd[label="[.0-9]+", color="#ff8ad8", fontcolor="#ff8ad8"];
+        st_lps -> st_opd[label="[.0-9]+ or \"", color="#ff8ad8", fontcolor="#ff8ad8"];
         st_lps -> st_lps[label="("];
         st_lps -> st_flg[label="+-",color="cyan",fontcolor="cyan"];
         st_lps -> st_id[label="A-z_", color="orange", fontcolor="orange"];
@@ -74,12 +74,12 @@ digraph G {
         st_lcb -> st_bgn[label="auto-switch"];
 
         st_rcb -> st_id[label="keyword:[e]lse"];
-        st_rcb -> st_bgn[label="chars left"];
+        st_rcb -> st_bgn[label="auto-switch (chars left)"];
         st_rcb -> st_fin[label="'\\0'"];
 
         st_cln -> st_bgn[label="= (stmt:scope-declare-assign, aka \":=\")"];
 
-        st_stt -> st_bgn[label="chars left"];
+        st_stt -> st_bgn[label="auto-switch (chars left)"];
         st_stt -> st_rcb[label="}",color="green",fontcolor="green"];
         st_stt -> st_fin[label="'\\0'"];
     }
