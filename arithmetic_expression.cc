@@ -71,9 +71,7 @@ ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, 
       m_id_spc_occurred(false),
 
       m_stmt(STMT_NON),
-      m_stmt_assign_key(""),
-
-      m_result(NAN)
+      m_stmt_assign_key("")
 {
     m_operator_stack.push(LOWEST_PRIO_OP);
     g_print_enable = print_enable;
@@ -199,7 +197,6 @@ ArithmeticExpression::m_function_meta[FNN_UPPER] = {
     { "cmp", 3, 0 },
 
     { "print", 1, 0},
-    { "result", 1, 0},
 };
 
 const char* ArithmeticExpression::getStateStr(State state) const
@@ -386,13 +383,12 @@ void ArithmeticExpression::dia(const std::string& marker) {
         __print("]");
     }
 
-    __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_stmt = %d m_result = %g m_state_next_certained = %s rpn = \"%s\"\n",
+    __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_stmt = %d m_state_next_certained = %s rpn = \"%s\"\n",
             m_id.c_str(),
             m_id_spc_occurred?"true":"false",
             m_lp_count,
             m_lcb_count,
             m_stmt,
-            m_result,
             getStateStr(m_state_next_certained),
             m_rpn_expression.c_str()
         );
@@ -457,8 +453,6 @@ bool ArithmeticExpression::handle(char c)
         // more chars left to process
         if (m_state == ST_STT && m_parse_pos < m_arithmetic_expression.size()-1) {
             m_state = ST_BGN;
-            // extra: reset m_result;
-            m_result = NAN;
         }
     }
     return rc;
@@ -914,17 +908,10 @@ bool ArithmeticExpression::handleSemicolon() {
     m_stmt = STMT_NON;
     m_stmt_assign_key = "";
 
-    // TODO: uncomment it, now just compromise for result()
-    // m_result = NAN;
-
     if (m_operand_stack.count() > 1) {
         error("more than 1 operand left");
-        dia(".");
+        dia("handleSemicolon");
         return false;
-    }
-
-    if (m_operand_stack.count() == 1) {
-        m_result = m_operand_stack.pop();
     }
 
     dia("handleSemicolon:+");
@@ -1194,7 +1181,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     // support syntax: "idf}", so last statement of block can ignore ';'
     // TODO: maybe normalize syntax to *always && must* use ';' as statement terminal
     //
-    // x=2; if 1{y=x} result(y)
+    // x=2; if 1{y=x} print(y)
     //              ^^
 
     if (m_state == ST_IDF) {
@@ -1263,7 +1250,6 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     // chars left, goto st_bgn
     if (m_parse_pos < m_arithmetic_expression.size()-1) {
         m_state_next_certained = ST_BGN;
-        m_result = NAN;
     }
 
     m_stmt = STMT_NON;
@@ -1550,11 +1536,6 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
 
-        case RESULT: {
-            m_result = m_operand_stack.top();
-            break;
-        }
-
         default:
             error("unsupported fni: %d", fni);
             return false;
@@ -1721,26 +1702,6 @@ bool ArithmeticExpression::parse()
 
     print("m_operand_stack.count() = %d", m_operand_stack.count());
 
-    if (m_stmt == STMT_NON) {
-        // now, m_operator_stack is empty, we expect m_operand_stack should be
-        // only one value, aka. the result of math expression.
-        // AND m_result have not been set.
-        if (isnan(m_result)) {   // not been set yet
-            if (m_operand_stack.count() == 1) {
-                m_result = m_operand_stack.pop();
-            } else {
-                warn("no result been set");
-                m_result = NAN;
-            }
-        }
-    }
-
     print("arithmetic expression successfully parsed, rpn=\"%s\"", m_rpn_expression.c_str());
     return true;
 }
-
-// bool ArithmeticExpression::getExpressionValue(double &val) const
-// {
-//     val = m_result;
-//     return true;
-// }
