@@ -15,9 +15,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    double val=0;
-    ari_exp.getExpressionValue(val);
-    printf("%g\n", val);
+    // double val=0;
+    // ari_exp.getExpressionValue(val);
+    // printf("%g\n", val);
 
     return 0;
 }

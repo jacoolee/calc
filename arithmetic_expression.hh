@@ -152,7 +152,7 @@ enum FNN
 
     CMP,
 
-    PRINTID,
+    PRINT,
     RESULT,
 
     // add more
@@ -172,7 +172,8 @@ public:
     const std::string& getArithmeticExpression() const {
         return m_arithmetic_expression;
     }
-    bool getExpressionValue(double &val) const;
+
+    // bool getExpressionValue(double &val) const;
 
 private:
     bool handle(char c);

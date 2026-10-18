@@ -198,7 +198,7 @@ ArithmeticExpression::m_function_meta[FNN_UPPER] = {
     { "min", 2, 1 },
     { "cmp", 3, 0 },
 
-    {"printid", 1, 0},
+    { "print", 1, 0},
     { "result", 1, 0},
 };
 
@@ -730,8 +730,7 @@ bool ArithmeticExpression::handleRightParenthesis()
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
             if (!pushIdfValueToOperandStack(m_id)) return false;
-            // TODO: uncomment, now do not reset m_id to compromise for printid
-            // m_id = ""; // reset after consumed
+            m_id = ""; // reset after consumed
         }
     }
 
@@ -794,7 +793,7 @@ bool ArithmeticExpression::handleAlpha(char _c) {
             error("identifer can not follow keyword: \"%s\"", m_id.c_str());
             return false;
         }
-        error("space not allow between alphas");
+        error("space not allowed between alphas");
         return false;
     }
 
@@ -872,6 +871,12 @@ bool ArithmeticExpression::handleComma() {
 bool ArithmeticExpression::handleSemicolon() {
     print("TODO: handleSemicolon should consume everything.");
     dia("-:handleSemicolon");
+
+    if (m_lp_count > 0) {
+        error("';' not allowed inside ()");
+        printErrorLocation();
+        exit(E_SYNTAX);
+    }
 
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
@@ -1014,7 +1019,13 @@ bool ArithmeticExpression::handleExclamation() {
 bool ArithmeticExpression::handleLeftCurlyBrace() {
     dia("-:handleLeftCurlyBrace");
 
-    print("TODO handleLeftCurlyBrace: m_stmt=%d", m_stmt);
+    if (m_lp_count > 0) {
+        error("'{' not allowed inside ()");
+        printErrorLocation();
+        exit(E_SYNTAX);
+    }
+
+    print("handleLeftCurlyBrace: m_stmt=%d", m_stmt);
 
     print("handleLeftCurlyBrace: calculate all oprs");
 
@@ -1171,7 +1182,13 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt() {
 }
 
 bool ArithmeticExpression::handleRightCurlyBrace() {
-    print("TODO handleRightCurlyBrace");
+    print("handleRightCurlyBrace");
+
+    if (m_lp_count > 0) {
+        error("'}' not allowed inside ()");
+        printErrorLocation();
+        exit(E_SYNTAX);
+    }
 
     ////////////////////////////////////////////////////////////////
     // support syntax: "idf}", so last statement of block can ignore ';'
@@ -1527,9 +1544,9 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
 
-        case PRINTID: {
-            double v = getIdfValue(m_id);
-            printf("printid: key=\"%s\", value=%g\n", m_id.c_str(), v);
+        case PRINT: {
+            double v = m_operand_stack.top();
+            printf("%g\n", v);
             break;
         }
 
@@ -1616,7 +1633,9 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
         default: {
-            error("unsuppored operator='<%c %d>'", opr, opr); return false;
+            error("unsupported operator='<%c %d>'", opr, opr);
+            printErrorLocation();
+            return false;
         }
         }
         return true;
@@ -1720,8 +1739,8 @@ bool ArithmeticExpression::parse()
     return true;
 }
 
-bool ArithmeticExpression::getExpressionValue(double &val) const
-{
-    val = m_result;
-    return true;
-}
+// bool ArithmeticExpression::getExpressionValue(double &val) const
+// {
+//     val = m_result;
+//     return true;
+// }
