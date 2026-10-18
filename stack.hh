@@ -11,6 +11,25 @@
 #include <string>
 #include <type_traits>
 
+#define OPD_NUM 0
+#define OPD_STR 1
+
+typedef struct {
+    // keep it simple, use 0 - number, 1 - string
+    int type;
+    // TODO: maybe use std::variant, for now, keep simple even with more memory cost
+    double num;
+    std::string str;
+} OperandStackItem;
+
+inline void printStackItem(const OperandStackItem& item) {
+    printf("<%d,%g,\"%s\">, ", item.type, item.num, item.str.c_str());
+}
+
+inline void printStackItem(const int& item) {
+    printf("<%f,%d,'%c'>, ", (float)item,(int)item,(char)item);
+}
+
 #define STACK_SP_INIT -1
 template <class T>
 class Stack {
@@ -30,10 +49,11 @@ public:
         printf("[");
         for (int i=0; i< m_sp+1; i++) {
             T& x = m_tunk[i];
-            printf("<%f,%d,'%c'> ", (float)x,(int)x,(char)x);
+            printStackItem(x);
         }
-        printf("]");
+        printf(m_sp>=0? "\b\b]": "]");
     }
+
 
 protected:
     virtual T& get(int idx);

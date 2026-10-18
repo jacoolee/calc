@@ -405,6 +405,17 @@ void ArithmeticExpression::appendToRpnExpression(char c) {
     }
 }
 
+bool ArithmeticExpression::isOnTerminalState() const {
+    return (
+        ST_BGN == m_state
+        || ST_OPD == m_state
+        || ST_IDF == m_state
+        || ST_RPS == m_state
+        || ST_RCB == m_state
+        || ST_STT == m_state
+        );
+}
+
 bool ArithmeticExpression::handle(char c)
 {
     CharType type = getCharType(c);
@@ -471,7 +482,7 @@ bool ArithmeticExpression::handleFlag(char flag)
 {
     print("handing flags ...");
     if ( '-' == flag) {
-        m_operand_stack.push(-1);
+        pushNumberIntoOperandStack(-1);
         m_operator_stack.push('*');
     }
     return true;
@@ -501,7 +512,7 @@ double ArithmeticExpression::getIdfValue(const std::string& idf) {
 
 bool ArithmeticExpression::pushIdfValueToOperandStack(const std::string& idf) {
     double v = getIdfValue(idf);
-    m_operand_stack.push(v);
+    pushNumberIntoOperandStack(v);
     return true;
 }
 
@@ -675,7 +686,7 @@ bool ArithmeticExpression::handleOperand()
     }
 
     double num = int_val + dot_val;
-    m_operand_stack.push(num);
+    pushNumberIntoOperandStack(num);
 
     print("int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"",
           int_val, dot_val, dot_occurred ? "yes" : "no");
@@ -903,9 +914,9 @@ bool ArithmeticExpression::handleSemicolon() {
 
     if (m_stmt == STMT_DECLARE_ASSIGN) {
         // TODO: check if condition fit
-        assignValueToIdf(m_stmt_assign_key, m_operand_stack.pop(), false);
+        assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), false);
     } else if (m_stmt == STMT_SCOPE_DECLARE_ASSIGN) {
-        assignValueToIdf(m_stmt_assign_key, m_operand_stack.pop(), true);
+        assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), true);
     } else {
     }
 
@@ -1061,7 +1072,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     std::vector<int>& v = m_stmt_if_cond[m_lcb_count];
 
     if (m_stmt == STMT_IF_COND) {
-        int cond = m_operand_stack.pop() != 0? 1: 0;
+        int cond = _2n(m_operand_stack.pop()) != 0? 1: 0;
         v.push_back(cond);
 
         if (cond != 0) {
@@ -1080,7 +1091,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
             return false;
         }
 
-        double elif_cond = m_operand_stack.pop() !=0? 1: 0;
+        double elif_cond = _2n(m_operand_stack.pop()) !=0? 1: 0;
 
         bool pre_cond_all_zero = true;
         for (int i = 0; i < v.size(); i++) {
@@ -1209,9 +1220,9 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
     if (m_stmt == STMT_DECLARE_ASSIGN) {
         // TODO: check if condition fit
-        assignValueToIdf(m_stmt_assign_key, m_operand_stack.pop(), false);
+        assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), false);
     } else if (m_stmt == STMT_SCOPE_DECLARE_ASSIGN) {
-        assignValueToIdf(m_stmt_assign_key, m_operand_stack.pop(), true);
+        assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), true);
     } else {
     }
 
@@ -1271,6 +1282,31 @@ bool ArithmeticExpression::handleColon() {
     return true;
 }
 
+void ArithmeticExpression::pushNumberIntoOperandStack(double num) {
+    m_operand_stack.push({ OPD_NUM, num, "" });
+}
+
+void ArithmeticExpression::pushStringIntoOperandStack(std::string str) {
+    // use std::move to avoid unnecessary string copy
+    m_operand_stack.push({ OPD_STR, 0, std::move(str) });
+}
+
+bool ArithmeticExpression::_isn(const OperandStackItem& item) {
+    return item.type == OPD_NUM;
+}
+
+bool ArithmeticExpression::_iss(const OperandStackItem& item) {
+    return item.type == OPD_STR;
+}
+
+double ArithmeticExpression::_2n(const OperandStackItem& item) {
+    return item.num;
+}
+
+std::string ArithmeticExpression::_2s(const OperandStackItem& item) {
+    return item.str;
+}
+
 // NOTE: for easier maintainance, only modify m_operand_stack when
 // calculating, keep m_operator_stack stay.
 bool ArithmeticExpression::calculate(int opr)
@@ -1305,195 +1341,195 @@ bool ArithmeticExpression::calculate(int opr)
         switch(fni) {
 
         case FABS: {
-            m_operand_stack.push(fabs(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(fabs(_2n(m_operand_stack.pop())));
             break;
         }
         case FMOD: {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(fmod(l_opd, r_opd));
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(fmod(l_opd, r_opd));
             break;
         }
         case REMAINDER: {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(remainder(l_opd, r_opd));
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(remainder(l_opd, r_opd));
             break;
         }
         case CEIL: {
-            m_operand_stack.push(ceil(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(ceil(_2n(m_operand_stack.pop())));
             break;
         }
         case FLOOR: {
-            m_operand_stack.push(floor(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(floor(_2n(m_operand_stack.pop())));
             break;
         }
         case ROUND: {
-            m_operand_stack.push(round(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(round(_2n(m_operand_stack.pop())));
             break;
         }
         case TRUNC: {
-            m_operand_stack.push(trunc(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(trunc(_2n(m_operand_stack.pop())));
             break;
         }
 
         case POW: {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(pow(l_opd, r_opd));
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(pow(l_opd, r_opd));
             break;
         }
         case SQRT: {
-            double opd = m_operand_stack.pop();
+            double opd = _2n(m_operand_stack.pop());
             if (opd < 0) {
                 print("sqrt expects unsigned operand, while %f gotten", opd);
                 return false;
             }
-            m_operand_stack.push(sqrt(opd));
+            pushNumberIntoOperandStack(sqrt(opd));
             break;
         }
         case CBRT: {
-            m_operand_stack.push(cbrt(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(cbrt(_2n(m_operand_stack.pop())));
             break;
         }
         case HYPOT: {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(hypot(l_opd, r_opd));
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(hypot(l_opd, r_opd));
             break;
         }
         case EXP: {
-            m_operand_stack.push(exp(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(exp(_2n(m_operand_stack.pop())));
             break;
         }
         case EXP2: {
-            m_operand_stack.push(exp2(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(exp2(_2n(m_operand_stack.pop())));
             break;
         }
         case EXPM1: {
-            m_operand_stack.push(expm1(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(expm1(_2n(m_operand_stack.pop())));
             break;
         }
         case LOG: {
-            m_operand_stack.push(log(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(log(_2n(m_operand_stack.pop())));
             break;
         }
         case LOG10: {
-            m_operand_stack.push(log10(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(log10(_2n(m_operand_stack.pop())));
             break;
         }
         case LOG2: {
-            m_operand_stack.push(log2(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(log2(_2n(m_operand_stack.pop())));
             break;
         }
         case LOG1P: {
-            m_operand_stack.push(log1p(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(log1p(_2n(m_operand_stack.pop())));
             break;
         }
 
         case SIN: {
-            m_operand_stack.push(sin(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(sin(_2n(m_operand_stack.pop())));
             break;
         }
         case COS: {
-            m_operand_stack.push(cos(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(cos(_2n(m_operand_stack.pop())));
             break;
         }
         case TAN: {
-            m_operand_stack.push(tan(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(tan(_2n(m_operand_stack.pop())));
             break;
         }
         case ASIN: {
-            m_operand_stack.push(asin(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(asin(_2n(m_operand_stack.pop())));
             break;
         }
         case ACOS: {
-            m_operand_stack.push(acos(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(acos(_2n(m_operand_stack.pop())));
             break;
         }
         case ATAN: {
-            m_operand_stack.push(atan(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(atan(_2n(m_operand_stack.pop())));
             break;
         }
         case ATAN2: {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(atan2(l_opd,r_opd));
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(atan2(l_opd,r_opd));
             break;
         }
 
         case SINH: {
-            m_operand_stack.push(sinh(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(sinh(_2n(m_operand_stack.pop())));
             break;
         }
         case COSH: {
-            m_operand_stack.push(cosh(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(cosh(_2n(m_operand_stack.pop())));
             break;
         }
         case TANH: {
-            m_operand_stack.push(tanh(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(tanh(_2n(m_operand_stack.pop())));
             break;
         }
         case ASINH: {
-            m_operand_stack.push(asinh(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(asinh(_2n(m_operand_stack.pop())));
             break;
         }
         case ACOSH: {
-            m_operand_stack.push(acosh(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(acosh(_2n(m_operand_stack.pop())));
             break;
         }
         case ATANH: {
-            m_operand_stack.push(atanh(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(atanh(_2n(m_operand_stack.pop())));
             break;
         }
 
         case FMIN: {
-            double x = m_operand_stack.pop();
-            double y = m_operand_stack.pop();
-            m_operand_stack.push(fmin(y,x));
+            double x = _2n(m_operand_stack.pop());
+            double y = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(fmin(y,x));
             break;
         }
         case FMAX: {
-            double x = m_operand_stack.pop();
-            double y = m_operand_stack.pop();
-            m_operand_stack.push(fmax(y,x));
+            double x = _2n(m_operand_stack.pop());
+            double y = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(fmax(y,x));
             break;
         }
         case FDIM: {
-            double x = m_operand_stack.pop();
-            double y = m_operand_stack.pop();
-            m_operand_stack.push(fdim(y,x));
+            double x = _2n(m_operand_stack.pop());
+            double y = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(fdim(y,x));
             break;
         }
         case COPYSIGN: {
-            double x = m_operand_stack.pop();
-            double y = m_operand_stack.pop();
-            m_operand_stack.push(copysign(y,x));
+            double x = _2n(m_operand_stack.pop());
+            double y = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(copysign(y,x));
             break;
         }
         case ISFINITE: {
-            m_operand_stack.push(isfinite(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(isfinite(_2n(m_operand_stack.pop())));
             break;
         }
         case ISINF: {
-            m_operand_stack.push(isinf(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(isinf(_2n(m_operand_stack.pop())));
             break;
         }
         case ISNAN: {
-            m_operand_stack.push(isnan(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(isnan(_2n(m_operand_stack.pop())));
             break;
         }
         case ISNORMAL: {
-            m_operand_stack.push(isnormal(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(isnormal(_2n(m_operand_stack.pop())));
             break;
         }
         case SIGNBIT: {
-            m_operand_stack.push(signbit(m_operand_stack.pop()));
+            pushNumberIntoOperandStack(signbit(_2n(m_operand_stack.pop())));
             break;
         }
 
         case INT: {
-            m_operand_stack.push((int)m_operand_stack.pop());
+            pushNumberIntoOperandStack((int)_2n(m_operand_stack.pop()));
             break;
         }
         case MAX: {
@@ -1501,14 +1537,14 @@ bool ArithmeticExpression::calculate(int opr)
             double v = FLT_MIN;
             int opd;
             while (!m_operand_stack.empty() && args_count--) {
-                opd = m_operand_stack.pop();
+                opd = _2n(m_operand_stack.pop());
                 if (opd > v) v = opd;
             }
             if (args_count != 0) {
                 error("no args found in operand stack, should not happen");
                 return false;
             }
-            m_operand_stack.push(v);
+            pushNumberIntoOperandStack(v);
             break;
         }
         case MIN: {
@@ -1516,14 +1552,14 @@ bool ArithmeticExpression::calculate(int opr)
             double v = FLT_MAX;
             int opd;
             while (!m_operand_stack.empty() && args_count--) {
-                opd = m_operand_stack.pop();
+                opd = _2n(m_operand_stack.pop());
                 if (opd < v) v = opd;
             }
             if (args_count != 0) {
                 error("no args found in operand stack, should not happen");
                 return false;
             }
-            m_operand_stack.push(v);
+            pushNumberIntoOperandStack(v);
             break;
         }
         case CMP: {
@@ -1531,16 +1567,16 @@ bool ArithmeticExpression::calculate(int opr)
                 error("cpm(v1,v2,v3) expects three operands, while %d left", m_operand_stack.count());
                 return false;
             }
-            double v3 = m_operand_stack.pop();
-            double v2 = m_operand_stack.pop();
-            double v1 = m_operand_stack.pop();
+            double v3 = _2n(m_operand_stack.pop());
+            double v2 = _2n(m_operand_stack.pop());
+            double v1 = _2n(m_operand_stack.pop());
             double v = v1 != 0? v2: v3;
-            m_operand_stack.push(v);
+            pushNumberIntoOperandStack(v);
             break;
         }
 
         case PRINT: {
-            double v = m_operand_stack.pop(); // make it consumed
+            double v = _2n(m_operand_stack.pop()); // make it consumed
             printf("%g\n", v);
             break;
         }
@@ -1557,69 +1593,69 @@ bool ArithmeticExpression::calculate(int opr)
     } else {
         switch (opr) {
         case '^': {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push( pow(l_opd,r_opd) ); break;
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack( pow(l_opd,r_opd) ); break;
         }
         case '+': {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push( l_opd + r_opd ); break;
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack( l_opd + r_opd ); break;
         }
         case '-': {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push( l_opd - r_opd ); break;
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack( l_opd - r_opd ); break;
         }
         case '*': {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push( l_opd * r_opd ); break;
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack( l_opd * r_opd ); break;
         }
         case '/': {
-            double r_opd = m_operand_stack.pop();
+            double r_opd = _2n(m_operand_stack.pop());
             if ( 0 == r_opd ) {
                 error("divide 0");
                 return false;
             }
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push( l_opd / r_opd);
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack( l_opd / r_opd);
             break;
         }
         case '>': {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(l_opd > r_opd? 1: 0);
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(l_opd > r_opd? 1: 0);
             break;
         }
         case '<': {
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(l_opd < r_opd? 1: 0);
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(l_opd < r_opd? 1: 0);
             break;
         }
         case 'e': {             // "=="
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
             print("e: l_opd=%g r_opd=%g ?=%d", l_opd, r_opd, l_opd == r_opd);
-            m_operand_stack.push(l_opd == r_opd? 1: 0);
+            pushNumberIntoOperandStack(l_opd == r_opd? 1: 0);
             break;
         }
         case 'a': {             // "&&" and
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(l_opd !=0 && r_opd != 0? 1: 0);
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(l_opd !=0 && r_opd != 0? 1: 0);
             break;
         }
         case 'o': {             // "||" and
-            double r_opd = m_operand_stack.pop();
-            double l_opd = m_operand_stack.pop();
-            m_operand_stack.push(l_opd !=0 || r_opd != 0? 1: 0);
+            double r_opd = _2n(m_operand_stack.pop());
+            double l_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack(l_opd !=0 || r_opd != 0? 1: 0);
             break;
         }
         case '!': {
-            double r_opd = m_operand_stack.pop();
-            m_operand_stack.push(r_opd == 0? 1: 0);
+            double r_opd = _2n(m_operand_stack.pop());
+            pushNumberIntoOperandStack (r_opd == 0? 1: 0);
             break;
         }
         default: {

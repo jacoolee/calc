@@ -208,16 +208,7 @@ private:
     void dia(const std::string& marker);
     void appendToRpnExpression(char c);
 
-    bool isOnTerminalState() const {
-        return (
-            ST_BGN == m_state
-            || ST_OPD == m_state
-            || ST_IDF == m_state
-            || ST_RPS == m_state
-            || ST_RCB == m_state
-            || ST_STT == m_state
-            );
-    }
+    bool isOnTerminalState() const;
 
     int getPriority(char c);
     CharType getCharType(int c);
@@ -228,8 +219,16 @@ private:
     bool findBalancedRightCurlyBraceAndSkipToIt();
     void printErrorLocation();
 
+    void pushNumberIntoOperandStack(double num);
+    void pushStringIntoOperandStack(std::string str);
+
+    bool _isn(const OperandStackItem& item);
+    bool _iss(const OperandStackItem& item);
+    double _2n(const OperandStackItem& item);
+    std::string _2s(const OperandStackItem& item);
+
 private:
-    Stack<double> m_operand_stack;
+    Stack<OperandStackItem> m_operand_stack;
     Stack<int> m_operator_stack;
 
     State m_state_prev;
