@@ -11,6 +11,7 @@ digraph G {
         st_rcb [shape=circle,peripheries=2,color="green",style=filled,label="st_rcb"]
         st_flg [shape=circle,peripheries=2,color="cyan",style=filled,label="st_flg"]
         st_id  [shape=circle,peripheries=2,color="orange",style=filled,label="st_id"]
+        st_cln [shape=circle,peripheries=2,color="#817b31",style=filled,label="st_cln"]
         st_stt [shape=circle,peripheries=2,color="#7a81ff",style=filled,label="st_stt"] // statement terminal
         st_fin [shape=circle,peripheries=2,style=filled,label="Final"]
 
@@ -62,10 +63,11 @@ digraph G {
         st_id -> st_opr[label="+-*/^<> == && ||", color="#4f8f00", fontcolor="#4f8f00"];
         st_id -> st_rps[label=")"];
         st_id -> st_bgn[label=","];
-        st_id -> st_bgn[label="= (stmt:assign)"];
+        st_id -> st_bgn[label="= (stmt:declare-assign)"];
         st_id -> st_bgn[label="SPC with id==\"if\" (stmt:if)"];
         st_id -> st_lcb[label="{ (with stmt==if|else)",color="purple",fontcolor="purple"];
         st_id -> st_rcb[label="}",color="green",fontcolor="green"];
+        st_id -> st_cln[label=":",color="#817b31",fontcolor="#817b31"];
         st_id -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
         st_id -> st_fin[label="'\\0'"];
 
@@ -74,6 +76,8 @@ digraph G {
         st_rcb -> st_id[label="keyword:[e]lse"];
         st_rcb -> st_bgn[label="chars left"];
         st_rcb -> st_fin[label="'\\0'"];
+
+        st_cln -> st_bgn[label="= (stmt:scope-declare-assign, aka \":=\")"];
 
         st_stt -> st_bgn[label="chars left"];
         st_stt -> st_rcb[label="}",color="green",fontcolor="green"];

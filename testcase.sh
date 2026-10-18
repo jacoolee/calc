@@ -13,7 +13,7 @@ cat testcase.txt | while read i; do
             echo -e "${On_Red}WRONG: $v2 != $i${Color_Off}"
         else
             if [ $# -ge 1 ]; then
-                echo "OK: $v2 == $i"
+                echo "OK: $i"
             fi
         fi
     else

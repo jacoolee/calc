@@ -9,6 +9,10 @@
 #define FLG_NEGATIVE -1
 #define FLG_ACTIVE 1
 
+#define E_DEV_ERROR -100
+#define E_EVALUATE -101
+#define E_SHOULD_NOT_HAPPEN -999
+
 #define print(...)                              \
     do {                                        \
         if (g_print_enable) {                   \
@@ -85,6 +89,7 @@ ArithmeticExpression::m_state_info[] = {
     {ST_IDF, "ST_IDF"},
     {ST_LCB, "ST_LCB"},
     {ST_RCB, "ST_RCB"},
+    {ST_CLN, "ST_CLN"},
 
     {ST_UNC, "ST_UNC"}, // uncertained
     {ST_ERR, "ST_ERR"},
@@ -104,16 +109,18 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // //    the second item is the type of process action of the transition                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
-    //             CT_SPC            CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_CMA ,          CT_SMC ;          CT_SEQ =          CT_AMP &          CT_VBR |          CT_EXM !          CT_LCB {          CT_RCB }
+    //             CT_SPC            CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_CMA ,          CT_SMC ;          CT_SEQ =          CT_AMP &          CT_VBR |          CT_EXM !          CT_LCB {          CT_RCB }          CT_CLN :
     //
-    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_RCB, ST_RCB}},
-    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
-    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
-    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
-    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
-    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
-    /* ST_IDF */ {{AT_SPC, ST_UNC}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}},
-    /* ST_LCB */ {{AT_NON, ST_LCB}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_BGN}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_NON, ST_UNC}},
+    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}},
+    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}},
+    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}},
+    /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_IDF */ {{AT_SPC, ST_UNC}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_CLN, ST_CLN}},
+    /* ST_LCB */ {{AT_NON, ST_LCB}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_BGN}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_NON, ST_UNC}, {AT_ERR, ST_ERR}},
+    /* ST_RCB */ {{AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}},
+    /* ST_RCB */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_SEQ, ST_UNC}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
 };
 
 ArithmeticExpression::CharTypeInfo
@@ -244,6 +251,8 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_EXM: rc = handleExclamation(); break;
     case AT_LCB: rc = handleLeftCurlyBrace(); break;
     case AT_RCB: rc = handleRightCurlyBrace(); break;
+    case AT_CLN: rc = handleColon(); break;
+    // more here
     case AT_ERR: rc = handleError(); break;
     default:
         print("no handler found for action type:%d", type);
@@ -257,7 +266,7 @@ const char* ArithmeticExpression::getCharTypeStr(int ct) const {
     const CharTypeInfo& item = m_char_type_info[ct];
     if (item.char_type != ct) {
         error("*DEV ERROR* unmatched chartype in m_char_type_info, ct=%d, item.char_type=%d", ct, item.char_type);
-        exit(-1);
+        exit(E_DEV_ERROR);
     }
     return item.str;
 }
@@ -305,6 +314,7 @@ CharType ArithmeticExpression::getCharType(int c) {
     if ( '!' == c) return CT_EXM;
     if ( '{' == c) return CT_LCB;
     if ( '}' == c) return CT_RCB;
+    if ( ':' == c) return CT_CLN;
     return CT_UPPER;
 }
 
@@ -343,9 +353,17 @@ void ArithmeticExpression::dia(const std::string& marker) {
     m_operator_stack.dia(g_print_enable);
     __print(" cmc_stack=");
     m_fncmcnt_stack.dia(g_print_enable);
-    for (const auto& item : m_id_map) {
-        __print(" m_id_map[\"%s\"]=%f ", item.first.c_str(), item.second);
+
+    __print(" m_idf_map");
+    for (const auto& item : m_idf_map) {
+        __print("[\"%s\"]={", item.first.c_str());
+        for (const auto& item : item.second) {
+            __print("%d:%g,", item.first, item.second);
+        }
+        __print("\b");
+        __print("},");
     }
+    __print("\b");
 
     for (const auto& item : m_stmt_if_cond) {
         __print(" m_stmt_if_cond[\"%d\"]=[", item.first);
@@ -448,13 +466,63 @@ bool ArithmeticExpression::handleFlag(char flag)
     return true;
 }
 
-bool ArithmeticExpression::pushIdfValueToOperandStack(std::string idf) {
-    if (m_id_map.find(idf) == m_id_map.end()) {
+double ArithmeticExpression::getIdfValue(const std::string& idf) {
+    if (m_idf_map.find(idf) == m_idf_map.end()) {
         error("undefined id: \"%s\"", idf.c_str());
-        return false;
+        exit(E_EVALUATE);
     }
-    m_operand_stack.push(m_id_map[idf]);
+    double v = NAN;
+    std::unordered_map<int,double>& dv = m_idf_map[idf];
+    for (int depth=m_lcb_count; depth>=0; --depth) {
+        if (dv.find(depth) != dv.end()) { // found
+            v = dv[depth];
+            print("pushIdfValueToOperandStack: found, idf:%s, depth:%d, value:%g", idf.c_str(), depth, v);
+            return v;
+        }
+    }
+    if (isnan(v)) {
+        error("no value found for idf:%s, but idf is registered, should not happen", idf.c_str());
+        exit(E_SHOULD_NOT_HAPPEN);
+    }
+    exit(E_SHOULD_NOT_HAPPEN);
+}
+
+bool ArithmeticExpression::pushIdfValueToOperandStack(const std::string& idf) {
+    double v = getIdfValue(idf);
+    m_operand_stack.push(v);
     return true;
+}
+
+void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value, bool scoped) {
+    print("assignValueToIdf: idf=%s, m_lcb_count=%d, value=%g, scoped=%d", idf.c_str(), m_lcb_count, value, scoped);
+
+    if (m_idf_map.find(idf) == m_idf_map.end()) {
+        // not found, to init
+        std::unordered_map<int,double> dv;
+        dv[m_lcb_count] = value;
+        m_idf_map[idf] = dv;
+    } else {
+        bool assign_success = false;
+        std::unordered_map<int,double>& dv = m_idf_map[idf];
+
+        if (scoped) {           // for current and inner-scope
+            dv[m_lcb_count] = value;
+            assign_success = true;
+
+        } else {                // overwrite/re-use ancient scope if exists
+            for (int depth=m_lcb_count; depth>=0; --depth) {
+                if (dv.find(depth) != dv.end()) { // found
+                    dv[depth] = value;
+                    assign_success = true;
+                }
+            }
+        }
+
+        if (!assign_success) {
+            error("*DEV ERROR* no assign slot found to assign idf:%s=value:%g, should never happen", idf.c_str(), value);
+            exit(E_DEV_ERROR);
+        }
+    }
 }
 
 bool ArithmeticExpression::handleOperator(char opr)
@@ -629,7 +697,8 @@ bool ArithmeticExpression::handleRightParenthesis()
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
             if (!pushIdfValueToOperandStack(m_id)) return false;
-            m_id = ""; // reset after consumed
+            // TODO: uncomment, now do not reset m_id to compromise for printid
+            // m_id = ""; // reset after consumed
         }
     }
 
@@ -792,9 +861,12 @@ bool ArithmeticExpression::handleSemicolon() {
         m_operator_stack.pop();
     }
 
-    if (m_stmt == STMT_ASSIGN) {
+    if (m_stmt == STMT_DECLARE_ASSIGN) {
         // TODO: check if condition fit
-        m_id_map[m_stmt_assign_key] = m_operand_stack.pop();
+        assignValueToIdf(m_stmt_assign_key, m_operand_stack.pop(), false);
+    } else if (m_stmt == STMT_SCOPE_DECLARE_ASSIGN) {
+        assignValueToIdf(m_stmt_assign_key, m_operand_stack.pop(), true);
+    } else {
     }
 
     // reset everything
@@ -803,7 +875,9 @@ bool ArithmeticExpression::handleSemicolon() {
     m_lp_count = 0;
     m_stmt = STMT_NON;
     m_stmt_assign_key = "";
-    m_result = NAN;
+
+    // TODO: uncomment it, now just compromise for result()
+    // m_result = NAN;
 
     if (m_operand_stack.count() > 1) {
         error("more than 1 operand left");
@@ -823,6 +897,17 @@ bool ArithmeticExpression::handleSemicolon() {
 bool ArithmeticExpression::handleSymbolEqual() {
     dia("-:handleSymbolEqual");
 
+    // :=
+    if (m_state == ST_CLN) {
+        m_stmt = STMT_SCOPE_DECLARE_ASSIGN;
+        m_stmt_assign_key = m_id;
+        m_id = "";
+        if (m_id_spc_occurred) m_id_spc_occurred = false;
+        m_state_next_certained = ST_BGN;
+        return true;
+    }
+
+    // others
     // = or ==
     bool hasAtLeastTwoSymbolEqual = (m_parse_pos+1) < m_arithmetic_expression.size() && m_arithmetic_expression[m_parse_pos+1] == '=';
 
@@ -834,7 +919,7 @@ bool ArithmeticExpression::handleSymbolEqual() {
     } else {
         // treat it as assign statement if m_state is ST_IDF
         if (m_state == ST_IDF) {
-            m_stmt = STMT_ASSIGN;
+            m_stmt = STMT_DECLARE_ASSIGN;
             m_stmt_assign_key = m_id;
             m_id = "";
             if (m_id_spc_occurred) m_id_spc_occurred = false;
@@ -1076,9 +1161,12 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
         m_operator_stack.pop();
     }
 
-    if (m_stmt == STMT_ASSIGN) {
+    if (m_stmt == STMT_DECLARE_ASSIGN) {
         // TODO: check if condition fit
-        m_id_map[m_stmt_assign_key] = m_operand_stack.pop();
+        assignValueToIdf(m_stmt_assign_key, m_operand_stack.pop(), false);
+    } else if (m_stmt == STMT_SCOPE_DECLARE_ASSIGN) {
+        assignValueToIdf(m_stmt_assign_key, m_operand_stack.pop(), true);
+    } else {
     }
 
     ////////////////////////////////////////////////////////////////
@@ -1099,6 +1187,11 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
     m_stmt = STMT_NON;
 
+    return true;
+}
+
+bool ArithmeticExpression::handleColon() {
+    print("handleColon: expects '=' immediately");
     return true;
 }
 
@@ -1369,15 +1462,18 @@ bool ArithmeticExpression::calculate(int opr)
             m_operand_stack.push(v);
             break;
         }
+
         case PRINTID: {
-            // TODO: check conditon fit
-            printf("PRINTID: key=\"%s\", value=%g\n", m_id.c_str(), m_id_map[m_id]);
+            double v = getIdfValue(m_id);
+            printf("printid: key=\"%s\", value=%g\n", m_id.c_str(), v);
             break;
         }
+
         case RESULT: {
             m_result = m_operand_stack.top();
             break;
         }
+
         default:
             error("unsupported fni: %d", fni);
             return false;

@@ -17,6 +17,7 @@ enum State
     ST_IDF,
     ST_LCB,
     ST_RCB,
+    ST_CLN,
 
     ST_UNC,                     // 7,uncertain, more needed to determine state
     ST_ERR,
@@ -41,6 +42,8 @@ enum CharType
     CT_EXM,             // !
     CT_LCB,                     // {
     CT_RCB,                     // }
+    CT_CLN,
+
     CT_UPPER                    // upper bound
 };
 
@@ -63,12 +66,15 @@ enum ActionType
     AT_EXM,
     AT_LCB,
     AT_RCB,
+    AT_CLN,
+
     AT_UPPER
 };
 
 enum StmtType {
     STMT_NON, // 0
-    STMT_ASSIGN,
+    STMT_DECLARE_ASSIGN,
+    STMT_SCOPE_DECLARE_ASSIGN,//2
     STMT_IF_COND,
     STMT_ELIF_COND,
     STMT_IF_BLOCK,
@@ -187,11 +193,14 @@ private:
     bool handleExclamation();
     bool handleLeftCurlyBrace();
     bool handleRightCurlyBrace();
-
-    bool pushIdfValueToOperandStack(std::string idf);
+    bool handleColon();
 
     bool handleAction(ActionType type, char c);
     bool calculate(int opr);
+
+    double getIdfValue(const std::string& idf);
+    bool pushIdfValueToOperandStack(const std::string& idf);
+    void assignValueToIdf(const std::string& idf, double value, bool scoped);
 
     int fnn2fni(const std::string& fnn);
     std::string fni2fnn(const int fni);
@@ -235,18 +244,18 @@ private:
     Stack<int> m_fncmcnt_stack;
 
     std::string m_id;
-    std::unordered_map<std::string,double> m_id_map;
+    // std::unordered_map<std::string,double> m_id_map;
     bool m_id_spc_occurred;
 
     // The main design purpose of {} in C is to group statements into a block,
     // so they can be treated as a single unit of code.
 
     // record id's value
-    // { id: {block_depth: id_value} }
-    std::unordered_map<std::string,std::unordered_map<int,double>> m_id_mapp;
-    // record redeclared id in multiple block_depth
-    // { block_depth: { id: 1 }}
-    std::unordered_map<int, std::unordered_map<std::string,int>> m_id_redeclared;
+    // { idf: {block_depth: idf_value} }
+    std::unordered_map<std::string,std::unordered_map<int,double>> m_idf_map;
+    // record redeclared idf in block_depth, used for clear m_idf_map
+    // { block_depth: { idf: 1 }}
+    std::unordered_map<int, std::unordered_map<std::string,int>> m_idf_scope_declared;
 
     int m_stmt;
     std::string m_stmt_assign_key;

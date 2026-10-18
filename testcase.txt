@@ -155,3 +155,11 @@
 # test "idf}"
 
 2 = x=2;y=0;if 1{y=x} result(y)
+
+# scope declare assign
+
+2 = x = 0; if 1 { x:=1; if 1 { x:=2; result(x) } }
+1 = x = 0; if 1 { x:=1; if 1 { x:=2; } result(x) }
+0 = x = 0; if 1 { x:=1; if 1 { x:=2; } } result(x)
+
+0 = x = 0; if 1 { x:=1; } if 1 { result(x) }
