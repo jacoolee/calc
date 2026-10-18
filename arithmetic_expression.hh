@@ -178,7 +178,7 @@ private:
     bool handle(char c);
     bool handleNone();
     bool handleFlag(char flag);
-    bool handleError();
+    void handleError();
     bool handleOperator(char opr);
     bool handleOperand();
     bool handleLeftParenthesis();

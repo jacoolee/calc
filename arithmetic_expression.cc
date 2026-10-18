@@ -9,9 +9,12 @@
 #define FLG_NEGATIVE -1
 #define FLG_ACTIVE 1
 
-#define E_DEV_ERROR 1
-#define E_SYNTAX 20
-#define E_EVALUATE 50
+#define E_DEV_ERROR 1       // error happened during development, *must* to be fixed by coding
+#define E_PARSE 10          // *fundamental* parse error
+#define E_SYNTAX 20         // parse error
+#define E_GRAMMAR 30        // language rule error
+#define E_EVALUATE 50       // evaluating error
+#define E_OTHER 99          // other undefined error
 
 #define E_SHOULD_NOT_HAPPEN 99
 
@@ -252,7 +255,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_RCB: rc = handleRightCurlyBrace(); break;
     case AT_CLN: rc = handleColon(); break;
     // more here
-    case AT_ERR: rc = handleError(); break;
+    case AT_ERR: handleError(); rc= false; break;
     default:
         print("no handler found for action type:%d", type);
         rc = false;
@@ -407,7 +410,8 @@ bool ArithmeticExpression::handle(char c)
     CharType type = getCharType(c);
     if ( CT_UPPER == type) {
         error("invalid char type, argument char='%c'", c);
-        return false;
+        printErrorLocation();
+        exit(E_PARSE);
     }
 
     StateTable* table_item = &m_state_table[m_state][type];
@@ -476,6 +480,7 @@ bool ArithmeticExpression::handleFlag(char flag)
 double ArithmeticExpression::getIdfValue(const std::string& idf) {
     if (m_idf_map.find(idf) == m_idf_map.end()) {
         error("undefined id: \"%s\"", idf.c_str());
+        printErrorLocation();
         exit(E_EVALUATE);
     }
     double v = NAN;
@@ -520,6 +525,7 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
                 if (dv.find(depth) != dv.end()) { // found
                     dv[depth] = value;
                     assign_success = true;
+                    break;
                 }
             }
         }
@@ -541,8 +547,8 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
             if (idf1map.find(idf) != idf1map.end()) {
                 error("idf:\"%s\" has already been scope-declared in current scope:%d", idf.c_str(), m_lcb_count);
                 printErrorLocation();
-                error("in same scope, idf with same name can only be scope-declared once");
-                exit(E_SYNTAX);
+                error("in same scope, same-named idf can only be scope-declared once");
+                exit(E_GRAMMAR);
             }
             idf1map[idf] = 1;
         }
@@ -598,10 +604,10 @@ void ArithmeticExpression::printErrorLocation() {
     __error("\u200B\n");
 }
 
-bool ArithmeticExpression::handleError()
+void ArithmeticExpression::handleError()
 {
     dia("-:handleError");
-    error("invalid syntax error: pos=\"%d\", c='%c', raw=\"%s\"",
+    error("invalid syntax: pos=\"%d\", c='%c', raw=\"%s\"",
           m_parse_pos,
           m_arithmetic_expression[m_parse_pos],
           m_arithmetic_expression.c_str());
@@ -619,7 +625,7 @@ bool ArithmeticExpression::handleError()
     }
     __printalw(", while '%c' gotten\n", m_arithmetic_expression[m_parse_pos]);
 
-    return false;               // always false
+    exit(E_SYNTAX);
 }
 
 bool ArithmeticExpression::handleOperand()
@@ -852,7 +858,8 @@ bool ArithmeticExpression::handleComma() {
     }
     if (m_operator_stack.empty()) {
         error("invalid use of comma, comma can only be used as function argument separator");
-        return false;
+        handleError();
+        exit(E_SYNTAX);
     }
     if (m_fncmcnt_stack.empty()) {
         error("comma can only be used as function argumet separator");
@@ -868,7 +875,7 @@ bool ArithmeticExpression::handleSemicolon() {
 
     if (m_lp_count > 0) {
         error("';' not allowed inside ()");
-        printErrorLocation();
+        handleError();
         exit(E_SYNTAX);
     }
 
@@ -882,7 +889,8 @@ bool ArithmeticExpression::handleSemicolon() {
 
     if (m_stmt == STMT_IF_COND) {
         error("invalid syntax: \"if exp ;\"");
-        return false;
+        handleError();
+        exit(E_SYNTAX);
     }
 
     dia("-:handleSemicolon+1");
@@ -911,7 +919,8 @@ bool ArithmeticExpression::handleSemicolon() {
     if (m_operand_stack.count() > 1) {
         error("more than 1 operand left");
         dia("handleSemicolon");
-        return false;
+        printErrorLocation();
+        exit(E_DEV_ERROR);
     }
 
     dia("handleSemicolon:+");
@@ -1008,7 +1017,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
     if (m_lp_count > 0) {
         error("'{' not allowed inside ()");
-        printErrorLocation();
+        handleError();
         exit(E_SYNTAX);
     }
 
@@ -1173,7 +1182,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
     if (m_lp_count > 0) {
         error("'}' not allowed inside ()");
-        printErrorLocation();
+        handleError();
         exit(E_SYNTAX);
     }
 
@@ -1531,7 +1540,7 @@ bool ArithmeticExpression::calculate(int opr)
         }
 
         case PRINT: {
-            double v = m_operand_stack.top();
+            double v = m_operand_stack.pop(); // make it consumed
             printf("%g\n", v);
             break;
         }
