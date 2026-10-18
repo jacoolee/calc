@@ -226,6 +226,7 @@ private:
     const char* getCharTypeStr(int) const;
 
     bool findBalancedRightCurlyBraceAndSkipToIt();
+    void printErrorLocation();
 
 private:
     Stack<double> m_operand_stack;
@@ -255,6 +256,7 @@ private:
     std::unordered_map<std::string,std::unordered_map<int,double>> m_idf_map;
     // record redeclared idf in block_depth, used for clear m_idf_map
     // { block_depth: { idf: 1 }}
+    // NOTE: use {idf: 1} instead of [idf1, idf2] for simplicity and performance
     std::unordered_map<int, std::unordered_map<std::string,int>> m_idf_scope_declared;
 
     int m_stmt;

@@ -9,9 +9,11 @@
 #define FLG_NEGATIVE -1
 #define FLG_ACTIVE 1
 
-#define E_DEV_ERROR -100
-#define E_EVALUATE -101
-#define E_SHOULD_NOT_HAPPEN -999
+#define E_DEV_ERROR 1
+#define E_SYNTAX 20
+#define E_EVALUATE 50
+
+#define E_SHOULD_NOT_HAPPEN 99
 
 #define print(...)                              \
     do {                                        \
@@ -365,6 +367,17 @@ void ArithmeticExpression::dia(const std::string& marker) {
     }
     __print("\b");
 
+    __print(" m_idf_scope_declared");
+    for (const auto& item : m_idf_scope_declared) {
+        __print("[\"%d\"]={", item.first);
+        for (const auto& item : item.second) {
+            __print("%s:%d,", item.first.c_str(), item.second);
+        }
+        __print("\b");
+        __print("},");
+    }
+    __print("\b");
+
     for (const auto& item : m_stmt_if_cond) {
         __print(" m_stmt_if_cond[\"%d\"]=[", item.first);
         for (int x : item.second) {
@@ -504,7 +517,6 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
     } else {
         bool assign_success = false;
         std::unordered_map<int,double>& dv = m_idf_map[idf];
-
         if (scoped) {           // for current and inner-scope
             dv[m_lcb_count] = value;
             assign_success = true;
@@ -521,6 +533,24 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
         if (!assign_success) {
             error("*DEV ERROR* no assign slot found to assign idf:%s=value:%g, should never happen", idf.c_str(), value);
             exit(E_DEV_ERROR);
+        }
+    }
+
+    if (scoped) {           // for current and inner-scope(s)
+        if (m_idf_scope_declared.find(m_lcb_count) == m_idf_scope_declared.end()) { // scope has no idf scope-declared
+            std::unordered_map<std::string,int> idf1map;
+            idf1map[idf] = 1;
+            m_idf_scope_declared[m_lcb_count] = idf1map;
+
+        } else {            // scope has idf scope-declared
+            std::unordered_map<std::string,int>& idf1map = m_idf_scope_declared[m_lcb_count];
+            if (idf1map.find(idf) != idf1map.end()) {
+                error("idf:\"%s\" has already been scope-declared in current scope:%d", idf.c_str(), m_lcb_count);
+                printErrorLocation();
+                error("in same scope, idf with same name can only be scope-declared once");
+                exit(E_SYNTAX);
+            }
+            idf1map[idf] = 1;
         }
     }
 }
@@ -566,6 +596,14 @@ bool ArithmeticExpression::handleOperator(char opr)
     return true;
 }
 
+void ArithmeticExpression::printErrorLocation() {
+    __error("\u200B\n");
+    __error("%s\n", m_arithmetic_expression.c_str());
+    __error("%*s^\n", m_parse_pos, "");
+    __error("%*s%d\n", m_parse_pos, "", m_parse_pos);
+    __error("\u200B\n");
+}
+
 bool ArithmeticExpression::handleError()
 {
     dia("-:handleError");
@@ -575,12 +613,7 @@ bool ArithmeticExpression::handleError()
           m_arithmetic_expression.c_str());
 
     // TODO: [2026-10-17] support char: '\n'.
-
-    __error("\u200B\n");
-    __error("%s\n", m_arithmetic_expression.c_str());
-    __error("%*s^\n", m_parse_pos, "");
-    __error("%*s%d\n", m_parse_pos, "", m_parse_pos);
-    __error("\u200B\n");
+    printErrorLocation();
 
     // better readable error message
     __error("%s expects", getStateStr(m_state));
@@ -1175,6 +1208,37 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     if (m_lcb_count == 0) {
         error("no balanced left curly brace found");
         return false;
+    }
+
+    // clear scope-declared idf, so later same-depth scope will not re-use the old, wrong data
+    if (m_idf_scope_declared.find(m_lcb_count) != m_idf_scope_declared.end()) { // scope has idf scope-declared
+        // 1) clear scope-declared idfs from m_idf_std::map<type1> var;
+        std::unordered_map<std::string,int>& idf1map = m_idf_scope_declared[m_lcb_count];
+
+        for (auto it = idf1map.begin(); it != idf1map.end(); ++it) {
+            std::string idf = it->first;
+            print("processing idf:%s", idf.c_str());
+
+            if (m_idf_map.find(idf) == m_idf_map.end()) {
+                error("no such idf:%s found when clearing, while it exists in m_idf_scope_declared", idf.c_str());
+                exit(E_SHOULD_NOT_HAPPEN);
+            }
+
+            std::unordered_map<int,double>& dv = m_idf_map[idf];
+            if (dv.find(m_lcb_count) == dv.end()) {
+                error("no such dv found for current scope depth:%d for idf:%s from m_idf_map when clearning, while idf exists in m_idf_scope_declared", m_lcb_count, idf.c_str());
+                exit(E_SHOULD_NOT_HAPPEN);
+            }
+
+            dv.erase(m_lcb_count);
+
+            if (dv.empty()) {
+                m_idf_map.erase(idf);
+            }
+        }
+
+        // 2) clear scope-declared [current_scope_depth]
+        m_idf_scope_declared.erase(m_lcb_count);
     }
 
     --m_lcb_count;
