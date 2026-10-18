@@ -42,7 +42,7 @@ enum CharType
     CT_EXM,             // !
     CT_LCB,                     // {
     CT_RCB,                     // }
-    CT_CLN,
+    CT_CLN,                     // :
     CT_DBQ,                     // "
 
     CT_UPPER                    // upper bound
