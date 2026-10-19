@@ -15,6 +15,7 @@ $ ./calc 'fabs((-5 + (-00.01 - 0.09) * 10 ^ 2) / 5)'
 - working over perfection, perfection exists based on situations, situation-based perfection is not perfection itself
 - mechanism over cases
 - controllability over appearance
+- independent over dependent
 
 ## Testcase
 

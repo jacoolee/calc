@@ -1,2 +1,3 @@
 = 261018093924 lang-like syntax other than expression
 = 261018194607 check exp has been calculated in all cases when exp terminated
+= 261019105239 apply double quote to other st_states
