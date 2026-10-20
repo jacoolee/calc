@@ -82,6 +82,7 @@ enum StmtType {
     STMT_IF_BLOCK,
     STMT_ELIF_BLOCK,
     STMT_ELSE_BLOCK,
+    FUNCTION_DEFINITION,
 };
 
 // TODO: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
@@ -166,7 +167,7 @@ public:
     ArithmeticExpression(const std::string& infix_expression, int print_enable);
     ~ArithmeticExpression() {}
 
-    bool parse();
+    bool parse(int end_pos);
     const std::string& getRpnExpression() const {
         return m_rpn_expression;
     }
@@ -200,6 +201,7 @@ private:
 
     bool handleAction(ActionType type, char c);
     bool calculate(int opr);
+    bool call(const std::string);
 
     double getIdfValue(const std::string& idf);
     bool pushIdfValueToOperandStack(const std::string& idf);
@@ -212,6 +214,7 @@ private:
     void appendToRpnExpression(char c);
 
     bool isOnTerminalState() const;
+    bool isCharTypeExpected(CharType type);
 
     int getPriority(char c);
     CharType getCharType(int c);
@@ -219,7 +222,7 @@ private:
     const char* getStateStr(State) const;
     const char* getCharTypeStr(int) const;
 
-    bool findBalancedRightCurlyBraceAndSkipToIt();
+    bool findBalancedRightCurlyBraceAndSkipToIt(bool skipRigthCurlyBraceAlong=false);
     void printErrorLocation();
 
     void pushNumberIntoOperandStack(double num);
@@ -245,6 +248,12 @@ private:
     int m_lcb_count;            // aka. block depth
 
     Stack<int> m_fncmcnt_stack;
+
+    std::string m_function_name;
+    std::unordered_map<std::string,std::array<int,2>> m_function_map;
+    std::unordered_map<int,std::string> m_function_exec_pos_name_map;
+    std::vector<std::string> m_function_args;
+    std::vector<CharType> m_expect_char_types;
 
     std::string m_id;
     // std::unordered_map<std::string,double> m_id_map;

@@ -70,6 +70,12 @@ ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, 
       m_lp_count(0),
       m_lcb_count(0),
 
+      m_function_name(""),
+      m_function_map({ {"main",{0,0}} }),
+      m_function_exec_pos_name_map({ {0,"main"} }),
+      m_function_args({}),
+      m_expect_char_types({}),
+
       m_id(""),
       m_id_spc_occurred(false),
 
@@ -114,7 +120,7 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // Code:
     //             CT_SPC            CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_CMA ,          CT_SMC ;          CT_SEQ =          CT_AMP &          CT_VBR |          CT_EXM !          CT_LCB {          CT_RCB }          CT_CLN :          CT_DBQ "
     //
-    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_OPD}},
+    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_RPS, ST_UNC}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_OPD}},
     /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_OPD}},
     /* ST_OPD */ {{AT_NON, ST_OPD}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
     /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_OPD}},
@@ -131,8 +137,8 @@ ArithmeticExpression::m_char_type_info[] = {
     {CT_SPC, " "},
     {CT_OP,  "operators"},
     {CT_NUM, "0-9"},
-    {CT_LP,  "{"},
-    {CT_RP,  "}"},
+    {CT_LP,  "("},
+    {CT_RP,  ")"},
     {CT_FLG, "flag:+-"},
     {CT_ALP, "alphas"},
     {CT_CMA, ","},
@@ -391,12 +397,37 @@ void ArithmeticExpression::dia(const std::string& marker) {
         __print("]");
     }
 
-    __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_stmt = %d m_state_next_certained = %s rpn = \"%s\"\n",
+    __print(" m_stmt = %d", m_stmt);
+    __print(" m_function_name = %s", m_function_name.c_str());
+
+    __print(" m_function_map");
+    for (const auto& item : m_function_map) {
+        __print("[\"%s\"]=", item.first.c_str());
+        __print("[%d,%d] ", item.second[0], item.second[1]);
+    }
+
+    __print(" m_function_pos2name_name");
+    for (const auto& item : m_function_exec_pos_name_map) {
+        __print("[%d]=%s ", item.first, item.second.c_str());
+    }
+
+    __print(" m_function_args=[");
+    for (const auto& item : m_function_args) {
+        __print("%s ", item.c_str());
+    }
+    __print("]");
+
+    __print(" m_expect_char_types=[");
+    for (const auto& item : m_expect_char_types) {
+        __print("'%s' ", getCharTypeStr(item));
+    }
+    __print("]");
+
+    __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_state_next_certained = %s rpn = \"%s\"\n",
             m_id.c_str(),
             m_id_spc_occurred?"true":"false",
             m_lp_count,
             m_lcb_count,
-            m_stmt,
             getStateStr(m_state_next_certained),
             m_rpn_expression.c_str()
         );
@@ -421,6 +452,11 @@ bool ArithmeticExpression::isOnTerminalState() const {
         );
 }
 
+bool ArithmeticExpression::isCharTypeExpected(CharType type) {
+    std::vector<CharType>& v = m_expect_char_types;
+    return std::find(v.begin(), v.end(), type) != v.end();
+}
+
 bool ArithmeticExpression::handle(char c)
 {
     CharType type = getCharType(c);
@@ -428,6 +464,18 @@ bool ArithmeticExpression::handle(char c)
         error("invalid char type, argument char='%c'", c);
         printErrorLocation();
         exit(E_PARSE);
+    }
+
+    if (!m_expect_char_types.empty()) {
+        if (!isCharTypeExpected(type)) {
+            __error("expect char type: [");
+            for (const auto& item : m_expect_char_types) {
+                __printalw("'%s' ", getCharTypeStr(item));
+            }
+            __printalw("\b], while '%s' gotten\n", getCharTypeStr(type));
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        }
     }
 
     StateTable* table_item = &m_state_table[m_state][type];
@@ -700,6 +748,12 @@ bool ArithmeticExpression::handleOperand()
 
 bool ArithmeticExpression::handleLeftParenthesis()
 {
+    if (m_stmt == FUNCTION_DEFINITION) {
+        m_id = "";
+        m_expect_char_types = { CT_ALP, CT_RP, CT_SPC };
+        return true;
+    }
+
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
     }
@@ -717,21 +771,29 @@ bool ArithmeticExpression::handleLeftParenthesis()
             m_state_next_certained = ST_BGN;
 
         } else {
-            int fni = fnn2fni(m_id);
-            if (fni == FNN_UPPER) {
-                error("fni should never be equal to FNN_UPPER, fni=%d, m_id=%s", fni, m_id.c_str());
-                return false;
+            if (m_function_map.find(m_id) != m_function_map.end()) {
+                int exec_pos = m_function_map[m_id][0];
+                m_id = "";
+                m_operator_stack.push(exec_pos); // uniq
+                m_fncmcnt_stack.push(0); // TODO, record and set
+                m_operator_stack.push('F'); // self-defined function
+                ++m_lp_count;
+                dia("F");
+            } else {// built-in function
+                int fni = fnn2fni(m_id);
+                if (fni == FNN_UPPER) {
+                    error("fni should never be equal to FNN_UPPER, fni=%d, m_id=%s", fni, m_id.c_str());
+                    return false;
+                }
+
+                m_operator_stack.push(fni);
+                m_id = "";
+                // NOTE: always record fncmcnt's comma count when fn gotten
+                m_fncmcnt_stack.push(0);
+                m_operator_stack.push('f'); // built-in function, means function left parenthesis
+                ++m_lp_count;
             }
-            m_operator_stack.push(fni);
-            m_id = "";
-
-            // NOTE: always record fncmcnt's comma count when fn gotten
-            m_fncmcnt_stack.push(0);
-
-            m_operator_stack.push('f'); // means function left parenthesis
-            ++m_lp_count;
         }
-
     } else {
         m_operator_stack.push('(');
         ++m_lp_count;
@@ -741,6 +803,13 @@ bool ArithmeticExpression::handleLeftParenthesis()
 
 bool ArithmeticExpression::handleRightParenthesis()
 {
+    if (m_stmt == FUNCTION_DEFINITION) {
+        m_function_args.push_back(m_id);
+        m_id = "";
+        m_expect_char_types = { CT_LCB, CT_SPC };
+        m_state_next_certained = ST_RPS;
+        return true;
+    }
 
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
@@ -768,7 +837,7 @@ bool ArithmeticExpression::handleRightParenthesis()
             break;
         }
 
-        if (top == 'f') {
+        if (top == 'f' || top == 'F') {
             // NOTE: always calculate whole function when 'f' met.
             if (! calculate(top)) return false;
             // NOTE: 'f' already pop-ed in calculate(...), and due
@@ -777,8 +846,8 @@ bool ArithmeticExpression::handleRightParenthesis()
             // that's meet the expection of handleRightParenthesis, coz
             // the right parenthesis handled is the closing parenthesis of
             // function if opr is 'f'.
-            m_operator_stack.pop(); // 'f'
-            m_operator_stack.pop(); // fni
+            m_operator_stack.pop(); // 'f', 'F'
+            m_operator_stack.pop(); // fni, exec_pos
             break;
         } else {
             if (! calculate(top)) return false;
@@ -804,14 +873,20 @@ bool ArithmeticExpression::handleAlpha(char _c) {
     // TODO: [2026-10-10] parse like handleOperand to ignore m_id_spc_occurred.
 
     // for case "id<SPC+>id"
-    if (m_id_spc_occurred) {
-        if (m_id == "else") {
-            error("identifer can not follow keyword: \"%s\"", m_id.c_str());
+    do {
+        if (m_id_spc_occurred) {
+            if (m_stmt == FUNCTION_DEFINITION) {
+                // ok
+                break;
+            }
+            if (m_id == "else") {
+                error("identifer can not follow keyword: \"%s\"", m_id.c_str());
+                return false;
+            }
+            error("space not allowed between alphas");
             return false;
         }
-        error("space not allowed between alphas");
-        return false;
-    }
+    } while (0);
 
     m_id = "";
 
@@ -819,6 +894,7 @@ bool ArithmeticExpression::handleAlpha(char _c) {
     int size = m_arithmetic_expression.size();
     while ( m_parse_pos < size ) {
         c = m_arithmetic_expression[m_parse_pos];
+        // TODO: to support '_'
         if (!(getCharType(c) == CT_ALP || (c >= '0' && c <= '9'))) {
             break;
         }
@@ -831,6 +907,16 @@ bool ArithmeticExpression::handleAlpha(char _c) {
     // parse function will get right char right on to current idf
     if (m_id != "") {
         --m_parse_pos;
+    }
+
+    if (m_stmt == FUNCTION_DEFINITION) {
+        m_function_name = m_id;
+        if (m_function_map.find(m_function_name) == m_function_map.end()) { // function NAME
+            m_function_map[m_function_name][0] = 0;
+            m_expect_char_types = { CT_LP, CT_SPC };
+        } else {                // function name(ARG
+            m_expect_char_types = { CT_CMA, CT_RP, CT_SPC };
+        }
     }
 
     m_id_spc_occurred = false;
@@ -848,6 +934,9 @@ bool ArithmeticExpression::handleSpace() {
         } else if (m_id == "elif") {
             m_stmt = STMT_ELIF_COND;
             m_state_next_certained = ST_BGN;
+        } else if (m_id == "function") {
+            m_stmt = FUNCTION_DEFINITION;
+            m_state_next_certained = ST_BGN;
         } else {
             m_id_spc_occurred = true;
             m_state_next_certained = ST_IDF;
@@ -857,6 +946,13 @@ bool ArithmeticExpression::handleSpace() {
 }
 
 bool ArithmeticExpression::handleComma() {
+    if (m_stmt == FUNCTION_DEFINITION) {
+        m_function_args.push_back(m_id);
+        m_id = "";
+        m_expect_char_types = { CT_ALP, CT_SPC };
+        return true;
+    }
+
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
@@ -866,7 +962,11 @@ bool ArithmeticExpression::handleComma() {
     }
 
     int top;
-    while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != 'f') {
+    while (!m_operator_stack.empty()) {
+        top = m_operator_stack.top();
+        if (top == 'f' || top == 'F') {
+            break;
+        }
         dia("-:handleComma");
         if(!calculate(top)) return false;
         dia("handleComma:+");
@@ -1031,6 +1131,30 @@ bool ArithmeticExpression::handleExclamation() {
 bool ArithmeticExpression::handleLeftCurlyBrace() {
     dia("-:handleLeftCurlyBrace");
 
+    if (m_stmt == FUNCTION_DEFINITION) {
+        m_expect_char_types = {};
+
+        // TODO register function definition meta
+        // record from definition's '{', so we can run from here
+        int exec_pos = m_parse_pos;
+        m_function_map[m_function_name][0] = exec_pos;
+        m_function_exec_pos_name_map[m_parse_pos] = m_function_name;
+
+        if (!findBalancedRightCurlyBraceAndSkipToIt(true /*skipRigthCurlyBraceAlong*/)) {
+            error("function: no balanced ending-block symbol '}' found");
+            return false;
+        }
+
+        // '}*' end_pos (exclusive)
+        //   ^
+        m_function_map[m_function_name][1] = m_parse_pos + 1;
+
+        m_id = "";
+        m_stmt = STMT_NON;
+        m_state_next_certained = ST_BGN;
+        return true;
+    }
+
     if (m_lp_count > 0) {
         error("'{' not allowed inside ()");
         handleError();
@@ -1166,12 +1290,14 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     return true;
 }
 
-bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt() {
+bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigthCurlyBraceAlong) {
     int size = m_arithmetic_expression.size();
     int n_skiped_lcb = 0;
     bool found = false;
 
     // starting from next char right after current '{'
+    //
+    // TODO: to process '}' inside string
     while (++m_parse_pos < size) {
         const char& c = m_arithmetic_expression.at(m_parse_pos);
         print("findBalancedRightCurlyBraceAndSkipToIt: c='%c'", c);
@@ -1191,7 +1317,10 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt() {
 
     if (found) {
         print("findBalancedRightCurlyBraceAndSkipToIt: } found:%d", (int)found);
-        --m_parse_pos;          // restore '}', so parse get chance to process it
+        if (!skipRigthCurlyBraceAlong) {
+            --m_parse_pos;          // restore '}', so parse get chance to process it
+        }
+
     }
 
     return found;
@@ -1240,7 +1369,8 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     // firstly, ensure balanced left curly brace exists
     if (m_lcb_count == 0) {
         error("no balanced left curly brace found");
-        return false;
+        printErrorLocation();
+        exit(E_GRAMMAR);
     }
 
     // clear scope-declared idf, so later same-depth scope will not re-use the old, wrong data
@@ -1635,7 +1765,16 @@ bool ArithmeticExpression::calculate(int opr)
         // NOTE: always pop when fn has successfully been processed
         m_fncmcnt_stack.pop();
         return true;
+    } else if ('F' == opr) {
+        print("To call self defined function");
 
+        m_operator_stack.pop(); // 'F'
+        int exec_pos = m_operator_stack.pop(); // function exec_pos
+        const std::string& fnn = m_function_exec_pos_name_map[exec_pos];
+
+        call(fnn);
+
+        exit(0);
     } else {
         switch (opr) {
         case '^': {
@@ -1714,18 +1853,54 @@ bool ArithmeticExpression::calculate(int opr)
     }
 }
 
-bool ArithmeticExpression::parse()
-{
-    int size = m_arithmetic_expression.size();
-    if ( size == 0 ) {
-        print("empty arithmetic expression");
-        return true;
+bool ArithmeticExpression::call(const std::string function_name) {
+    if (m_function_map.find(function_name) == m_function_map.end()) {
+        error("no such self-defined function: \"%s\"", function_name.c_str());
+        exit(E_DEV_ERROR);
     }
 
-    print("parse \"%s\"", m_arithmetic_expression.c_str());
+    // TODO: m_xx vars sucks for parsing block
 
-    while ( m_parse_pos < size ) {
-        print("\n> \"%s\"", &m_arithmetic_expression[m_parse_pos]);
+    // TODO: use call stack to remember current exec_pos
+    // switch to function exec_pos
+
+    int parse_pos_to_back = m_parse_pos + 1;
+    print("remember parse_pos_to_back:%d, start:\"%s\"", parse_pos_to_back, &m_arithmetic_expression[parse_pos_to_back]);
+
+    // jump to function
+    m_state = ST_BGN;
+    m_parse_pos = m_function_map[function_name][0];
+    int end_pos = m_function_map[function_name][1];
+
+    print("EXECUTE CODE: \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
+    parse(end_pos);
+
+    // switch back when done
+    // TODO: m_xx maybe polluted
+    print("switch back to pos:%d", parse_pos_to_back);
+    m_parse_pos = parse_pos_to_back;
+    parse(-1);
+
+    return true;
+}
+
+// @end_pos is exclusive
+bool ArithmeticExpression::parse(int end_pos)
+{
+    if (end_pos == -1) {
+        int size = m_arithmetic_expression.size();
+        if ( size == 0 ) {
+            print("empty arithmetic expression");
+            return true;
+        }
+        end_pos = size;
+    }
+
+    // print("parse \"%d %d %s\"", m_parse_pos, end_pos, m_arithmetic_expression.c_str());
+    print("PARSE: \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
+
+    while ( m_parse_pos < end_pos ) {
+        print("\n> \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
         dia("-:parse");
         const char& c = m_arithmetic_expression.at(m_parse_pos);
         if ( ! handle(c) ) {

@@ -167,3 +167,7 @@
 # string
 
 hello world = print("hello world")
+
+# self-defined function
+
+in fn = function fn() {print("in fn");} fn();
