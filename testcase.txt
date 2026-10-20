@@ -173,3 +173,7 @@ hello world = print("hello world")
 in fn = function fn() {print("in fn");} fn();
 
 0123456789 = n=-1; function a() { n=n+1; if n<10 { printf(n); a(); } } a();
+
+# idf scope-declare (AE function depth scope + lcb scope with same AE depth)
+
+0123210 = x=0; printf(x); function f1() { x:=1; printf(x); if 1 { x:=2; printf(x); function f2() { x:=3; printf(x); } f2(); printf(x); } printf(x); } f1(); printf(x)

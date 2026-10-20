@@ -18,12 +18,12 @@ cat buggy.txt | while read i; do
     elif echo "${i}" | grep '^ *$' &>/dev/null; then
         echo $i
     else
-        e=$(echo "$i" | cut -d'=' -f2- | cut -d'#' -f1)
+        e=$(echo "$i" | cut -d'#' -f1)
         x=$(./calc "$e" $2)
         if [ $? -eq 0 ]; then
-            echo -e "${Green}$i${Color_Off}"
+            echo -e "${Green}PASS${Color_Off} $i"
         else
-            echo -e "${On_Red}$i${Color_Off}"
+            echo -e "${On_Red}BUGGY${Color_Off} $i"
         fi
         printf '%s' "$x"
         echo

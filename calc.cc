@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
     int x = argc>2?(int(*argv[2])==48?0:1):0;
     // printf("x=%d\n", x);
 
-    ArithmeticExpression ari_exp(argv[1], x);
+    ArithmeticExpression ari_exp(argv[1], 0, 0, x);
     if (! ari_exp.parse()) {
         return -1;
     }

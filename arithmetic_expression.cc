@@ -73,15 +73,17 @@
 int g_print_enable = 0;
 int g_depth = 0;
 
-ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, int print_enable=0)
-    : m_state_prev(ST_UPPER),
+ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, int depth, int lcb_count, int print_enable)
+    : m_depth(depth),
+      m_state_prev(ST_UPPER),
       m_state(ST_BGN),
       m_state_next_certained(ST_UPPER),
       m_arithmetic_expression(infix_expression),
 
       m_parse_pos(0),
       m_lp_count(0),
-      m_lcb_count(0),
+      m_lcb_count_init(lcb_count),
+      m_lcb_count(lcb_count),
 
       m_function_name(""),
       m_function_map({ {"main",{0,0}} }),
@@ -375,6 +377,9 @@ void ArithmeticExpression::dia(const std::string& marker) {
               table_item->action_type,
               getStateStr(table_item->new_state)
         );
+
+    __print(" m_depth = %d", m_depth);
+
     __print(" opd_stack=");
     m_operand_stack.dia(g_print_enable);
     __print(" opr_stack=");
@@ -391,7 +396,9 @@ void ArithmeticExpression::dia(const std::string& marker) {
         __print("\b");
         __print("},");
     }
-    __print("\b");
+    if (!m_idf_map.empty()) {
+        __print("\b");
+    }
 
     __print(" m_idf_scope_declared");
     for (const auto& item : m_idf_scope_declared) {
@@ -402,7 +409,9 @@ void ArithmeticExpression::dia(const std::string& marker) {
         __print("\b");
         __print("},");
     }
-    __print("\b");
+    if (!m_idf_scope_declared.empty()) {
+        __print("\b");
+    }
 
     for (const auto& item : m_stmt_if_cond) {
         __print(" m_stmt_if_cond[\"%d\"]=[", item.first);
@@ -565,10 +574,10 @@ double ArithmeticExpression::getIdfValue(const std::string& idf) {
     }
     double v = NAN;
     std::unordered_map<int,double>& dv = m_idf_map[idf];
-    for (int depth=m_lcb_count; depth>=0; --depth) {
-        if (dv.find(depth) != dv.end()) { // found
-            v = dv[depth];
-            print("pushIdfValueToOperandStack: found, idf:%s, depth:%d, value:%g", idf.c_str(), depth, v);
+    for (int i=m_depth + m_lcb_count; i>=0; --i) {
+        if (dv.find(i) != dv.end()) { // found
+            v = dv[i];
+            print("pushIdfValueToOperandStack: found, idf:%s, i:%d, value:%g", idf.c_str(), i, v);
             return v;
         }
     }
@@ -586,24 +595,24 @@ bool ArithmeticExpression::pushIdfValueToOperandStack(const std::string& idf) {
 }
 
 void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value, bool scoped) {
-    print("assignValueToIdf: idf=%s, m_lcb_count=%d, value=%g, scoped=%d", idf.c_str(), m_lcb_count, value, scoped);
+    print("assignValueToIdf: : idf=%s, m_depth=%d, m_lcb_count=%d, value=%g, scoped=%d", idf.c_str(), m_depth, m_lcb_count, value, scoped);
 
     if (m_idf_map.find(idf) == m_idf_map.end()) {
         // not found, to init
         std::unordered_map<int,double> dv;
-        dv[m_lcb_count] = value;
+        dv[m_depth + m_lcb_count] = value;
         m_idf_map[idf] = dv;
     } else {
         bool assign_success = false;
         std::unordered_map<int,double>& dv = m_idf_map[idf];
         if (scoped) {           // for current and inner-scope
-            dv[m_lcb_count] = value;
+            dv[m_depth + m_lcb_count] = value;
             assign_success = true;
 
         } else {                // overwrite/re-use ancient scope if exists
-            for (int depth=m_lcb_count; depth>=0; --depth) {
-                if (dv.find(depth) != dv.end()) { // found
-                    dv[depth] = value;
+            for (int i=m_depth + m_lcb_count; i>=0; --i) {
+                if (dv.find(i) != dv.end()) { // found
+                    dv[i] = value;
                     assign_success = true;
                     break;
                 }
@@ -617,15 +626,15 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
     }
 
     if (scoped) {           // for current and inner-scope(s)
-        if (m_idf_scope_declared.find(m_lcb_count) == m_idf_scope_declared.end()) { // scope has no idf scope-declared
+        if (m_idf_scope_declared.find(m_depth + m_lcb_count) == m_idf_scope_declared.end()) { // scope has no idf scope-declared
             std::unordered_map<std::string,int> idf1map;
             idf1map[idf] = 1;
-            m_idf_scope_declared[m_lcb_count] = idf1map;
+            m_idf_scope_declared[m_depth + m_lcb_count] = idf1map;
 
         } else {            // scope has idf scope-declared
-            std::unordered_map<std::string,int>& idf1map = m_idf_scope_declared[m_lcb_count];
+            std::unordered_map<std::string,int>& idf1map = m_idf_scope_declared[m_depth + m_lcb_count];
             if (idf1map.find(idf) != idf1map.end()) {
-                error("idf:\"%s\" has already been scope-declared in current scope:%d", idf.c_str(), m_lcb_count);
+                error("idf:\"%s\" has already been scope-declared in current m_depth:%d scope:%d", idf.c_str(), m_depth, m_lcb_count);
                 printErrorLocation();
                 error("in same scope, same-named idf can only be scope-declared once");
                 exit(E_GRAMMAR);
@@ -1396,9 +1405,9 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     }
 
     // clear scope-declared idf, so later same-depth scope will not re-use the old, wrong data
-    if (m_idf_scope_declared.find(m_lcb_count) != m_idf_scope_declared.end()) { // scope has idf scope-declared
+    if (m_idf_scope_declared.find(m_depth + m_lcb_count) != m_idf_scope_declared.end()) { // scope has idf scope-declared
         // 1) clear scope-declared idfs from m_idf_std::map<type1> var;
-        std::unordered_map<std::string,int>& idf1map = m_idf_scope_declared[m_lcb_count];
+        std::unordered_map<std::string,int>& idf1map = m_idf_scope_declared[m_depth + m_lcb_count];
 
         for (auto it = idf1map.begin(); it != idf1map.end(); ++it) {
             std::string idf = it->first;
@@ -1410,12 +1419,12 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
             }
 
             std::unordered_map<int,double>& dv = m_idf_map[idf];
-            if (dv.find(m_lcb_count) == dv.end()) {
-                error("no such dv found for current scope depth:%d for idf:%s from m_idf_map when clearning, while idf exists in m_idf_scope_declared", m_lcb_count, idf.c_str());
+            if (dv.find(m_depth + m_lcb_count) == dv.end()) {
+                error("no such dv found for current AE depth:%d, scope depth:%d for idf:%s from m_idf_map when clearning, while idf exists in m_idf_scope_declared", m_depth, m_lcb_count, idf.c_str());
                 exit(E_SHOULD_NOT_HAPPEN);
             }
 
-            dv.erase(m_lcb_count);
+            dv.erase(m_depth + m_lcb_count);
 
             if (dv.empty()) {
                 m_idf_map.erase(idf);
@@ -1423,7 +1432,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
         }
 
         // 2) clear scope-declared [current_scope_depth]
-        m_idf_scope_declared.erase(m_lcb_count);
+        m_idf_scope_declared.erase(m_depth + m_lcb_count);
     }
 
     --m_lcb_count;
@@ -1930,7 +1939,7 @@ bool ArithmeticExpression::call(const std::string function_name) {
     int begin = m_function_map[function_name][0];
     int end = m_function_map[function_name][1];
 
-    ArithmeticExpression fnblock(m_arithmetic_expression, g_print_enable);
+    ArithmeticExpression fnblock(m_arithmetic_expression, getDepth()+1, getLCBCount(), g_print_enable);
     fnblock.setMeta(
         getFunctionMap(),
         getFunctionExecPosNameMap(),
@@ -2023,7 +2032,7 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
     }
 
     // check whether parenthesis matches
-    if ( 0 != m_lcb_count ) {
+    if ( m_lcb_count_init != m_lcb_count ) {
         error("open left curly brace exists, count=\"%d\"", m_lcb_count);
         return false;
     }

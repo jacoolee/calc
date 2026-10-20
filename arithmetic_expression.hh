@@ -165,7 +165,7 @@ enum FNN
 class ArithmeticExpression
 {
 public:
-    ArithmeticExpression(const std::string& infix_expression, int print_enable);
+    ArithmeticExpression(const std::string& infix_expression, int depth=0, int lcb_count=0, int print_enable=0);
     ~ArithmeticExpression() {}
 
     bool parse(int begin_pos=0, int end_pos=-1);
@@ -258,9 +258,19 @@ private:
         std::unordered_map<int, std::unordered_map<std::string,int>>&
         );
 
+    int getDepth() {
+        return m_depth;
+    }
+
+    int getLCBCount() {
+        return m_lcb_count;
+    }
+
 private:
     Stack<OperandStackItem> m_operand_stack;
     Stack<int> m_operator_stack;
+
+    int m_depth;                // use for function call
 
     State m_state_prev;
     State m_state;
@@ -270,7 +280,8 @@ private:
     int m_parse_pos;
 
     int m_lp_count;
-    int m_lcb_count;            // aka. block depth
+    int m_lcb_count_init;
+    int m_lcb_count;            // aka. '{' block depth of current AE depth
 
     Stack<int> m_fncmcnt_stack;
 
