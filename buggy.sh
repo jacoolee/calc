@@ -5,14 +5,27 @@ Green='\033[0;32m'
 On_Red='\033[41m'
 Color_Off='\033[0m'
 
+n=0
 cat buggy.txt | while read i; do
+    n=$((n+1))
+
+    if [ ${1:-0} != 0 ] && [ ${1:-0} -ne ${n} ]; then
+        continue
+    fi
+
     if echo "${i}" | grep '^#' &>/dev/null; then
         echo $i
     elif echo "${i}" | grep '^ *$' &>/dev/null; then
         echo $i
     else
-        echo -e "${Green}$i${Color_Off}"
-        ./calc "$i"
+        e=$(echo "$i" | cut -d'=' -f2- | cut -d'#' -f1)
+        x=$(./calc "$e" $2)
+        if [ $? -eq 0 ]; then
+            echo -e "${Green}$i${Color_Off}"
+        else
+            echo -e "${On_Red}$i${Color_Off}"
+        fi
+        printf '%s' "$x"
         echo
     fi
 done
