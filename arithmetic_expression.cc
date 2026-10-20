@@ -21,8 +21,17 @@
 #define print(...)                              \
     do {                                        \
         if (g_print_enable) {                   \
+            if (g_depth>0) printf("%*s|%d ",g_depth*2,"", g_depth);   \
             printf(__VA_ARGS__);                \
             printf("\n");                       \
+        }                                       \
+    } while (0)
+
+#define printnoln(...)                          \
+    do {                                        \
+        if (g_print_enable) {                   \
+            if (g_depth>0) printf("%*s|%d ",g_depth*2,"", g_depth);   \
+            printf(__VA_ARGS__);                \
         }                                       \
     } while (0)
 
@@ -33,32 +42,36 @@
         }                                       \
     } while (0)
 
-#define __printalw(...)                         \
-    do {                                        \
-        printf(__VA_ARGS__);                    \
-    } while (0)
-
 #define error(...)                              \
     do {                                        \
-        printf("error: ");                      \
+        if (g_depth>0) printf("%*s|%d ",g_depth*2,"", g_depth);    \
+        printf("error: %4d - ", __LINE__);        \
         printf(__VA_ARGS__);                    \
         printf("\n");                           \
     } while (0)
 
+#define errornoln(...)                                          \
+    do {                                                        \
+        if (g_depth>0) printf("%*s|%d ",g_depth*2,"", g_depth); \
+        printf("error: %4d - ", __LINE__);                      \
+        printf(__VA_ARGS__);                                    \
+    } while (0)
+
 #define __error(...)                            \
     do {                                        \
-        printf("error: ");                      \
         printf(__VA_ARGS__);                    \
     } while (0)
 
 #define warn(...)                               \
     do {                                        \
-        printf("warn: ");                       \
+        if (g_depth>0) printf("%*s|%d ",g_depth*2,"", g_depth); \
+        printf("warn: %4d - ", __LINE__);         \
         printf(__VA_ARGS__);                    \
         printf("\n");                           \
     } while (0)
 
 int g_print_enable = 0;
+int g_depth = 0;
 
 ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, int print_enable=0)
     : m_state_prev(ST_UPPER),
@@ -118,7 +131,7 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // //    the second item is the type of process action of the transition                     //
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Code:
-    //             CT_SPC            CT_OP             CT_NUM            CT_LP             CT_RP             CT_FLG            CT_ALP            CT_CMA ,          CT_SMC ;          CT_SEQ =          CT_AMP &          CT_VBR |          CT_EXM !          CT_LCB {          CT_RCB }          CT_CLN :          CT_DBQ "
+    //             CT_SPC            CT_OP             CT_NUM 0-9        CT_LP (           CT_RP )           CT_FLG -+         CT_ALP            CT_CMA ,          CT_SMC ;          CT_SEQ =          CT_AMP &          CT_VBR |          CT_EXM !          CT_LCB {          CT_RCB }          CT_CLN :          CT_DBQ "
     //
     /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_RPS, ST_UNC}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_OPD}},
     /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_OPD, ST_OPD}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_OPD}},
@@ -208,7 +221,9 @@ ArithmeticExpression::m_function_meta[FNN_UPPER] = {
     { "min", 2, 1 },
     { "cmp", 3, 0 },
 
+    // TODO: { "fnn", min, max }, max = -1 means variable arguments, so for {"print", 0, 1}
     { "print", 1, 0},
+    { "printf", 1, 1},
 };
 
 const char* ArithmeticExpression::getStateStr(State state) const
@@ -350,15 +365,15 @@ void ArithmeticExpression::dia(const std::string& marker) {
     CharType type = getCharType(c);
     StateTable* table_item = &m_state_table[m_state][type];
 
-    __print("dia: %s @%d [(%s) %s + '%c'(CT=%d,AT=%d) => %s]",
-            marker.c_str(),
-            m_parse_pos,
-            getStateStr(m_state_prev),
-            getStateStr(m_state),
-            c,
-            type,
-            table_item->action_type,
-            getStateStr(table_item->new_state)
+    printnoln("dia: %s @%d [(%s) %s + '%c'(CT=%d,AT=%d) => %s]",
+              marker.c_str(),
+              m_parse_pos,
+              getStateStr(m_state_prev),
+              getStateStr(m_state),
+              c,
+              type,
+              table_item->action_type,
+              getStateStr(table_item->new_state)
         );
     __print(" opd_stack=");
     m_operand_stack.dia(g_print_enable);
@@ -468,11 +483,11 @@ bool ArithmeticExpression::handle(char c)
 
     if (!m_expect_char_types.empty()) {
         if (!isCharTypeExpected(type)) {
-            __error("expect char type: [");
+            errornoln("expect char type: [");
             for (const auto& item : m_expect_char_types) {
-                __printalw("'%s' ", getCharTypeStr(item));
+                __error("'%s' ", getCharTypeStr(item));
             }
-            __printalw("\b], while '%s' gotten\n", getCharTypeStr(type));
+            __error("\b], while '%s' gotten\n", getCharTypeStr(type));
             printErrorLocation();
             exit(E_GRAMMAR);
         }
@@ -493,8 +508,9 @@ bool ArithmeticExpression::handle(char c)
                 m_state_next_certained = ST_UPPER;
             } else {
                 error("uncertained state occurs");
+                printErrorLocation();
                 dia("handle[uncertained state]");
-                return false;
+                exit(E_DEV_ERROR);
             }
         }
 
@@ -661,11 +677,11 @@ bool ArithmeticExpression::handleOperator(char opr)
 }
 
 void ArithmeticExpression::printErrorLocation() {
-    __error("\u200B\n");
-    __error("%s\n", m_arithmetic_expression.c_str());
-    __error("%*s^\n", m_parse_pos, "");
-    __error("%*s%d\n", m_parse_pos, "", m_parse_pos);
-    __error("\u200B\n");
+    errornoln("\u200B\n");
+    errornoln("%s\n", m_arithmetic_expression.c_str());
+    errornoln("%*s^\n", m_parse_pos, "");
+    errornoln("%*s%d\n", m_parse_pos, "", m_parse_pos);
+    errornoln("\u200B\n");
 }
 
 void ArithmeticExpression::handleError()
@@ -684,10 +700,10 @@ void ArithmeticExpression::handleError()
     StateTable* l = m_state_table[m_state];
     for (int i=0; i<CT_UPPER; i++) {
         if (l[i].action_type != AT_ERR) {
-            __printalw(" '%s'", getCharTypeStr(i));
+            __error(" '%s'", getCharTypeStr(i));
         }
     }
-    __printalw(", while '%c' gotten\n", m_arithmetic_expression[m_parse_pos]);
+    __error(", while '%c' gotten\n", m_arithmetic_expression[m_parse_pos]);
 
     exit(E_SYNTAX);
 }
@@ -775,7 +791,8 @@ bool ArithmeticExpression::handleLeftParenthesis()
                 int exec_pos = m_function_map[m_id][0];
                 m_id = "";
                 m_operator_stack.push(exec_pos); // uniq
-                m_fncmcnt_stack.push(0); // TODO, record and set
+                // TODO, use m_function_call_args_count_stack directly, comma can't tell 0 argument and 1 argument
+                m_fncmcnt_stack.push(0);
                 m_operator_stack.push('F'); // self-defined function
                 ++m_lp_count;
                 dia("F");
@@ -809,6 +826,8 @@ bool ArithmeticExpression::handleRightParenthesis()
         m_expect_char_types = { CT_LCB, CT_SPC };
         m_state_next_certained = ST_RPS;
         return true;
+    } else {
+        m_state_next_certained = ST_BGN;
     }
 
     if (m_state == ST_IDF) {
@@ -1013,9 +1032,12 @@ bool ArithmeticExpression::handleSemicolon() {
 
     int top;
     while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
+        print("in loop");
         if (!calculate(top)) return false;
         m_operator_stack.pop();
     }
+
+    print("h1");
 
     if (m_stmt == STMT_DECLARE_ASSIGN) {
         // TODO: check if condition fit
@@ -1479,8 +1501,7 @@ std::string ArithmeticExpression::_2s(const OperandStackItem& item) {
     return item.str;
 }
 
-// NOTE: for easier maintainance, only modify m_operand_stack when
-// calculating, keep m_operator_stack stay.
+// NOTE: for easier maintainance, only modify m_operand_stack when calculating, *KEEP m_operator_stack STAY*.
 bool ArithmeticExpression::calculate(int opr)
 {
     print("calculate: opr=<%c %d>", opr, opr);
@@ -1493,10 +1514,10 @@ bool ArithmeticExpression::calculate(int opr)
     if ('f' == opr) {
         print("opr is 'f'");
         int fni = m_operator_stack.top(-1); // get fni
-        print("fni=%d", fni);
-
         int fncmcnt = m_fncmcnt_stack.top();
         FunctionMeta fm = m_function_meta[fni];
+
+        print("calculate: fni=%d, fm.args_va=%d fm.args_count=%d fncmcnt=%d", fni, fm.args_va, fm.args_count, fncmcnt);
 
         if (fm.args_va) {
             if (fncmcnt < fm.args_count-1) {
@@ -1748,11 +1769,26 @@ bool ArithmeticExpression::calculate(int opr)
         }
 
         case PRINT: {
+            if (m_operand_stack.empty()) { // "print()"
+                printf("\n");
+                break;
+            }
             const OperandStackItem& x = m_operand_stack.pop();
             if (_isn(x)) {
                 printf("%g\n", _2n(x));
             } else {
                 printf("%s\n", _2s(x).c_str());
+            }
+            break;
+        }
+
+        case PRINTF: {
+            // TODO: to support real printf
+            const OperandStackItem& x = m_operand_stack.pop();
+            if (_isn(x)) {
+                printf("%g", _2n(x));
+            } else {
+                printf("%s", _2s(x).c_str());
             }
             break;
         }
@@ -1766,15 +1802,11 @@ bool ArithmeticExpression::calculate(int opr)
         m_fncmcnt_stack.pop();
         return true;
     } else if ('F' == opr) {
-        print("To call self defined function");
-
-        m_operator_stack.pop(); // 'F'
-        int exec_pos = m_operator_stack.pop(); // function exec_pos
+        int exec_pos = m_operator_stack.top(-1); // function exec_pos
         const std::string& fnn = m_function_exec_pos_name_map[exec_pos];
-
+        print("call self-defined function: exec_pos=%d fnn:\"%s\"", exec_pos, fnn.c_str());
         call(fnn);
-
-        exit(0);
+        return true;
     } else {
         switch (opr) {
         case '^': {
@@ -1853,39 +1885,82 @@ bool ArithmeticExpression::calculate(int opr)
     }
 }
 
+// bool ArithmeticExpression::call_old(const std::string function_name) {
+//     if (m_function_map.find(function_name) == m_function_map.end()) {
+//         error("no such self-defined function: \"%s\"", function_name.c_str());
+//         exit(E_DEV_ERROR);
+//     }
+
+//     // TODO: m_xx vars sucks for parsing block
+
+//     // TODO: use call_stack to remember current exec_pos
+//     // switch to function exec_pos
+
+//     int parse_pos_to_back = m_parse_pos + 1;
+//     print("remember parse_pos_to_back:%d, start:\"%s\"", parse_pos_to_back, &m_arithmetic_expression[parse_pos_to_back]);
+
+//     // jump to function
+//     m_state = ST_BGN;
+//     m_parse_pos = m_function_map[function_name][0];
+//     int end_pos = m_function_map[function_name][1];
+
+//     print("EXECUTE CODE: \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
+//     parse(end_pos);
+
+//     // switch back when done
+//     // TODO: m_xx maybe polluted
+//     print("switch back to pos:%d", parse_pos_to_back);
+//     m_parse_pos = parse_pos_to_back;
+//     parse(-1);
+
+//     return true;
+// }
+
 bool ArithmeticExpression::call(const std::string function_name) {
+    print("call: function_name = %s", function_name.c_str());
+
     if (m_function_map.find(function_name) == m_function_map.end()) {
         error("no such self-defined function: \"%s\"", function_name.c_str());
         exit(E_DEV_ERROR);
     }
 
-    // TODO: m_xx vars sucks for parsing block
+    // TODO: use ArithmeticExpression recursively
+    // so run state of each block is stored automatically
 
-    // TODO: use call stack to remember current exec_pos
-    // switch to function exec_pos
+    int begin = m_function_map[function_name][0];
+    int end = m_function_map[function_name][1];
 
-    int parse_pos_to_back = m_parse_pos + 1;
-    print("remember parse_pos_to_back:%d, start:\"%s\"", parse_pos_to_back, &m_arithmetic_expression[parse_pos_to_back]);
+    ArithmeticExpression fnblock(m_arithmetic_expression, g_print_enable);
+    fnblock.setMeta(
+        getFunctionMap(),
+        getFunctionExecPosNameMap(),
+        getIdfMap(),        // FIXME: maybe just leak global scope idf to valid idf value pollution
+        getIdfScopeDeclared() // FIXME: maybe just leak global scope idf to valid idf value pollution
+        );
 
-    // jump to function
-    m_state = ST_BGN;
-    m_parse_pos = m_function_map[function_name][0];
-    int end_pos = m_function_map[function_name][1];
-
-    print("EXECUTE CODE: \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
-    parse(end_pos);
-
-    // switch back when done
-    // TODO: m_xx maybe polluted
-    print("switch back to pos:%d", parse_pos_to_back);
-    m_parse_pos = parse_pos_to_back;
-    parse(-1);
-
+    ++g_depth;
+    if (! fnblock.parse(begin, end)) {
+        exit(E_EVALUATE);
+    }
+    --g_depth;
     return true;
 }
 
+void ArithmeticExpression::setMeta(
+    std::unordered_map<std::string,std::array<int,2>>& function_map,
+    std::unordered_map<int,std::string>& function_exec_pos_name_map,
+    std::unordered_map<std::string,std::unordered_map<int,double>>& idf_map,
+    std::unordered_map<int, std::unordered_map<std::string,int>>& idf_scope_declared
+    )
+{
+    m_function_map = function_map;
+    m_function_exec_pos_name_map = function_exec_pos_name_map;
+    m_idf_map = idf_map;
+    m_idf_scope_declared = idf_scope_declared;
+}
+
 // @end_pos is exclusive
-bool ArithmeticExpression::parse(int end_pos)
+bool ArithmeticExpression::parse(int begin_pos, int end_pos)
 {
     if (end_pos == -1) {
         int size = m_arithmetic_expression.size();
@@ -1896,11 +1971,14 @@ bool ArithmeticExpression::parse(int end_pos)
         end_pos = size;
     }
 
+    m_parse_pos = begin_pos;
+
     // print("parse \"%d %d %s\"", m_parse_pos, end_pos, m_arithmetic_expression.c_str());
     print("PARSE: \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
 
     while ( m_parse_pos < end_pos ) {
-        print("\n> \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
+        print("\n");
+        print("> \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
         dia("-:parse");
         const char& c = m_arithmetic_expression.at(m_parse_pos);
         if ( ! handle(c) ) {

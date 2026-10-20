@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     // printf("x=%d\n", x);
 
     ArithmeticExpression ari_exp(argv[1], x);
-    if (! ari_exp.parse(-1)) {
+    if (! ari_exp.parse()) {
         return -1;
     }
 

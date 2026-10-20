@@ -1,5 +1,6 @@
 = 261018093924 lang-like syntax other than expression
 = 261018194607 check exp has been calculated in all cases when exp terminated
 = 261019105239 apply double quote to other st_states
-= 261020103859 down dimension simplify problem #lesson
+.= 261020103859 down dimension simplify problem #lesson
 = 261020104324 rename m_stmt as more precise m_ctxt
+= 261020221149 redesign function arguments checking

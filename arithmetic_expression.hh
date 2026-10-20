@@ -156,6 +156,7 @@ enum FNN
     CMP,
 
     PRINT,
+    PRINTF,
 
     // add more
     FNN_UPPER
@@ -167,7 +168,7 @@ public:
     ArithmeticExpression(const std::string& infix_expression, int print_enable);
     ~ArithmeticExpression() {}
 
-    bool parse(int end_pos);
+    bool parse(int begin_pos=0, int end_pos=-1);
     const std::string& getRpnExpression() const {
         return m_rpn_expression;
     }
@@ -201,6 +202,7 @@ private:
 
     bool handleAction(ActionType type, char c);
     bool calculate(int opr);
+    bool call_old(const std::string);
     bool call(const std::string);
 
     double getIdfValue(const std::string& idf);
@@ -232,6 +234,29 @@ private:
     bool _iss(const OperandStackItem& item);
     double _2n(const OperandStackItem& item);
     std::string _2s(const OperandStackItem& item);
+
+    std::unordered_map<std::string,std::array<int,2>>& getFunctionMap() {
+        return m_function_map;
+    }
+
+    std::unordered_map<int,std::string>& getFunctionExecPosNameMap() {
+        return m_function_exec_pos_name_map;
+    }
+
+    std::unordered_map<std::string,std::unordered_map<int,double>>& getIdfMap() {
+        return m_idf_map;
+    }
+
+    std::unordered_map<int, std::unordered_map<std::string,int>>& getIdfScopeDeclared() {
+        return m_idf_scope_declared;
+    }
+
+    void setMeta(
+        std::unordered_map<std::string,std::array<int,2>>&,
+        std::unordered_map<int,std::string>&,
+        std::unordered_map<std::string,std::unordered_map<int,double>>&,
+        std::unordered_map<int, std::unordered_map<std::string,int>>&
+        );
 
 private:
     Stack<OperandStackItem> m_operand_stack;

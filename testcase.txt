@@ -171,3 +171,5 @@ hello world = print("hello world")
 # self-defined function
 
 in fn = function fn() {print("in fn");} fn();
+
+0123456789 = n=-1; function a() { n=n+1; if n<10 { printf(n); a(); } } a();
