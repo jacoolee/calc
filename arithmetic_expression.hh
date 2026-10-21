@@ -73,8 +73,8 @@ enum ActionType
     AT_UPPER
 };
 
-enum StmtType {
-    STMT_NON, // 0
+enum CTXType {
+    CTXT_NON, // 0
     STMT_DECLARE_ASSIGN,
     STMT_SCOPE_DECLARE_ASSIGN,//2
     STMT_IF_COND,
@@ -83,6 +83,9 @@ enum StmtType {
     STMT_ELIF_BLOCK,
     STMT_ELSE_BLOCK,
     FUNCTION_DEFINITION,
+    FUNCTION_ARGS,
+    FUNCTION_BLOCK,
+    FUNCTION_CALL,
 };
 
 // TODO: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
@@ -165,7 +168,15 @@ enum FNN
 class ArithmeticExpression
 {
 public:
-    ArithmeticExpression(const std::string& infix_expression, int depth=0, int lcb_count=0, int print_enable=0);
+    ArithmeticExpression(
+        const std::string& infix_expression,
+        int depth,
+        int lcb_count,
+        std::unordered_map<std::string,std::unordered_map<int,double>>, // copy
+        std::unordered_map<std::string,double> pre_defined_idf_map, // copy
+        int contextType,
+        int print_enable
+        );
     ~ArithmeticExpression() {}
 
     bool parse(int begin_pos=0, int end_pos=-1);
@@ -254,7 +265,6 @@ private:
     void setMeta(
         std::unordered_map<std::string,std::array<int,2>>&,
         std::unordered_map<int,std::string>&,
-        std::unordered_map<std::string,std::unordered_map<int,double>>&,
         std::unordered_map<int, std::unordered_map<std::string,int>>&
         );
 
@@ -289,7 +299,10 @@ private:
     std::string m_function_name;
     std::unordered_map<std::string,std::array<int,2>> m_function_map;
     std::unordered_map<int,std::string> m_function_exec_pos_name_map;
+
+    // FIXME: should merge m_function_args into m_function_map to support function in function
     std::vector<std::string> m_function_args;
+
     std::vector<CharType> m_expect_char_types;
 
     std::string m_id;
@@ -299,6 +312,8 @@ private:
     // The main design purpose of {} in C is to group statements into a block,
     // so they can be treated as a single unit of code.
 
+    std::unordered_map<std::string,double> m_pre_defined_idf_map;
+
     // record id's value
     // { idf: {block_depth: idf_value} }
     std::unordered_map<std::string,std::unordered_map<int,double>> m_idf_map;
@@ -307,7 +322,7 @@ private:
     // NOTE: use {idf: 1} instead of [idf1, idf2] for simplicity and performance
     std::unordered_map<int, std::unordered_map<std::string,int>> m_idf_scope_declared;
 
-    int m_stmt;
+    int m_ctxt;
     std::string m_stmt_assign_key;
     std::unordered_map<int,std::vector<int>> m_stmt_if_cond;
 

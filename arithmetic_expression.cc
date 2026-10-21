@@ -75,7 +75,14 @@ int g_depth = 0;
 int g_ln_count = 1;
 std::string scope_name = "global";
 
-ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, int depth, int lcb_count, int print_enable)
+ArithmeticExpression::ArithmeticExpression(
+    const std::string& infix_expression,
+    int depth,
+    int lcb_count,
+    std::unordered_map<std::string,std::unordered_map<int,double>> idf_map, // FIXME: [2026-10-21] not memory-saving friendly
+    std::unordered_map<std::string,double> pre_defined_idf_map,
+    int contextType,
+    int print_enable)
     : m_depth(depth),
       m_state_prev(ST_UPPER),
       m_state(ST_BGN),
@@ -90,19 +97,26 @@ ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, 
       m_lcb_count(lcb_count),
 
       m_function_name(""),
-      m_function_map({ {"",{0,0}} }),
-      m_function_exec_pos_name_map({ {0,""} }),
+      m_function_map({}),
+      m_function_exec_pos_name_map({}),
       m_function_args({}),
       m_expect_char_types({}),
 
       m_id(""),
       m_id_spc_occurred(false),
 
-      m_stmt(STMT_NON),
+      m_ctxt(CTXT_NON),
       m_stmt_assign_key("")
 {
     m_operator_stack.push(LOWEST_PRIO_OP);
+
+    m_ctxt = contextType;
+    m_idf_map = idf_map;
+    m_pre_defined_idf_map = pre_defined_idf_map;
+
     g_print_enable = print_enable;
+
+    dia("ArithmeticExpression:+");
 }
 
 ArithmeticExpression::StateInfo
@@ -358,8 +372,9 @@ int ArithmeticExpression::fnn2fni(const std::string& fnn) {
             return i;
         }
     }
-    print("unsupported function name: %s", m_id.c_str());
-    return FNN_UPPER;
+    error("unsupported function name: %s", m_id.c_str());
+    error("\"function\" keyword missed, suggest: \"function fn(...)\"");
+    exit(E_GRAMMAR);
 }
 
 std::string ArithmeticExpression::fni2fnn(const int fni) {
@@ -425,7 +440,7 @@ void ArithmeticExpression::dia(const std::string& marker) {
         __print("]");
     }
 
-    __print(" m_stmt = %d", m_stmt);
+    __print(" m_ctxt = %d", m_ctxt);
     __print(" m_function_name = %s", m_function_name.c_str());
 
     __print(" m_function_map");
@@ -441,7 +456,7 @@ void ArithmeticExpression::dia(const std::string& marker) {
 
     __print(" m_function_args=[");
     for (const auto& item : m_function_args) {
-        __print("%s ", item.c_str());
+        __print("\"%s\" ", item.c_str());
     }
     __print("]");
 
@@ -609,8 +624,8 @@ bool ArithmeticExpression::pushIdfValueToOperandStack(const std::string& idf) {
     return true;
 }
 
-void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value, bool scoped) {
-    print("assignValueToIdf: : idf=%s, m_depth=%d, m_lcb_count=%d, value=%g, scoped=%d", idf.c_str(), m_depth, m_lcb_count, value, scoped);
+void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value, bool is_scope_declared) {
+    print("assignValueToIdf: : idf=%s, m_depth=%d, m_lcb_count=%d, value=%g, is_scope_declared=%d", idf.c_str(), m_depth, m_lcb_count, value, is_scope_declared);
 
     if (m_idf_map.find(idf) == m_idf_map.end()) {
         // not found, to init
@@ -620,7 +635,7 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
     } else {
         bool assign_success = false;
         std::unordered_map<int,double>& dv = m_idf_map[idf];
-        if (scoped) {           // for current and inner-scope
+        if (is_scope_declared) {           // for current and inner-scope
             dv[m_depth + m_lcb_count] = value;
             assign_success = true;
 
@@ -640,7 +655,7 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
         }
     }
 
-    if (scoped) {           // for current and inner-scope(s)
+    if (is_scope_declared) {           // for current and inner-scope(s)
         if (m_idf_scope_declared.find(m_depth + m_lcb_count) == m_idf_scope_declared.end()) { // scope has no idf scope-declared
             std::unordered_map<std::string,int> idf1map;
             idf1map[idf] = 1;
@@ -720,7 +735,7 @@ void ArithmeticExpression::handleError()
     printErrorLocation();
 
     // better readable error message
-    __error("%s expects", getStateStr(m_state));
+    error("%s expects", getStateStr(m_state));
     StateTable* l = m_state_table[m_state];
     for (int i=0; i<CT_UPPER; i++) {
         if (l[i].action_type != AT_ERR) {
@@ -788,9 +803,10 @@ bool ArithmeticExpression::handleOperand()
 
 bool ArithmeticExpression::handleLeftParenthesis()
 {
-    if (m_stmt == FUNCTION_DEFINITION) {
+    if (m_ctxt == FUNCTION_DEFINITION) {
         m_id = "";
         m_expect_char_types = { CT_ALP, CT_RP, CT_SPC };
+        m_ctxt = FUNCTION_ARGS;
         return true;
     }
 
@@ -802,12 +818,12 @@ bool ArithmeticExpression::handleLeftParenthesis()
     if (m_id != "") {
         if (m_id == "if") {     // keyword
             ++m_lp_count;
-            m_stmt = STMT_IF_COND;
+            m_ctxt = STMT_IF_COND;
             m_state_next_certained = ST_BGN;
 
         } else if (m_id == "elif") {     // keyword
             ++m_lp_count;
-            m_stmt = STMT_ELIF_COND;
+            m_ctxt = STMT_ELIF_COND;
             m_state_next_certained = ST_BGN;
 
         } else {
@@ -844,8 +860,10 @@ bool ArithmeticExpression::handleLeftParenthesis()
 
 bool ArithmeticExpression::handleRightParenthesis()
 {
-    if (m_stmt == FUNCTION_DEFINITION) {
-        m_function_args.push_back(m_id);
+    if (m_ctxt == FUNCTION_ARGS) {
+        if (m_id != "") {
+            m_function_args.push_back(m_id);
+        }
         m_id = "";
         m_expect_char_types = { CT_LCB, CT_SPC };
         m_state_next_certained = ST_RPS;
@@ -918,7 +936,7 @@ bool ArithmeticExpression::handleAlpha(char _c) {
     // for case "id<SPC+>id"
     do {
         if (m_id_spc_occurred) {
-            if (m_stmt == FUNCTION_DEFINITION) {
+            if (m_ctxt == FUNCTION_DEFINITION) { // function fnn
                 // ok
                 break;
             }
@@ -952,14 +970,13 @@ bool ArithmeticExpression::handleAlpha(char _c) {
         --m_parse_pos;
     }
 
-    if (m_stmt == FUNCTION_DEFINITION) {
+    if (m_ctxt == FUNCTION_DEFINITION) { // function FNN
         m_function_name = m_id;
-        if (m_function_map.find(m_function_name) == m_function_map.end()) { // function NAME
-            m_function_map[m_function_name][0] = 0;
-            m_expect_char_types = { CT_LP, CT_SPC };
-        } else {                // function name(ARG
-            m_expect_char_types = { CT_CMA, CT_RP, CT_SPC };
-        }
+        m_function_map[m_function_name][0] = 0;
+        m_expect_char_types = { CT_LP, CT_SPC };
+    } else if (m_ctxt == FUNCTION_ARGS) {                // function name(ARG or function name(arg, ARG
+        m_expect_char_types = { CT_CMA, CT_RP, CT_SPC };
+    } else {
     }
 
     m_id_spc_occurred = false;
@@ -972,13 +989,13 @@ bool ArithmeticExpression::handleAlpha(char _c) {
 bool ArithmeticExpression::handleSpace() {
     if (m_state == ST_IDF) {
         if (m_id == "if") {
-            m_stmt = STMT_IF_COND;
+            m_ctxt = STMT_IF_COND;
             m_state_next_certained = ST_BGN;
         } else if (m_id == "elif") {
-            m_stmt = STMT_ELIF_COND;
+            m_ctxt = STMT_ELIF_COND;
             m_state_next_certained = ST_BGN;
         } else if (m_id == "function") {
-            m_stmt = FUNCTION_DEFINITION;
+            m_ctxt = FUNCTION_DEFINITION;
             m_state_next_certained = ST_BGN;
         } else {
             m_id_spc_occurred = true;
@@ -989,8 +1006,10 @@ bool ArithmeticExpression::handleSpace() {
 }
 
 bool ArithmeticExpression::handleComma() {
-    if (m_stmt == FUNCTION_DEFINITION) {
-        m_function_args.push_back(m_id);
+    if (m_ctxt == FUNCTION_ARGS) {
+        if (m_id != "") {
+            m_function_args.push_back(m_id);
+        }
         m_id = "";
         m_expect_char_types = { CT_ALP, CT_SPC };
         return true;
@@ -1046,7 +1065,7 @@ bool ArithmeticExpression::handleSemicolon() {
         }
     }
 
-    if (m_stmt == STMT_IF_COND) {
+    if (m_ctxt == STMT_IF_COND) {
         error("invalid syntax: \"if exp ;\"");
         handleError();
         exit(E_SYNTAX);
@@ -1063,10 +1082,10 @@ bool ArithmeticExpression::handleSemicolon() {
 
     print("h1");
 
-    if (m_stmt == STMT_DECLARE_ASSIGN) {
+    if (m_ctxt == STMT_DECLARE_ASSIGN) {
         // TODO: check if condition fit
         assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), false);
-    } else if (m_stmt == STMT_SCOPE_DECLARE_ASSIGN) {
+    } else if (m_ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), true);
     } else {
     }
@@ -1075,7 +1094,7 @@ bool ArithmeticExpression::handleSemicolon() {
     m_id = "";
     m_id_spc_occurred = false;
     m_lp_count = 0;
-    m_stmt = STMT_NON;
+    m_ctxt = CTXT_NON;
     m_stmt_assign_key = "";
 
     if (m_operand_stack.count() > 1) {
@@ -1095,7 +1114,7 @@ bool ArithmeticExpression::handleSymbolEqual() {
 
     // :=
     if (m_state == ST_CLN) {
-        m_stmt = STMT_SCOPE_DECLARE_ASSIGN;
+        m_ctxt = STMT_SCOPE_DECLARE_ASSIGN;
         m_stmt_assign_key = m_id;
         m_id = "";
         if (m_id_spc_occurred) m_id_spc_occurred = false;
@@ -1115,7 +1134,7 @@ bool ArithmeticExpression::handleSymbolEqual() {
     } else {
         // treat it as assign statement if m_state is ST_IDF
         if (m_state == ST_IDF) {
-            m_stmt = STMT_DECLARE_ASSIGN;
+            m_ctxt = STMT_DECLARE_ASSIGN;
             m_stmt_assign_key = m_id;
             m_id = "";
             if (m_id_spc_occurred) m_id_spc_occurred = false;
@@ -1177,7 +1196,29 @@ bool ArithmeticExpression::handleExclamation() {
 bool ArithmeticExpression::handleLeftCurlyBrace() {
     dia("-:handleLeftCurlyBrace");
 
-    if (m_stmt == FUNCTION_DEFINITION) {
+    if (m_ctxt == FUNCTION_CALL) {
+        ++m_lcb_count;
+
+        // merge m_pre_defined_idf_map into m_idf_map;
+        // why put here?
+        // we wanna treat m_pre_defined_idf_map as local variables, mainly for
+        // 1) passing function arguments which need treated as local vars
+        // 2) passing built-in { built_in_idf:value } to program
+        // 3) with right scope (depth + lcb count)
+        // and now, with m_dpeth and m_lcb_count properly set, we are in right
+        // scope so assignValueToIdf works as expected.
+
+        for (const auto& item : m_pre_defined_idf_map) {
+            assignValueToIdf(item.first, item.second, false);
+        }
+
+        m_ctxt = CTXT_NON;
+        m_state_next_certained = ST_BGN;
+        return true;
+    }
+
+    if (m_ctxt == FUNCTION_ARGS) {
+        m_ctxt = FUNCTION_BLOCK;
         m_expect_char_types = {};
 
         // TODO register function definition meta
@@ -1196,18 +1237,18 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         m_function_map[m_function_name][1] = m_parse_pos + 1;
 
         m_id = "";
-        m_stmt = STMT_NON;
+        m_ctxt = CTXT_NON;
         m_state_next_certained = ST_BGN;
         return true;
     }
 
     if (m_lp_count > 0) {
         error("'{' not allowed inside ()");
-        handleError();
+        printErrorLocation();
         exit(E_SYNTAX);
     }
 
-    print("handleLeftCurlyBrace: m_stmt=%d", m_stmt);
+    print("handleLeftCurlyBrace: m_ctxt=%d", m_ctxt);
 
     print("handleLeftCurlyBrace: calculate all oprs");
 
@@ -1246,12 +1287,12 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     // check conditions
     std::vector<int>& v = m_stmt_if_cond[m_lcb_count];
 
-    if (m_stmt == STMT_IF_COND) {
+    if (m_ctxt == STMT_IF_COND) {
         int cond = _2n(m_operand_stack.pop()) != 0? 1: 0;
         v.push_back(cond);
 
         if (cond != 0) {
-            m_stmt = STMT_IF_BLOCK;
+            m_ctxt = STMT_IF_BLOCK;
             print("TODO: to process if-block");
         } else {
             print("TODO: to ignore if-block, just skip to balanced '}', no syntax check for skipped content");
@@ -1260,7 +1301,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
                 return false;
             }
         }
-    } else if (m_stmt == STMT_ELIF_COND) {
+    } else if (m_ctxt == STMT_ELIF_COND) {
         if (v.size() == 0) {
             error("elif statement must follow if-statement");
             return false;
@@ -1282,7 +1323,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         int cond = (pre_cond_all_zero == true && elif_cond != 0)? 1: 0;
 
         if (cond != 0) {
-            m_stmt = STMT_ELIF_BLOCK;
+            m_ctxt = STMT_ELIF_BLOCK;
             print("TODO: to process elif-block");
         } else {
             print("TODO: to ignore elif-block, just skip to balanced '}', no syntax check for skipped content");
@@ -1311,7 +1352,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
             }
 
             if (pre_cond_all_zero == true) {
-                m_stmt = STMT_ELSE_BLOCK;
+                m_ctxt = STMT_ELSE_BLOCK;
                 print("TODO: to process else-block");
             } else {
                 print("TODO: to ignore else-block, just skip to balanced '}', no syntax check for skipped content");
@@ -1348,7 +1389,7 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigth
 
     while (++m_parse_pos < size) {
         const char& c = m_arithmetic_expression.at(m_parse_pos);
-        // print("findBalancedRightCurlyBraceAndSkipToIt: c='%c'", c);
+        print("findBalancedRightCurlyBraceAndSkipToIt: c='%c'", c);
 
         if (c == '\n') {
             ++m_ln_count;
@@ -1369,8 +1410,9 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigth
     }
 
     if (!found) {
-        print("findBalancedRightCurlyBraceAndSkipToIt: balanced '}' not found");
+        error("findBalancedRightCurlyBraceAndSkipToIt: balanced '}' not found");
         dia("findBalancedRightCurlyBraceAndSkipToIt");
+        printErrorLocation();
         exit(E_INPUT_ERROR);
     }
 
@@ -1415,10 +1457,10 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
         m_operator_stack.pop();
     }
 
-    if (m_stmt == STMT_DECLARE_ASSIGN) {
+    if (m_ctxt == STMT_DECLARE_ASSIGN) {
         // TODO: check if condition fit
         assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), false);
-    } else if (m_stmt == STMT_SCOPE_DECLARE_ASSIGN) {
+    } else if (m_ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), true);
     } else {
     }
@@ -1470,7 +1512,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
         m_state_next_certained = ST_BGN;
     }
 
-    m_stmt = STMT_NON;
+    m_ctxt = CTXT_NON;
 
     return true;
 }
@@ -1970,15 +2012,37 @@ bool ArithmeticExpression::call(const std::string function_name) {
     int begin = m_function_map[function_name][0];
     int end = m_function_map[function_name][1];
 
-    ArithmeticExpression fnblock(m_arithmetic_expression, getDepth()+1, getLCBCount(), g_print_enable);
+    // TODO: support multiple type for value part
+    std::unordered_map<std::string,double> argm = {};
+
+    for (int i = (int)m_function_args.size() - 1; i >= 0; i--) {
+        std::string& key = m_function_args[i];
+
+        if (m_operand_stack.empty()) {
+            error("function %s expects %zu args, current argv[%d] name:%s, while no operand any more", function_name.c_str() , m_function_args.size(), i, key.c_str());
+            exit(E_INPUT_ERROR);
+        }
+
+        argm[key] = _2n(m_operand_stack.pop());
+        print("argm[%s] = %g", key.c_str(), argm[key]);
+    }
+    m_function_args = {};       // reset after consumed
+
+    ArithmeticExpression fnblock(m_arithmetic_expression,
+                                 getDepth()+1,
+                                 getLCBCount(),
+                                 getIdfMap(),        // FIXME: maybe just leak global scope idf to valid idf value pollution
+                                 argm,
+                                 FUNCTION_CALL,
+                                 g_print_enable
+        );
     fnblock.setMeta(
         getFunctionMap(),
         getFunctionExecPosNameMap(),
-        getIdfMap(),        // FIXME: maybe just leak global scope idf to valid idf value pollution
         getIdfScopeDeclared() // FIXME: maybe just leak global scope idf to valid idf value pollution
         );
 
-    ++g_depth;
+    g_depth = getDepth()+1;
     if (! fnblock.parse(begin, end)) {
         exit(E_EVALUATE);
     }
@@ -1989,13 +2053,11 @@ bool ArithmeticExpression::call(const std::string function_name) {
 void ArithmeticExpression::setMeta(
     std::unordered_map<std::string,std::array<int,2>>& function_map,
     std::unordered_map<int,std::string>& function_exec_pos_name_map,
-    std::unordered_map<std::string,std::unordered_map<int,double>>& idf_map,
     std::unordered_map<int, std::unordered_map<std::string,int>>& idf_scope_declared
     )
 {
     m_function_map = function_map;
     m_function_exec_pos_name_map = function_exec_pos_name_map;
-    m_idf_map = idf_map;
     m_idf_scope_declared = idf_scope_declared;
 }
 

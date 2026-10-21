@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
         str = arg1;
     }
 
-    ArithmeticExpression ari_exp(str, 0, 0, debug);
+    ArithmeticExpression ari_exp(str, 0, 0, {}, {}, CTXT_NON, debug);
     ari_exp.parse();
 
     return 0;
