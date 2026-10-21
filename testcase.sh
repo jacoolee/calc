@@ -6,35 +6,49 @@ Green='\033[0;32m'
 On_Red='\033[41m'
 Color_Off='\033[0m'
 
+ntotal=0
+npass=0
+notpass=0
+nerror=0
+
 n=0
-cat testcase.txt | while read i; do
+
+while read -r l; do
     n=$((n+1))
 
     if [ ${1:-0} != 0 ] && [ ${1:-0} -ne ${n} ]; then
         continue
     fi
 
-    if echo "${i}" | grep '^#' &>/dev/null; then
-        echo $i
-    elif echo "${i}" | grep '^ *$' &>/dev/null; then
-        echo $i
+    if echo "${l}" | grep '^#' &>/dev/null; then
+        echo $l
+    elif echo "${l}" | grep '^ *$' &>/dev/null; then
+        echo $l
     else
-        v=$(echo "$i" | cut -d'=' -f1)
-        e=$(echo "$i" | cut -d'=' -f2- | cut -d'#' -f1)
+        ntotal=$((ntotal+1))
+
+        v=$(echo "$l" | cut -d'=' -f1)
+        e=$(echo "$l" | cut -d'=' -f2- | cut -d'#' -f1)
         v2=$(./calc "$e" ${2} 2>/tmp/testcase.${n}.err)
         rc=$?
+
         if [ $rc -eq 0 ]; then
             if [ ${v2// /} != ${v// /} ]; then
-                echo -e "${On_Red}NOT EQ${Color_Off} $v2 != $i"
+                notpass=$((notpass+1))
+                echo -e "${On_Red}NOT EQ${Color_Off} $v2 != $l"
             else
-                echo -e "${Green}PASS${Color_Off} $i"
+                npass=$((npass+1))
+                echo -e "${Green}PASS${Color_Off} $l"
             fi
 
             cat /tmp/testcase.${n}.err
 
         else
-            echo -e "${On_Red}RC $rc${Color_Off} $i"
+            nerror=$((nerror+1))
+            echo -e "${On_Red}RC $rc${Color_Off} $l"
         fi
     fi
-done
+done < testcase.txt
 
+echo
+echo "${ntotal} total, ${npass} pass, ${notpass} not pass, ${nerror} error"
