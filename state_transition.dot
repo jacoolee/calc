@@ -71,15 +71,15 @@ digraph G {
         st_id -> st_stt[label=";",color="#7a81ff",fontcolor="#7a81ff"];
         st_id -> st_fin[label="'\\0'"];
 
-        st_lcb -> st_bgn[label="auto-switch"];
+        st_lcb -> st_bgn[label="manual-switch"];
 
         st_rcb -> st_id[label="keyword:[e]lse"];
-        st_rcb -> st_bgn[label="auto-switch (chars left)"];
+        st_rcb -> st_bgn[label="manual-switch (chars left)"];
         st_rcb -> st_fin[label="'\\0'"];
 
         st_cln -> st_bgn[label="= (stmt:scope-declare-assign, aka \":=\")"];
 
-        st_stt -> st_bgn[label="auto-switch (chars left)"];
+        st_stt -> st_bgn[label="manual-switch (chars left)"];
         st_stt -> st_rcb[label="}",color="green",fontcolor="green"];
         st_stt -> st_fin[label="'\\0'"];
     }

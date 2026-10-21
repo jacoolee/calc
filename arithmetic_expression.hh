@@ -279,6 +279,7 @@ private:
     std::string m_arithmetic_expression;
     int m_parse_pos;
 
+    int m_ln_count;
     int m_lp_count;
     int m_lcb_count_init;
     int m_lcb_count;            // aka. '{' block depth of current AE depth

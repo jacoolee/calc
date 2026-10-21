@@ -10,7 +10,7 @@
 #define FLG_ACTIVE 1
 
 #define E_DEV_ERROR 1       // error happened during development, *must* to be fixed by coding
-#define E_PARSE 10          // *fundamental* parse error
+#define E_INPUT_ERROR 10          // *fundamental* parse error
 #define E_SYNTAX 20         // parse error
 #define E_GRAMMAR 30        // language rule error
 #define E_EVALUATE 50       // evaluating error
@@ -18,76 +18,80 @@
 
 #define E_SHOULD_NOT_HAPPEN 99
 
-#define print(...)                              \
-    do {                                        \
-        if (g_print_enable) {                   \
-            if (g_depth>0) printf("%*s|%d ",g_depth*2,"", g_depth);   \
-            printf(__VA_ARGS__);                \
-            printf("\n");                       \
-        }                                       \
+#define print(...)                                  \
+    do {                                            \
+        if (g_print_enable) {                       \
+            fprintf(stderr,"[%d:%s:%d] ", g_depth, scope_name.c_str(), g_ln_count); \
+            fprintf(stderr,__VA_ARGS__);                    \
+            fprintf(stderr,"\n");                           \
+        }                                           \
     } while (0)
 
-#define printnoln(...)                          \
-    do {                                        \
-        if (g_print_enable) {                   \
-            if (g_depth>0) printf("%*s|%d ",g_depth*2,"", g_depth);   \
-            printf(__VA_ARGS__);                \
-        }                                       \
+#define printnoln(...)                              \
+    do {                                            \
+        if (g_print_enable) {                       \
+            fprintf(stderr,"[%d:%s:%d] ", g_depth, scope_name.c_str(), g_ln_count); \
+            fprintf(stderr,__VA_ARGS__);                    \
+        }                                           \
     } while (0)
 
 #define __print(...)                            \
     do {                                        \
         if (g_print_enable) {                   \
-            printf(__VA_ARGS__);                \
+            fprintf(stderr,__VA_ARGS__);                \
         }                                       \
     } while (0)
 
 #define error(...)                              \
     do {                                        \
-        if (g_depth>0) printf("%*s|%d ",g_depth*2,"", g_depth);    \
-        printf("error: %4d - ", __LINE__);        \
-        printf(__VA_ARGS__);                    \
-        printf("\n");                           \
+        fprintf(stderr,"[%d:%s:%d] ", g_depth, scope_name.c_str(), g_ln_count); \
+        fprintf(stderr,"error: %4d - ", __LINE__);      \
+        fprintf(stderr,__VA_ARGS__);                    \
+        fprintf(stderr,"\n");                           \
     } while (0)
 
-#define errornoln(...)                                          \
-    do {                                                        \
-        if (g_depth>0) printf("%*s|%d ",g_depth*2,"", g_depth); \
-        printf("error: %4d - ", __LINE__);                      \
-        printf(__VA_ARGS__);                                    \
+#define errornoln(...)                          \
+    do {                                        \
+        fprintf(stderr,"[%d:%s:%d] ", g_depth, scope_name.c_str(), g_ln_count); \
+        fprintf(stderr,"error: %4d - ", __LINE__);      \
+        fprintf(stderr,__VA_ARGS__);                    \
     } while (0)
 
 #define __error(...)                            \
     do {                                        \
-        printf(__VA_ARGS__);                    \
+        fprintf(stderr,__VA_ARGS__);                    \
     } while (0)
 
 #define warn(...)                               \
     do {                                        \
-        if (g_depth>0) printf("%*s|%d ",g_depth*2,"", g_depth); \
-        printf("warn: %4d - ", __LINE__);         \
-        printf(__VA_ARGS__);                    \
-        printf("\n");                           \
+        fprintf(stderr,"[%d:%s:%d] ", g_depth, scope_name.c_str(), g_ln_count); \
+        fprintf(stderr,"warn: %4d - ", __LINE__);       \
+        fprintf(stderr,__VA_ARGS__);                    \
+        fprintf(stderr,"\n");                           \
     } while (0)
 
 int g_print_enable = 0;
 int g_depth = 0;
+int g_ln_count = 1;
+std::string scope_name = "global";
 
 ArithmeticExpression::ArithmeticExpression(const std::string& infix_expression, int depth, int lcb_count, int print_enable)
     : m_depth(depth),
       m_state_prev(ST_UPPER),
       m_state(ST_BGN),
       m_state_next_certained(ST_UPPER),
-      m_arithmetic_expression(infix_expression),
 
+      m_arithmetic_expression(infix_expression),
       m_parse_pos(0),
+
+      m_ln_count(1),
       m_lp_count(0),
       m_lcb_count_init(lcb_count),
       m_lcb_count(lcb_count),
 
       m_function_name(""),
-      m_function_map({ {"main",{0,0}} }),
-      m_function_exec_pos_name_map({ {0,"main"} }),
+      m_function_map({ {"",{0,0}} }),
+      m_function_exec_pos_name_map({ {0,""} }),
       m_function_args({}),
       m_expect_char_types({}),
 
@@ -302,7 +306,7 @@ const char* ArithmeticExpression::getCharTypeStr(int ct) const {
 
 CharType ArithmeticExpression::getCharType(int c) {
     if ( ',' == c ) return CT_CMA;
-    if ( ' ' == c || '\t' == c ) {
+    if ( ' ' == c || '\t' == c || '\n' == c ) {
         return CT_SPC;
     }
     if ( (c <= '9' && c >= '0') || '.' == c ) {
@@ -367,7 +371,7 @@ void ArithmeticExpression::dia(const std::string& marker) {
     CharType type = getCharType(c);
     StateTable* table_item = &m_state_table[m_state][type];
 
-    printnoln("dia: %s @%d [(%s) %s + '%c'(CT=%d,AT=%d) => %s]",
+    printnoln("dia: %s @%d [%s:%s + '%c'(CT=%d,AT=%d) => %s]",
               marker.c_str(),
               m_parse_pos,
               getStateStr(m_state_prev),
@@ -487,7 +491,7 @@ bool ArithmeticExpression::handle(char c)
     if ( CT_UPPER == type) {
         error("invalid char type, argument char='%c'", c);
         printErrorLocation();
-        exit(E_PARSE);
+        exit(E_INPUT_ERROR);
     }
 
     if (!m_expect_char_types.empty()) {
@@ -503,12 +507,15 @@ bool ArithmeticExpression::handle(char c)
     }
 
     StateTable* table_item = &m_state_table[m_state][type];
+    if (table_item->action_type != AT_NON) {
+        dia("-:handle");
+    }
+
     bool rc = handleAction(table_item->action_type, c);
     if ( rc ) {
         // update state only when action runs successfully
         m_state_prev = m_state;
         m_state = table_item->new_state;
-        print("handle: m_state: %s, m_state_next_certained: %s, m_parse_pos:%d, m_arithmetic_expression.size():%zu", getStateStr(m_state), getStateStr(m_state_next_certained), m_parse_pos, m_arithmetic_expression.size());
 
         // certain-ty uncertained state
         if (m_state == ST_UNC) {
@@ -523,7 +530,7 @@ bool ArithmeticExpression::handle(char c)
             }
         }
 
-        // lcb auto-switch
+        // lcb manual-switch
         else if (m_state == ST_LCB) {
             if (m_state_next_certained != ST_UPPER) {
                 m_state = m_state_next_certained;
@@ -531,7 +538,7 @@ bool ArithmeticExpression::handle(char c)
             }
         }
 
-        // rcb auto-switch
+        // rcb manual-switch
         else if (m_state == ST_RCB) {
             if (m_state_next_certained != ST_UPPER) {
                 m_state = m_state_next_certained;
@@ -539,15 +546,23 @@ bool ArithmeticExpression::handle(char c)
             }
         }
 
+        // st_stt
+        else if (m_state == ST_STT) {
+            // more chars left to process
+            if (m_parse_pos < m_arithmetic_expression.size()-1) {
+                m_state = ST_BGN;
+            }
+        }
+
         else {
             // nothing
         }
-
-        // more chars left to process
-        if (m_state == ST_STT && m_parse_pos < m_arithmetic_expression.size()-1) {
-            m_state = ST_BGN;
-        }
     }
+
+    if (table_item->new_state != m_state) {
+        print("handle: after action_type:%d, state manual-switched %s -> %s", table_item->action_type, getStateStr(table_item->new_state), getStateStr(m_state));
+    }
+
     return rc;
 }
 
@@ -1329,9 +1344,16 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigth
     // starting from next char right after current '{'
     //
     // TODO: to process '}' inside string
+    int __log_b = m_parse_pos, __log_e = m_parse_pos;
+
     while (++m_parse_pos < size) {
         const char& c = m_arithmetic_expression.at(m_parse_pos);
-        print("findBalancedRightCurlyBraceAndSkipToIt: c='%c'", c);
+        // print("findBalancedRightCurlyBraceAndSkipToIt: c='%c'", c);
+
+        if (c == '\n') {
+            ++m_ln_count;
+            g_ln_count = m_ln_count;
+        }
 
         switch(c) {
         case '{': ++n_skiped_lcb; break;
@@ -1346,13 +1368,19 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigth
         }
     }
 
-    if (found) {
-        print("findBalancedRightCurlyBraceAndSkipToIt: } found:%d", (int)found);
-        if (!skipRigthCurlyBraceAlong) {
-            --m_parse_pos;          // restore '}', so parse get chance to process it
-        }
-
+    if (!found) {
+        print("findBalancedRightCurlyBraceAndSkipToIt: balanced '}' not found");
+        dia("findBalancedRightCurlyBraceAndSkipToIt");
+        exit(E_INPUT_ERROR);
     }
+
+    print("findBalancedRightCurlyBraceAndSkipToIt: '}' found at:%d, skipRigthCurlyBraceAlong:%d", (int)m_parse_pos, skipRigthCurlyBraceAlong);
+    if (!skipRigthCurlyBraceAlong) {
+        --m_parse_pos;          // restore '}', so parse get chance to process it
+    }
+
+    __log_e = m_parse_pos;
+    print("skip: \"%.*s\"", (__log_e + 1) /* include char at __log_e*/ - __log_b, &m_arithmetic_expression[__log_b]);
 
     return found;
 }
@@ -1814,7 +1842,10 @@ bool ArithmeticExpression::calculate(int opr)
         int exec_pos = m_operator_stack.top(-1); // function exec_pos
         const std::string& fnn = m_function_exec_pos_name_map[exec_pos];
         print("call self-defined function: exec_pos=%d fnn:\"%s\"", exec_pos, fnn.c_str());
+        std::string scope_name_old = scope_name;
+        scope_name = scope_name+"/"+fnn;
         call(fnn);
+        scope_name = scope_name_old;
         return true;
     } else {
         switch (opr) {
@@ -1926,7 +1957,7 @@ bool ArithmeticExpression::calculate(int opr)
 // }
 
 bool ArithmeticExpression::call(const std::string function_name) {
-    print("call: function_name = %s", function_name.c_str());
+    print("CALL: function_name = %s", function_name.c_str());
 
     if (m_function_map.find(function_name) == m_function_map.end()) {
         error("no such self-defined function: \"%s\"", function_name.c_str());
@@ -1986,10 +2017,19 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
     print("PARSE: \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
 
     while ( m_parse_pos < end_pos ) {
-        print("\n");
-        print("> \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
-        dia("-:parse");
+        const char *start = &m_arithmetic_expression[m_parse_pos];
+        const char *end = strchr(start, '\n');
+        if (!end) end = strchr(start, '\0');
+
         const char& c = m_arithmetic_expression.at(m_parse_pos);
+
+        if (c=='\n') {
+            ++m_ln_count;
+            g_ln_count = m_ln_count;
+        }
+
+        print("> \"%.*s\"", (int)(end - start), start);
+
         if ( ! handle(c) ) {
             error("failed to handle, "
                   "m_id=\"%s\", "
@@ -2005,11 +2045,11 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
                 );
             return false;
         }
-        dia("parse:+");
-        ++m_parse_pos;
-    }
 
-    print("");
+        ++m_parse_pos;
+
+        __print("\n");
+    }
 
     // check program terminal state
     if ( ! isOnTerminalState() ) {
@@ -2055,6 +2095,6 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
 
     print("m_operand_stack.count() = %d", m_operand_stack.count());
 
-    print("arithmetic expression successfully parsed, rpn=\"%s\"", m_rpn_expression.c_str());
+    print("arithmetic expression successfully parsed");
     return true;
 }

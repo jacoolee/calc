@@ -23,11 +23,11 @@ typedef struct {
 } OperandStackItem;
 
 inline void printStackItem(const OperandStackItem& item) {
-    printf("<%d,%g,\"%s\">, ", item.type, item.num, item.str.c_str());
+    fprintf(stderr, "<%d,%g,\"%s\">, ", item.type, item.num, item.str.c_str());
 }
 
 inline void printStackItem(const int& item) {
-    printf("<%f,%d,'%c'>, ", (float)item,(int)item,(char)item);
+    fprintf(stderr, "<%f,%d,'%c'>, ", (float)item,(int)item,(char)item);
 }
 
 #define STACK_SP_INIT -1
@@ -46,12 +46,12 @@ public:
 
     void dia(int enable=0){
         if (!enable) return;
-        printf("[");
+        fprintf(stderr, "[");
         for (int i=0; i< m_sp+1; i++) {
             T& x = m_tunk[i];
             printStackItem(x);
         }
-        printf(m_sp>=0? "\b\b]": "]");
+        fprintf(stderr, m_sp>=0? "\b\b]": "]");
     }
 
 
