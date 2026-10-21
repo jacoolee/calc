@@ -1254,6 +1254,14 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
     // NOTE: process case "if|elif idf {}" specifically
     // get opd stack well-prepared before calculate with opr stack.
+    if (m_id == "if" || m_id == "elif") {
+        if (m_operand_stack.empty()) {
+            error("no condtion found for \"%s\"", m_id.c_str());
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        }
+    }
+
     if (m_operand_stack.empty() && !m_id.empty() && ( m_id != "else" )) {
         if (!pushIdfValueToOperandStack(m_id)) return false;
         m_id = ""; // reset after consumed
@@ -2122,6 +2130,13 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
+
+            if (m_id == "if" || m_id == "elif" || m_id == "else") {
+                error("wrong syntax for %s statement", m_id.c_str());
+                printErrorLocation();
+                exit(E_GRAMMAR);
+            }
+
             if (!pushIdfValueToOperandStack(m_id)) return false;
             m_id = ""; // reset after consumed
         }

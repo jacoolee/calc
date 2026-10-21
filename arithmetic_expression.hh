@@ -322,7 +322,10 @@ private:
     // NOTE: use {idf: 1} instead of [idf1, idf2] for simplicity and performance
     std::unordered_map<int, std::unordered_map<std::string,int>> m_idf_scope_declared;
 
+    // FIXME: [2026-10-22] m_ctxt should be a stack for nested contexts,
+    // so better grammar checking can be supported
     int m_ctxt;
+
     std::string m_stmt_assign_key;
     std::unordered_map<int,std::vector<int>> m_stmt_if_cond;
 
