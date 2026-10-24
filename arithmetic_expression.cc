@@ -748,11 +748,23 @@ bool ArithmeticExpression::handleOperator(char opr)
     pushOpr(opr);
 
     // STMT_DECLARE_ASSIGN_VALUE is a special case of CTXT_EXP
-    if (m_ctxt_stack.top() != STMT_DECLARE_ASSIGN_VALUE) {
+    ContextType ctxt = m_ctxt_stack.top();
+    print("handleOperator: current ctxt:%s", getContextTypeStr(ctxt));
+
+    if (ctxt == STMT_DECLARE_ASSIGN) {
+        m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
+        return true;
+
+    } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
+        // do nothing
+        return true;
+
+    } else {
+        warn("handleOperator: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         m_ctxt_stack.push(CTXT_EXP);
+        return true;
     }
 
-    dia("handleOperator:+");
     return true;
 }
 
@@ -974,6 +986,7 @@ bool ArithmeticExpression::handleLeftParenthesis()
 
         m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
         m_expect_char_types = {};
+        return true;
 
     } else if (m_ctxt_stack.top() == FUNCTION_DEFINITION) {
         if (m_function_name == "") {
@@ -984,10 +997,10 @@ bool ArithmeticExpression::handleLeftParenthesis()
         m_id = "";
         m_expect_char_types = { CT_ALP, CT_RP, CT_SPC };
         m_ctxt_stack.push(FUNCTION_ARGS);
-
         return true;
+
     } else {
-        warn("handleLeftParenthesis: un-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("handleLeftParenthesis: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         return true;
     }
 
@@ -1177,7 +1190,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
         pushOpdIdf(m_id);
         return true;
     } else {
-        warn("handleAlpha: un-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("handleAlpha: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
 
         // PATTERN: context + expects
 
@@ -1278,8 +1291,11 @@ bool ArithmeticExpression::handleSemicolon() {
     //     }
     // }
 
+    dia("-:handleSemicolon+1");
+
     ContextType ctxt = m_ctxt_stack.top();
 
+    // we can check very firstly, for cases that should not happend
     switch(ctxt) {
     case STMT_DECLARE_ASSIGN:
         error("invalid assign statement. syntax: \"idf = ...;\"");
@@ -1296,7 +1312,7 @@ bool ArithmeticExpression::handleSemicolon() {
         break;
     }
 
-    dia("-:handleSemicolon+1");
+    // prepare opd
 
     int top;
     while (!m_operator_stack.empty() && (top = m_operator_stack.top().v) != LOWEST_PRIO_OP) {
@@ -1322,7 +1338,13 @@ bool ArithmeticExpression::handleSemicolon() {
     dia("handleSemicolon: after opr ops");
 
     ctxt = m_ctxt_stack.top();
-    if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
+
+    if (ctxt == STMT_DECLARE_ASSIGN) {
+        error("handleSemicolon: STMT_DECLARE_ASSIGN can not be terminal context type for a statement (marked';')");
+        printErrorLocation();
+        exit(E_GRAMMAR);
+
+    } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
         // at least two opd need
         if (m_operand_stack.count() < 3) {
             error("two opds need to form a assign statement, while \"%d\" gotten", m_operand_stack.count());
@@ -1351,10 +1373,15 @@ bool ArithmeticExpression::handleSemicolon() {
         std::string assign_idf = _2idf(m_operand_stack.pop());
         assignValueToIdf(assign_idf, assign_v, true);
 
+    } else if (ctxt == STMT_IF_COND) {
+        print("TODO");
+        exit(0);
     } else {
+        print("TODO");
+        exit(0);
     }
 
-    // clean context stack
+    print("handleSemicolon: clean context stack ...");
     while(!m_ctxt_stack.empty() && (ctxt = m_ctxt_stack.pop()) != CTXT_BGN) {
         print("m_ctxt_stack.pop %s", getContextTypeStr(ctxt));
     }
@@ -2233,7 +2260,7 @@ bool ArithmeticExpression::calculate(int opr)
             } else if (_iss(opd)) {
                 printf("%s\n", _2s(opd).c_str());
             } else {
-                error("un-processed Operand (type:%d) called by PRINT", opd.type);
+                error("un-specially-processed Operand (type:%d) called by PRINT", opd.type);
             }
             break;
         }
@@ -2248,7 +2275,7 @@ bool ArithmeticExpression::calculate(int opr)
             } else if (_iss(opd)) {
                 printf("%s", _2s(opd).c_str());
             } else {
-                error("un-processed Operand (type:%d) called by PRINT", opd.type);
+                error("un-specially-processed Operand (type:%d) called by PRINT", opd.type);
             }
             break;
         }
