@@ -35,17 +35,22 @@ while read -r l; do
         if [ $rc -eq 0 ]; then
             if [ ${v2// /} != ${v// /} ]; then
                 notpass=$((notpass+1))
-                echo -e "${On_Red}NOT EQ${Color_Off} $v2 != $l"
+                echo -e "${On_Red}NOT EQ:$n${Color_Off} $v2 != $l"
+                cat /tmp/testcase.${n}.err
+                echo
+                echo "$e"
+
             else
                 npass=$((npass+1))
-                echo -e "${Green}PASS${Color_Off} $l"
+                echo -e "${Green}PASS:$n${Color_Off} $l"
             fi
-
-            cat /tmp/testcase.${n}.err
 
         else
             nerror=$((nerror+1))
-            echo -e "${On_Red}RC $rc${Color_Off} $l"
+            echo -e "${On_Red}RC $rc:$n${Color_Off} $l"
+            cat /tmp/testcase.${n}.err
+            echo
+            echo "$e"
         fi
     fi
 done < testcase.txt

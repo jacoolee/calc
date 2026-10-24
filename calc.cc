@@ -59,7 +59,8 @@ int main(int argc, char *argv[])
     atexit(cleanup);
 
     char* arg1 = argv[1];
-    int debug = argc>2?(int(*argv[2])==48?0:1):0;
+    int debug = argc>2? (int)strtol(argv[2], NULL, 10): 0;
+    // fprintf(stderr, "debug = %d\n", debug);
 
     char *str = NULL;
     if (ends_with(arg1, ".al")) {
@@ -69,7 +70,7 @@ int main(int argc, char *argv[])
         str = arg1;
     }
 
-    ArithmeticExpression ari_exp(str, 0, 0, {}, {}, CTXT_NON, debug);
+    ArithmeticExpression ari_exp(str, 0, 0, {}, {}, CTXT_BGN, debug);
     ari_exp.parse();
 
     return 0;

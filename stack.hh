@@ -11,23 +11,98 @@
 #include <string>
 #include <type_traits>
 
-#define OPD_NUM 0
-#define OPD_STR 1
+enum OperandType {
+    OPD_STACK_BOTTOM_BASE=-1,
+    OPD_NUM,
+    OPD_STR,
+    OPD_IDF,
+};
 
 typedef struct {
-    // keep it simple, use 0 - number, 1 - string
-    int type;
+    int token_idx;
+    int stmt_count;        // count of count
+    OperandType type; // keep it simple, use 0 - number, 1 - string, 2 - idf
     // TODO: maybe use std::variant, for now, keep simple even with more memory cost
     double num;
     std::string str;
-} OperandStackItem;
+} Operand;
 
-inline void printStackItem(const OperandStackItem& item) {
-    fprintf(stderr, "<%d,%g,\"%s\">, ", item.type, item.num, item.str.c_str());
+typedef struct {
+    int token_idx;
+    int v;
+} Opr;
+
+enum ContextType {
+    CTXT_STACK_BOTTOM_BASE=-1,
+    CTXT_BGN,
+    CTXT_EXP,
+    STMT_DECLARE_ASSIGN,
+    STMT_DECLARE_ASSIGN_VALUE,
+    STMT_SCOPE_DECLARE_ASSIGN,
+    STMT_IF_COND,
+    STMT_ELIF_COND,
+    STMT_IF_BLOCK,
+    STMT_ELIF_BLOCK,
+    STMT_ELSE_BLOCK,
+    FUNCTION_DEFINITION,
+    FUNCTION_ARGS,
+    FUNCTION_BLOCK,
+    FUNCTION_CALL,
+};
+
+inline const char* getOperandTypeStr(OperandType t) {
+    switch(t) {
+    case OPD_STACK_BOTTOM_BASE: return "*BASE*";
+    case OPD_NUM: return "OPD_NUM";
+    case OPD_STR: return "OPD_STR";
+    case OPD_IDF: return "OPD_IDF";
+    default: {
+        fprintf(stderr, "error: getOperandTypeStr unsupported OperandType: %d\n", (int)t);
+        exit(-1);
+    }
+    }
+}
+
+inline const char* getContextTypeStr(ContextType t)
+{
+    switch(t) {
+    case CTXT_STACK_BOTTOM_BASE: return "*BASE*";
+    case CTXT_BGN: return "CTXT_BGN";
+    case CTXT_EXP: return "CTXT_EXP";
+    case STMT_DECLARE_ASSIGN: return "STMT_DECLARE_ASSIGN";
+    case STMT_DECLARE_ASSIGN_VALUE: return "STMT_DECLARE_ASSIGN_VALUE";
+    case STMT_SCOPE_DECLARE_ASSIGN: return "STMT_SCOPE_DECLARE_ASSIGN";
+    case STMT_IF_COND: return "STMT_IF_COND";
+    case STMT_ELIF_COND: return "STMT_ELIF_COND";
+    case STMT_IF_BLOCK: return "STMT_IF_BLOCK";
+    case STMT_ELIF_BLOCK: return "STMT_ELIF_BLOCK";
+    case STMT_ELSE_BLOCK: return "STMT_ELSE_BLOCK";
+    case FUNCTION_DEFINITION: return "FUNCTION_DEFINITION";
+    case FUNCTION_ARGS: return "FUNCTION_ARGS";
+    case FUNCTION_BLOCK: return "FUNCTION_BLOCK";
+    case FUNCTION_CALL: return "FUNCTION_CALL";
+    default: {
+        fprintf(stderr, "error: getContextTypeStr unsupported contextType: %d\n", (int)t);
+        exit(-1);
+    }
+    }
+}
+
+inline void printStackItem(const Operand& item) {
+    fprintf(stderr, "(%d,%d,%s,%g,\"%s\"), ", item.token_idx, item.stmt_count, getOperandTypeStr(item.type), item.num, item.str.c_str());
+}
+
+inline void printStackItem(const Opr& item) {
+    int v = item.v;
+    fprintf(stderr, "(%d,v:%f,%d,'%c'), ", item.token_idx, (float)v,(int)v,(char)v);
 }
 
 inline void printStackItem(const int& item) {
-    fprintf(stderr, "<%f,%d,'%c'>, ", (float)item,(int)item,(char)item);
+    fprintf(stderr, "(%f,%d,'%c'), ", (float)item,(int)item,(char)item);
+}
+
+inline void printStackItem(const ContextType& item) {
+    fprintf(stderr, "%s, ", getContextTypeStr(item));
 }
 
 #define STACK_SP_INIT -1
@@ -37,10 +112,28 @@ public:
     Stack(int size = 1) { init(size); }
     ~Stack() { destory(); }
 
-    T& top(int step=0) { return m_tunk.at(m_sp+step); }
+    T& top(int step=0) {
+        if (empty()) {
+            fprintf(stderr, "top: no top item found, because current stack is empty");
+            exit(-1);
+        };
+
+        return m_tunk.at(m_sp+step);
+    }
     const T& top(int step=0) const { return m_tunk.at(m_sp+step); }
     void push(T val);
-    T pop() { return m_tunk[m_sp--]; }
+    T pop() {
+        if (empty()) {
+            fprintf(stderr, "pop: failed because current stack is already empty\n");
+            exit(-1);
+        }
+
+        // fprintf(stderr, "pop ...");
+        // printStackItem(m_tunk[m_sp]);
+        // fprintf(stderr, "\n");
+
+        return m_tunk[m_sp--];
+    }
     bool empty() const { return m_sp == STACK_SP_INIT; }
     int count() const { return m_sp+1; }
 
@@ -51,7 +144,7 @@ public:
             T& x = m_tunk[i];
             printStackItem(x);
         }
-        fprintf(stderr, m_sp>=0? "\b\b]": "]");
+        fprintf(stderr, m_sp>=0? "]": "]");
     }
 
 
@@ -77,6 +170,7 @@ void Stack<T>::init(int size)
 template<class T>
 void Stack<T>::push(T val)
 {
+    //fprintf(stderr, "Stack %s, m_sp:%d\n", stack_storage_full()?"full":"not full", m_sp);
     if ( stack_storage_full() ) {
         m_tunk.push_back(val);
         ++m_sp;

@@ -28,22 +28,27 @@ enum State
 enum CharType
 {
     CT_SPC = 0,
-    CT_OP,                      // 1
-    CT_NUM,                     // 2
-    CT_LP,                      // 3
-    CT_RP,                      // 4
-    CT_FLG,                     // 5
-    CT_ALP,                     // 6
-    CT_CMA,                   // 7
-    CT_SMC,               // 8
-    CT_SEQ,            // =
-    CT_AMP,        // &
-    CT_VBR,             // |
-    CT_EXM,             // !
-    CT_LCB,                     // {
-    CT_RCB,                     // }
-    CT_CLN,                     // :
-    CT_DBQ,                     // "
+
+    CT_OP,                      // 1 (fundamental)
+
+    CT_NUM,                     // 2 (fundamental) to be opd or compose idf
+
+    CT_LP,                      // 3 ( group op start
+    CT_RP,                      // 4 ) group op end
+
+    CT_FLG,                     // 5 +/-
+    CT_ALP,                     // 6 _A-z0-9 alpha, to compose idf (opd or keyword)
+
+    CT_CMA,                   // ,
+    CT_SMC,               //  ;
+    CT_SEQ,               // =
+    CT_AMP,               // &
+    CT_VBR,               // |
+    CT_EXM,               // !
+    CT_LCB,               // {
+    CT_RCB,               // }
+    CT_CLN,               // :
+    CT_DBQ,               // " mainly for string (ipd)
 
     CT_UPPER                    // upper bound
 };
@@ -71,21 +76,6 @@ enum ActionType
     AT_DBQ,
 
     AT_UPPER
-};
-
-enum CTXType {
-    CTXT_NON, // 0
-    STMT_DECLARE_ASSIGN,
-    STMT_SCOPE_DECLARE_ASSIGN,//2
-    STMT_IF_COND,
-    STMT_ELIF_COND,
-    STMT_IF_BLOCK,
-    STMT_ELIF_BLOCK,
-    STMT_ELSE_BLOCK,
-    FUNCTION_DEFINITION,
-    FUNCTION_ARGS,
-    FUNCTION_BLOCK,
-    FUNCTION_CALL,
 };
 
 // TODO: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
@@ -174,7 +164,7 @@ public:
         int lcb_count,
         std::unordered_map<std::string,std::unordered_map<int,double>>, // copy
         std::unordered_map<std::string,double> pre_defined_idf_map, // copy
-        int contextType,
+        ContextType contextType,
         int print_enable
         );
     ~ArithmeticExpression() {}
@@ -212,12 +202,13 @@ private:
     bool handleDoubleQuote();
 
     bool handleAction(ActionType type, char c);
+    bool handleInputAllPassed();
+
     bool calculate(int opr);
     bool call_old(const std::string);
     bool call(const std::string);
 
     double getIdfValue(const std::string& idf);
-    bool pushIdfValueToOperandStack(const std::string& idf);
     void assignValueToIdf(const std::string& idf, double value, bool scoped);
 
     int fnn2fni(const std::string& fnn);
@@ -238,13 +229,21 @@ private:
     bool findBalancedRightCurlyBraceAndSkipToIt(bool skipRigthCurlyBraceAlong=false);
     void printErrorLocation();
 
-    void pushNumberIntoOperandStack(double num);
-    void pushStringIntoOperandStack(std::string str);
+    void pushOpr(int);
 
-    bool _isn(const OperandStackItem& item);
-    bool _iss(const OperandStackItem& item);
-    double _2n(const OperandStackItem& item);
-    std::string _2s(const OperandStackItem& item);
+    void pushOpdIdf(std::string idf);
+    void pushOpdIdfValue(const std::string& idf);
+    void pushOpdNum(double num);
+    void pushOpdStr(std::string str);
+
+    bool _isbase(const Operand& item);
+    bool _isidf(const Operand& item);
+    bool _isn(const Operand& item);
+    bool _iss(const Operand& item);
+
+    std::string _2idf(const Operand& item);
+    double _2n(const Operand& item);
+    std::string _2s(const Operand& item);
 
     std::unordered_map<std::string,std::array<int,2>>& getFunctionMap() {
         return m_function_map;
@@ -276,10 +275,13 @@ private:
         return m_lcb_count;
     }
 
-private:
-    Stack<OperandStackItem> m_operand_stack;
-    Stack<int> m_operator_stack;
+    void pushContextBGNToContextStack();
 
+private:
+    Stack<Operand> m_operand_stack;
+    Stack<Opr> m_operator_stack;
+
+    int m_token_idx;
     int m_depth;                // use for function call
 
     State m_state_prev;
@@ -289,6 +291,7 @@ private:
     std::string m_arithmetic_expression;
     int m_parse_pos;
 
+    int m_stmt_count;
     int m_ln_count;
     int m_lp_count;
     int m_lcb_count_init;
@@ -305,7 +308,7 @@ private:
 
     std::vector<CharType> m_expect_char_types;
 
-    std::string m_id;
+    std::string m_id;           // TODO: already replace with scope-related operand stack item.
     // std::unordered_map<std::string,double> m_id_map;
     bool m_id_spc_occurred;
 
@@ -324,7 +327,7 @@ private:
 
     // FIXME: [2026-10-22] m_ctxt should be a stack for nested contexts,
     // so better grammar checking can be supported
-    int m_ctxt;
+    Stack<ContextType> m_ctxt_stack;
 
     std::string m_stmt_assign_key;
     std::unordered_map<int,std::vector<int>> m_stmt_if_cond;

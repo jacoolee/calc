@@ -21,7 +21,7 @@
 #define print(...)                                  \
     do {                                            \
         if (g_print_enable) {                       \
-            fprintf(stderr,"[%d:%s:%d] ", g_depth, scope_name.c_str(), g_ln_count); \
+            fprintf(stderr,"%04d %d:%s:%d ", __LINE__, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                    \
             fprintf(stderr,"\n");                           \
         }                                           \
@@ -30,7 +30,7 @@
 #define printnoln(...)                              \
     do {                                            \
         if (g_print_enable) {                       \
-            fprintf(stderr,"[%d:%s:%d] ", g_depth, scope_name.c_str(), g_ln_count); \
+            fprintf(stderr,"%04d %d:%s:%d ", __LINE__, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                    \
         }                                           \
     } while (0)
@@ -44,16 +44,14 @@
 
 #define error(...)                              \
     do {                                        \
-        fprintf(stderr,"[%d:%s:%d] ", g_depth, scope_name.c_str(), g_ln_count); \
-        fprintf(stderr,"error: %4d - ", __LINE__);      \
+        fprintf(stderr,"%04d %d:%s:%d error ", __LINE__, g_depth, scope_name.c_str(), g_ln_count); \
         fprintf(stderr,__VA_ARGS__);                    \
         fprintf(stderr,"\n");                           \
     } while (0)
 
 #define errornoln(...)                          \
     do {                                        \
-        fprintf(stderr,"[%d:%s:%d] ", g_depth, scope_name.c_str(), g_ln_count); \
-        fprintf(stderr,"error: %4d - ", __LINE__);      \
+        fprintf(stderr,"%04d %d:%s:%d error ", __LINE__, g_depth, scope_name.c_str(), g_ln_count); \
         fprintf(stderr,__VA_ARGS__);                    \
     } while (0)
 
@@ -64,8 +62,7 @@
 
 #define warn(...)                               \
     do {                                        \
-        fprintf(stderr,"[%d:%s:%d] ", g_depth, scope_name.c_str(), g_ln_count); \
-        fprintf(stderr,"warn: %4d - ", __LINE__);       \
+        fprintf(stderr,"%04d %d:%s:%d warning ", __LINE__, g_depth, scope_name.c_str(), g_ln_count); \
         fprintf(stderr,__VA_ARGS__);                    \
         fprintf(stderr,"\n");                           \
     } while (0)
@@ -81,7 +78,7 @@ ArithmeticExpression::ArithmeticExpression(
     int lcb_count,
     std::unordered_map<std::string,std::unordered_map<int,double>> idf_map, // FIXME: [2026-10-21] not memory-saving friendly
     std::unordered_map<std::string,double> pre_defined_idf_map,
-    int contextType,
+    ContextType contextType,
     int print_enable)
     : m_depth(depth),
       m_state_prev(ST_UPPER),
@@ -91,6 +88,7 @@ ArithmeticExpression::ArithmeticExpression(
       m_arithmetic_expression(infix_expression),
       m_parse_pos(0),
 
+      m_stmt_count(0),
       m_ln_count(1),
       m_lp_count(0),
       m_lcb_count_init(lcb_count),
@@ -105,16 +103,19 @@ ArithmeticExpression::ArithmeticExpression(
       m_id(""),
       m_id_spc_occurred(false),
 
-      m_ctxt(CTXT_NON),
       m_stmt_assign_key("")
 {
-    m_operator_stack.push(LOWEST_PRIO_OP);
+    m_token_idx = 0;
+    pushOpr(LOWEST_PRIO_OP);
+    m_operand_stack.push({m_token_idx, -9, OPD_STACK_BOTTOM_BASE, 0, ""}); // to ensure top() always have stuff to avoid break
+    m_ctxt_stack.push(CTXT_STACK_BOTTOM_BASE); // to ensure top() always have stuff to avoid break
 
-    m_ctxt = contextType;
+    m_ctxt_stack.push(contextType);
     m_idf_map = idf_map;
     m_pre_defined_idf_map = pre_defined_idf_map;
 
     g_print_enable = print_enable;
+    print("g_print_enable: %d", g_print_enable);
 
     dia("ArithmeticExpression:+");
 }
@@ -354,6 +355,7 @@ CharType ArithmeticExpression::getCharType(int c) {
             break;
         }
     }
+
     if ( ';' == c) return CT_SMC;
     if ( '=' == c) return CT_SEQ;
     if ( '&' == c) return CT_AMP;
@@ -363,6 +365,7 @@ CharType ArithmeticExpression::getCharType(int c) {
     if ( '}' == c) return CT_RCB;
     if ( ':' == c) return CT_CLN;
     if ( '"' == c) return CT_DBQ;
+
     return CT_UPPER;
 }
 
@@ -381,107 +384,133 @@ std::string ArithmeticExpression::fni2fnn(const int fni) {
     return m_function_meta[fni].name;
 }
 
-void ArithmeticExpression::dia(const std::string& marker) {
+void ArithmeticExpression::dia(const std::string& marker="") {
     const char& c = m_arithmetic_expression[m_parse_pos];
     CharType type = getCharType(c);
     StateTable* table_item = &m_state_table[m_state][type];
 
-    printnoln("dia: %s @%d [%s:%s + '%c'(CT=%d,AT=%d) => %s]",
-              marker.c_str(),
-              m_parse_pos,
-              getStateStr(m_state_prev),
-              getStateStr(m_state),
-              c,
-              type,
-              table_item->action_type,
-              getStateStr(table_item->new_state)
-        );
+    printnoln("dia: %s @%d ", marker.c_str(), m_parse_pos);
 
-    __print(" m_depth = %d", m_depth);
-
-    __print(" opd_stack=");
-    m_operand_stack.dia(g_print_enable);
-    __print(" opr_stack=");
-    m_operator_stack.dia(g_print_enable);
-    __print(" cmc_stack=");
-    m_fncmcnt_stack.dia(g_print_enable);
-
-    __print(" m_idf_map");
-    for (const auto& item : m_idf_map) {
-        __print("[\"%s\"]={", item.first.c_str());
-        for (const auto& item : item.second) {
-            __print("%d:%g,", item.first, item.second);
-        }
-        __print("\b");
-        __print("},");
-    }
-    if (!m_idf_map.empty()) {
-        __print("\b");
+    if (g_print_enable & 1) {   // st
+        __print("[%s:%s + '%c'(CT=%d,AT=%d) => %s]",
+                getStateStr(m_state_prev),
+                getStateStr(m_state),
+                c,
+                type,
+                table_item->action_type,
+                getStateStr(table_item->new_state)
+            );
+        if (g_print_enable <1*2) __print("\n");
     }
 
-    __print(" m_idf_scope_declared");
-    for (const auto& item : m_idf_scope_declared) {
-        __print("[\"%d\"]={", item.first);
-        for (const auto& item : item.second) {
-            __print("%s:%d,", item.first.c_str(), item.second);
-        }
-        __print("\b");
-        __print("},");
+    if (g_print_enable & 2) {   // opr, opd
+        __print(" opd_stack="); m_operand_stack.dia(g_print_enable);
+        __print(" opr_stack="); m_operator_stack.dia(g_print_enable);
+        if (g_print_enable <2*2) __print("\n");
     }
-    if (!m_idf_scope_declared.empty()) {
-        __print("\b");
-    }
+    if (g_print_enable & 4) {__print(" cmc_stack="); m_fncmcnt_stack.dia(g_print_enable);}
 
-    for (const auto& item : m_stmt_if_cond) {
-        __print(" m_stmt_if_cond[\"%d\"]=[", item.first);
-        for (int x : item.second) {
-            __print("%d ", x);
+    if (g_print_enable & 8) {
+        __print(" m_ctxt_stack="); m_ctxt_stack.dia(g_print_enable);
+        __print(" m_expect_char_types=[");
+        for (const auto& item : m_expect_char_types) {
+            __print("'%s' ", getCharTypeStr(item));
         }
         __print("]");
+        if (g_print_enable <8*2) __print("\n");
     }
 
-    __print(" m_ctxt = %d", m_ctxt);
-    __print(" m_function_name = %s", m_function_name.c_str());
-
-    __print(" m_function_map");
-    for (const auto& item : m_function_map) {
-        __print("[\"%s\"]=", item.first.c_str());
-        __print("[%d,%d] ", item.second[0], item.second[1]);
+    if (g_print_enable & 16) {  // idf
+        __print(" m_idf_map");
+        for (const auto& item : m_idf_map) {
+            __print("[\"%s\"]={", item.first.c_str());
+            for (const auto& item : item.second) {
+                __print("%d:%g,", item.first, item.second);
+            }
+            __print("");
+            __print("},");
+        }
+        if (!m_idf_map.empty()) {
+            __print("");
+        }
+        if (g_print_enable <16*2) __print("\n");
     }
 
-    __print(" m_function_pos2name_name");
-    for (const auto& item : m_function_exec_pos_name_map) {
-        __print("[%d]=%s ", item.first, item.second.c_str());
+    if (g_print_enable & 32) {  // idf (scope_declared)
+        __print(" m_idf_scope_declared");
+        for (const auto& item : m_idf_scope_declared) {
+            __print("[\"%d\"]={", item.first);
+            for (const auto& item : item.second) {
+                __print("%s:%d,", item.first.c_str(), item.second);
+            }
+            __print("");
+            __print("},");
+        }
+
+        if (!m_idf_scope_declared.empty()) {
+            __print("");
+        }
+
+        if (g_print_enable <32*2) __print("\n");
     }
 
-    __print(" m_function_args=[");
-    for (const auto& item : m_function_args) {
-        __print("\"%s\" ", item.c_str());
-    }
-    __print("]");
+    if (g_print_enable & 64) {  // if
+        for (const auto& item : m_stmt_if_cond) {
+            __print(" m_stmt_if_cond[\"%d\"]=[", item.first);
+            for (int x : item.second) {
+                __print("%d ", x);
+            }
+            __print("]");
+        }
 
-    __print(" m_expect_char_types=[");
-    for (const auto& item : m_expect_char_types) {
-        __print("'%s' ", getCharTypeStr(item));
+        if (g_print_enable <64*2) __print("\n");
     }
-    __print("]");
 
-    __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_state_next_certained = %s rpn = \"%s\"\n",
-            m_id.c_str(),
-            m_id_spc_occurred?"true":"false",
-            m_lp_count,
-            m_lcb_count,
-            getStateStr(m_state_next_certained),
-            m_rpn_expression.c_str()
-        );
+    if (g_print_enable & 128) { // fn
+        __print(" m_function_name = %s", m_function_name.c_str());
+
+        __print(" m_function_map");
+        for (const auto& item : m_function_map) {
+            __print("[\"%s\"]=", item.first.c_str());
+            __print("[%d,%d] ", item.second[0], item.second[1]);
+        }
+
+        __print(" m_function_pos2name_name");
+        for (const auto& item : m_function_exec_pos_name_map) {
+            __print("[%d]=%s ", item.first, item.second.c_str());
+        }
+
+        __print(" m_function_args=[");
+        for (const auto& item : m_function_args) {
+            __print("\"%s\" ", item.c_str());
+        }
+        __print("]");
+
+        if (g_print_enable <128*2) __print("\n");
+    }
+
+    if (g_print_enable & 256) {
+        __print(" m_depth = %d", m_depth);
+        __print(" m_stmt_count=%d", m_stmt_count);
+        __print(" m_token_idx = %d", m_token_idx);
+
+        __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_state_next_certained = %s rpn = \"%s\"\n",
+                m_id.c_str(),
+                m_id_spc_occurred?"true":"false",
+                m_lp_count,
+                m_lcb_count,
+                getStateStr(m_state_next_certained),
+                m_rpn_expression.c_str()
+            );
+    }
 }
 
 void ArithmeticExpression::appendToRpnExpression(char c) {
-    if (c == 'f') {
-        m_rpn_expression.append( fni2fnn(m_operator_stack.top(-1)) );
-    } else {
-        m_rpn_expression.push_back(c);
-    }
+    // if (c == 'f') {
+    //     m_rpn_expression.append( fni2fnn(m_operator_stack.top(-1)) );
+    // } else {
+    //     m_rpn_expression.push_back(c);
+    // }
 }
 
 bool ArithmeticExpression::isOnTerminalState() const {
@@ -511,17 +540,19 @@ bool ArithmeticExpression::handle(char c)
 
     if (!m_expect_char_types.empty()) {
         if (!isCharTypeExpected(type)) {
-            errornoln("expect char type: [");
+            errornoln("%s expects char type: [", getContextTypeStr(m_ctxt_stack.top()));
             for (const auto& item : m_expect_char_types) {
                 __error("'%s' ", getCharTypeStr(item));
             }
-            __error("\b], while '%s' gotten\n", getCharTypeStr(type));
+            __error("], while '%s' gotten\n", getCharTypeStr(type));
+            error("TODO: show the right syntax");
             printErrorLocation();
             exit(E_GRAMMAR);
         }
     }
 
     StateTable* table_item = &m_state_table[m_state][type];
+
     if (table_item->action_type != AT_NON) {
         dia("-:handle");
     }
@@ -586,13 +617,25 @@ bool ArithmeticExpression::handleNone()
     return true;
 }
 
+void ArithmeticExpression::pushOpr(int v) {
+    m_operator_stack.push({m_token_idx, v});
+}
+
 bool ArithmeticExpression::handleFlag(char flag)
 {
     print("handing flags ...");
     if ( '-' == flag) {
-        pushNumberIntoOperandStack(-1);
-        m_operator_stack.push('*');
+        pushOpdNum(-1);
+        pushOpr('*');
     }
+
+    ContextType ctxt = m_ctxt_stack.top();
+
+    if (ctxt == STMT_DECLARE_ASSIGN) {
+        m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
+        m_expect_char_types = {};
+    }
+
     return true;
 }
 
@@ -607,7 +650,7 @@ double ArithmeticExpression::getIdfValue(const std::string& idf) {
     for (int i=m_depth + m_lcb_count; i>=0; --i) {
         if (dv.find(i) != dv.end()) { // found
             v = dv[i];
-            print("pushIdfValueToOperandStack: found, idf:%s, i:%d, value:%g", idf.c_str(), i, v);
+            print("getIdfValue: found, idf:%s, i:%d, value:%g", idf.c_str(), i, v);
             return v;
         }
     }
@@ -618,13 +661,13 @@ double ArithmeticExpression::getIdfValue(const std::string& idf) {
     exit(E_SHOULD_NOT_HAPPEN);
 }
 
-bool ArithmeticExpression::pushIdfValueToOperandStack(const std::string& idf) {
-    double v = getIdfValue(idf);
-    pushNumberIntoOperandStack(v);
-    return true;
-}
-
 void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value, bool is_scope_declared) {
+    if (idf.empty()) {
+        error("assign statement lv: idf should not be empty string");
+        printErrorLocation();
+        exit(E_SYNTAX);
+    }
+
     print("assignValueToIdf: : idf=%s, m_depth=%d, m_lcb_count=%d, value=%g, is_scope_declared=%d", idf.c_str(), m_depth, m_lcb_count, value, is_scope_declared);
 
     if (m_idf_map.find(idf) == m_idf_map.end()) {
@@ -678,15 +721,9 @@ bool ArithmeticExpression::handleOperator(char opr)
 {
     dia("-:handleOperator");
 
-    if (m_state == ST_IDF) {
-        if (m_id_spc_occurred) m_id_spc_occurred = false;
-        if (!m_id.empty()) {
-            if (!pushIdfValueToOperandStack(m_id)) return false;
-            m_id = ""; // reset after consumed
-        }
-    }
+    ++m_token_idx;
 
-    char top = m_operator_stack.top();
+    char top = m_operator_stack.top().v;
     while ( getPriority(top) >= getPriority(opr) && '(' != top ) {
 
         // NOTE: to support "right-associative ^", eg: 2^3^2, if both
@@ -698,18 +735,22 @@ bool ArithmeticExpression::handleOperator(char opr)
 
         if (! calculate(top)) return false;
 
-        // update rpn
-        appendToRpnExpression(top);
-        appendToRpnExpression(' ');
+        // one opr ops, one ctxt clear
+        m_ctxt_stack.pop();
 
         // if calcute success, means cur opr consumed,
         // so pop, and go on to next opr.
         m_operator_stack.pop();
-        top = m_operator_stack.top();
+        top = m_operator_stack.top().v;
     }
 
     print("pushing operator:'%c', rpn:\"%s\"", opr, m_rpn_expression.c_str());
-    m_operator_stack.push(opr);
+    pushOpr(opr);
+
+    // STMT_DECLARE_ASSIGN_VALUE is a special case of CTXT_EXP
+    if (m_ctxt_stack.top() != STMT_DECLARE_ASSIGN_VALUE) {
+        m_ctxt_stack.push(CTXT_EXP);
+    }
 
     dia("handleOperator:+");
     return true;
@@ -735,7 +776,7 @@ void ArithmeticExpression::handleError()
     printErrorLocation();
 
     // better readable error message
-    error("%s expects", getStateStr(m_state));
+    __error("%s expects", getStateStr(m_state));
     StateTable* l = m_state_table[m_state];
     for (int i=0; i<CT_UPPER; i++) {
         if (l[i].action_type != AT_ERR) {
@@ -749,6 +790,8 @@ void ArithmeticExpression::handleError()
 
 bool ArithmeticExpression::handleOperand()
 {
+    ++m_token_idx;
+
     double int_val = 0;
     double dot_val = 0;
 
@@ -794,73 +837,178 @@ bool ArithmeticExpression::handleOperand()
     }
 
     double num = int_val + dot_val;
-    pushNumberIntoOperandStack(num);
+    pushOpdNum(num);
 
     print("int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"",
           int_val, dot_val, dot_occurred ? "yes" : "no");
+
+    ContextType ctxt = m_ctxt_stack.top();
+    if (ctxt == STMT_DECLARE_ASSIGN) {
+        m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
+        m_expect_char_types = {};
+    }
+
     return true;
 }
 
 bool ArithmeticExpression::handleLeftParenthesis()
 {
-    if (m_ctxt == FUNCTION_DEFINITION) {
-        m_id = "";
-        m_expect_char_types = { CT_ALP, CT_RP, CT_SPC };
-        m_ctxt = FUNCTION_ARGS;
-        return true;
-    }
+    ++m_token_idx;
+    ++m_lp_count;               // *always*
 
-    if (m_state == ST_IDF) {
-        if (m_id_spc_occurred) m_id_spc_occurred = false;
+    if (m_id_spc_occurred) {
+        m_id_spc_occurred = false;
     }
 
     print("handleLeftParenthesis: m_id=%s", m_id.c_str());
-    if (m_id != "") {
-        if (m_id == "if") {     // keyword
-            ++m_lp_count;
-            m_ctxt = STMT_IF_COND;
-            m_state_next_certained = ST_BGN;
+    // todo: replace with m_operand_stack.top()
 
-        } else if (m_id == "elif") {     // keyword
-            ++m_lp_count;
-            m_ctxt = STMT_ELIF_COND;
-            m_state_next_certained = ST_BGN;
+    ////////////////////////////////////////////////////////////////
+    // TODO: to support "if(" "elif("
+    // no need set if/elif context here,coz that can be done in handleAlpha immediately
+    // in where we know what m_id is. Here, we only process the following stuff of if/elif context
 
-        } else {
-            if (m_function_map.find(m_id) != m_function_map.end()) {
-                int exec_pos = m_function_map[m_id][0];
-                m_id = "";
-                m_operator_stack.push(exec_pos); // uniq
-                // TODO, use m_function_call_args_count_stack directly, comma can't tell 0 argument and 1 argument
-                m_fncmcnt_stack.push(0);
-                m_operator_stack.push('F'); // self-defined function
-                ++m_lp_count;
-                dia("F");
-            } else {// built-in function
-                int fni = fnn2fni(m_id);
-                if (fni == FNN_UPPER) {
-                    error("fni should never be equal to FNN_UPPER, fni=%d, m_id=%s", fni, m_id.c_str());
-                    return false;
+    // Operand opd = m_operand_stack.top();
+    // if (_isidf(opd) || _iss(opd)) {
+
+    //     std::string idf = _2s(opd);
+
+    //     if (idf == "if") {     // keyword
+    //         ++m_lp_count;
+    //         m_ctxt_stack.push(STMT_IF_COND);
+    //         m_state_next_certained = ST_BGN;
+
+    //     } else if (idf == "elif") {     // keyword
+    //         ++m_lp_count;
+    //         m_ctxt_stack.push(STMT_ELIF_COND);
+    //         m_state_next_certained = ST_BGN;
+
+    //     } else {                // normal idf
+    //     }
+    // }
+
+    ////////////////////////////////////////////////////////////////
+
+    // check context first
+    ContextType ctxt = m_ctxt_stack.top();
+    print("handleLeftParenthesis in context: %s", getContextTypeStr(ctxt));
+
+    if (ctxt == CTXT_BGN || ctxt == CTXT_EXP || ctxt == STMT_DECLARE_ASSIGN_VALUE) {
+
+        // MARK
+
+        // We need check wether current '(' is a function call openning parentheses
+        // or expr grouping parentheses but now, can not tell "a+(...)" from
+        // "+a(...)" coz we have not record the sequence/order info across
+        // opd and opr.
+        //
+        // we need an token index bind to opd and opr, assume str begin
+        // index is 4, we get:
+        //
+        // str                opd stack opr stack
+        // s1: "... a+(...)" [<4,a>]    [<5,+>, <6,(>]
+        // s2: "... +a(...)" [<5,a>]    [<4,+>, <6,(>]
+        //
+        // now, opr is <6,(>, we can check where opd_stack.top().index == opr.index-1 or not,
+        // if yes, opr is a function opening parentheses, else, is exp grouping parentheses
+
+        Operand opd = m_operand_stack.top();
+
+        if (_isbase(opd)) {
+            pushOpr('(');
+            return true;
+
+        } else if (_isidf(opd)) {
+
+            bool is_lp_fn_opening_parentheses = (opd.token_idx == m_token_idx-1);
+
+            if (is_lp_fn_opening_parentheses) {
+                std::string idf = opd.str;
+
+                if (m_function_map.find(idf) != m_function_map.end()) {
+                    int exec_pos = m_function_map[idf][0];
+                    pushOpr(exec_pos); // uniq
+                    pushOpr('F'); // self-defined function
+
+                    // TODO, use m_function_call_args_count_stack directly, comma can't tell 0 argument and 1 argument
+                    m_fncmcnt_stack.push(0);
+
+                    m_operand_stack.pop(); // pop idf opd after been registered in to opr stack
+
+                    dia("F");
+                    return true;
+
+                } else {// built-in function
+                    int fni = fnn2fni(idf);
+                    if (fni == FNN_UPPER) {
+                        error("fni should never be equal to FNN_UPPER, fni=%d, idf=%s", fni, idf.c_str());
+                        return false;
+                    }
+
+                    pushOpr(fni);
+                    pushOpr('f'); // built-in function, means function left parenthesis
+
+                    // NOTE: always record fncmcnt's comma count when fn gotten
+                    m_fncmcnt_stack.push(0);
+
+                    m_operand_stack.pop(); // pop idf opd after been registered in to opr stack
+
+                    return true;
                 }
-
-                m_operator_stack.push(fni);
-                m_id = "";
-                // NOTE: always record fncmcnt's comma count when fn gotten
-                m_fncmcnt_stack.push(0);
-                m_operator_stack.push('f'); // built-in function, means function left parenthesis
-                ++m_lp_count;
+            } else {                // normal exp
+                print("TODO");
+                exit(0);
             }
+
+        } else if (_isn(opd)) {
+            pushOpr('(');
+            return true;
+
+        }  else if (_iss(opd)) {
+            print("TODO");
+            exit(0);
         }
+
+    } else if (ctxt == STMT_DECLARE_ASSIGN) {
+        pushOpr('(');
+
+        m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
+        m_expect_char_types = {};
+
+    } else if (m_ctxt_stack.top() == FUNCTION_DEFINITION) {
+        if (m_function_name == "") {
+            error("no function name found after keyword \"function\"");
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        }
+        m_id = "";
+        m_expect_char_types = { CT_ALP, CT_RP, CT_SPC };
+        m_ctxt_stack.push(FUNCTION_ARGS);
+
+        return true;
     } else {
-        m_operator_stack.push('(');
-        ++m_lp_count;
+        warn("handleLeftParenthesis: un-processed contextType: %s", getContextTypeStr(ctxt));
+        return true;
     }
-    return true;
+
+    error("should not come here");
+    printErrorLocation();
+    exit(E_DEV_ERROR);
+    return false;
 }
 
 bool ArithmeticExpression::handleRightParenthesis()
 {
-    if (m_ctxt == FUNCTION_ARGS) {
+    --m_lp_count;               // always
+
+    if ( m_lp_count < 0 ) {
+        error("exists extra right parenthesis");
+        return false;
+    }
+
+    //++m_token_idx;
+
+    if (m_ctxt_stack.top() == FUNCTION_ARGS) {
         if (m_id != "") {
             m_function_args.push_back(m_id);
         }
@@ -874,27 +1022,22 @@ bool ArithmeticExpression::handleRightParenthesis()
 
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
-        if (!m_id.empty()) {
-            if (!pushIdfValueToOperandStack(m_id)) return false;
-            m_id = ""; // reset after consumed
-        }
-    }
 
-    --m_lp_count;
-    if ( m_lp_count < 0 ) {
-        error("exists extra right parenthesis");
-        return false;
+        // already replace by opd stack
+        // if (!m_id.empty()) {
+        //     if (!pushOpdIdfValue(m_id)) return false;
+        //     m_id = ""; // reset after consumed
+        // }
     }
 
     // pop till '(' or 'f'
-    while ( ! m_operator_stack.empty()) {
-        dia("-:handleRightParenthesis");
-
-        int top = m_operator_stack.top();
+    int top;
+    while ( ! m_operator_stack.empty() && (top = m_operator_stack.top().v) != LOWEST_PRIO_OP) {
+        dia("-:handleRightParenthesis loop");
         if (top == '(') {
             // done for whole, (...), so pop '('
-            int x = m_operator_stack.pop();
-            print("pop <%d '%c'> in while loop", x, x);
+            Opr x = m_operator_stack.pop();
+            print("pop <%d '%c'> in while loop", x.v, x.v);
             break;
         }
 
@@ -914,43 +1057,52 @@ bool ArithmeticExpression::handleRightParenthesis()
             if (! calculate(top)) return false;
             // NOTE: if calculate success, means the top opr been consumed,
             // so pop it. and go on to next opr
-            int x = m_operator_stack.pop();
-            print("pop opr:<%d '%c'> after calculate", x, x);
+            Opr x = m_operator_stack.pop();
+            print("pop opr:<%d '%c'> after calculate", x.v, x.v);
         }
 
-        if ( LOWEST_PRIO_OP != top ) {
-            appendToRpnExpression(top);
-            appendToRpnExpression(' ');
-        }
-
-        dia("handleRightParenthesis:+");
+        dia("handleRightParenthesis:+ loop");
     }
 
     // DO NOT save this operator:')' into stack
     return true;
 }
 
-bool ArithmeticExpression::handleAlpha(char _c) {
+bool ArithmeticExpression::handleAlpha(char _c)
+{
+    ++m_token_idx;
+
     // TODO: [2026-10-10] parse like handleOperand to ignore m_id_spc_occurred.
 
-    // for case "id<SPC+>id"
+    // process m_id_spc_occurred firstly
     do {
         if (m_id_spc_occurred) {
-            if (m_ctxt == FUNCTION_DEFINITION) { // function fnn
+            if (m_ctxt_stack.top() == FUNCTION_DEFINITION) { // function fnn
                 // ok
                 break;
             }
             if (m_id == "else") {
                 error("identifer can not follow keyword: \"%s\"", m_id.c_str());
-                return false;
+                printErrorLocation();
+                exit(E_SYNTAX);
             }
-            error("space not allowed between alphas");
-            return false;
+
+            // error("space not allowed between alphas, current m_id:%s, m_id_spc_occurred: %d", m_id.c_str(), m_id_spc_occurred);
+            // printErrorLocation();
+            // exit(E_SYNTAX);
+
         }
     } while (0);
 
+    if (m_id_spc_occurred)
+        m_id_spc_occurred = false;
+
     m_id = "";
 
+    ////////////////////////////////////////////////////////////////
+
+    // get token: "idf"
+    // maybe we will remove m_id, coz idf now saved in Opd, can access anyway.
     char c;
     int size = m_arithmetic_expression.size();
     while ( m_parse_pos < size ) {
@@ -970,16 +1122,70 @@ bool ArithmeticExpression::handleAlpha(char _c) {
         --m_parse_pos;
     }
 
-    if (m_ctxt == FUNCTION_DEFINITION) { // function FNN
+    // PATTERN: context + expects (token aka. chars) -> context
+    // context could be stack
+    // example:
+    //
+    // if a {           // push : [if cond]
+    //     if b {       // push : [if cond, if block]
+    //     }            // pop  : [if cond]
+    // }                // pop  : []
+
+    dia();
+
+    ContextType ctxt = m_ctxt_stack.top();
+    print("handleAlpha: ctxt: %s", getContextTypeStr(ctxt));
+
+    if (ctxt == CTXT_BGN || ctxt == CTXT_EXP) {
+        if (m_id == "if") {
+            m_ctxt_stack.push(STMT_IF_COND);
+            m_state_next_certained = ST_BGN;
+            return true;        // for less code-reading
+
+        } else if (m_id == "function") {
+            m_ctxt_stack.push(FUNCTION_DEFINITION);
+            m_state_next_certained = ST_BGN;
+            return true;
+
+        } else {
+            // fnn or var
+            // always treat it as opd first, if is turn out be fnn,
+            // it must be followed by '(', we will check out there.
+            pushOpdIdf(m_id);
+            return true;
+        }
+
+    } else if (ctxt == FUNCTION_DEFINITION) { // function FNN
         m_function_name = m_id;
         m_function_map[m_function_name][0] = 0;
         m_expect_char_types = { CT_LP, CT_SPC };
-    } else if (m_ctxt == FUNCTION_ARGS) {                // function name(ARG or function name(arg, ARG
-        m_expect_char_types = { CT_CMA, CT_RP, CT_SPC };
-    } else {
-    }
+        return true;
 
-    m_id_spc_occurred = false;
+    } else if (ctxt == FUNCTION_ARGS) {                // function name(ARG or function name(arg, ARG
+        m_expect_char_types = { CT_CMA, CT_RP, CT_SPC };
+        return true;
+
+    } else if (ctxt == STMT_DECLARE_ASSIGN) {
+
+        pushOpdIdf(m_id);
+
+        m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
+        m_expect_char_types = {};
+        return true;
+
+    } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
+        pushOpdIdf(m_id);
+        return true;
+    } else {
+        warn("handleAlpha: un-processed contextType: %s", getContextTypeStr(ctxt));
+
+        // PATTERN: context + expects
+
+        // if (m_id == "if") {
+        //     m_ctxt_stack.push(STMT_IF_COND);
+        //     m_expect_char_types = { CT_SPC, CT_LP, CT_FLG };
+        // }
+    }
 
     dia("handleAlpha:+");
 
@@ -987,26 +1193,40 @@ bool ArithmeticExpression::handleAlpha(char _c) {
 }
 
 bool ArithmeticExpression::handleSpace() {
+
     if (m_state == ST_IDF) {
         if (m_id == "if") {
-            m_ctxt = STMT_IF_COND;
+            m_ctxt_stack.push(STMT_IF_COND);
             m_state_next_certained = ST_BGN;
         } else if (m_id == "elif") {
-            m_ctxt = STMT_ELIF_COND;
+            m_ctxt_stack.push(STMT_ELIF_COND);
             m_state_next_certained = ST_BGN;
         } else if (m_id == "function") {
-            m_ctxt = FUNCTION_DEFINITION;
+            m_ctxt_stack.push(FUNCTION_DEFINITION);
             m_state_next_certained = ST_BGN;
         } else {
             m_id_spc_occurred = true;
             m_state_next_certained = ST_IDF;
         }
     }
+
+    ContextType ctxt = m_ctxt_stack.top();
+    if (ctxt == STMT_DECLARE_ASSIGN) {
+        m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
+        m_expect_char_types = {};
+    }
+
     return true;
 }
 
 bool ArithmeticExpression::handleComma() {
-    if (m_ctxt == FUNCTION_ARGS) {
+    ++m_token_idx;
+
+    if (m_id_spc_occurred) m_id_spc_occurred = false;
+
+    ContextType ctxt = m_ctxt_stack.top();
+
+    if (ctxt == FUNCTION_ARGS) {
         if (m_id != "") {
             m_function_args.push_back(m_id);
         }
@@ -1015,17 +1235,8 @@ bool ArithmeticExpression::handleComma() {
         return true;
     }
 
-    if (m_state == ST_IDF) {
-        if (m_id_spc_occurred) m_id_spc_occurred = false;
-        if (!m_id.empty()) {
-            if (!pushIdfValueToOperandStack(m_id)) return false;
-            m_id = ""; // reset after consumed
-        }
-    }
-
     int top;
-    while (!m_operator_stack.empty()) {
-        top = m_operator_stack.top();
+    while (!m_operator_stack.empty() && (top = m_operator_stack.top().v) != LOWEST_PRIO_OP) {
         if (top == 'f' || top == 'F') {
             break;
         }
@@ -1048,6 +1259,8 @@ bool ArithmeticExpression::handleComma() {
 }
 
 bool ArithmeticExpression::handleSemicolon() {
+    ++m_stmt_count;
+
     print("TODO: handleSemicolon should consume everything.");
     dia("-:handleSemicolon");
 
@@ -1057,48 +1270,110 @@ bool ArithmeticExpression::handleSemicolon() {
         exit(E_SYNTAX);
     }
 
-    if (m_state == ST_IDF) {
-        if (m_id_spc_occurred) m_id_spc_occurred = false;
-        if (m_id != "") {
-            if (!pushIdfValueToOperandStack(m_id)) return false;
-            m_id = ""; // reset after consumed
-        }
-    }
+    // if (m_state == ST_IDF) {
+    //     if (m_id_spc_occurred) m_id_spc_occurred = false;
+    //     if (m_id != "") {
+    //         if (!pushOpdIdfValue(m_id)) return false;
+    //         m_id = ""; // reset after consumed
+    //     }
+    // }
 
-    if (m_ctxt == STMT_IF_COND) {
+    ContextType ctxt = m_ctxt_stack.top();
+
+    switch(ctxt) {
+    case STMT_DECLARE_ASSIGN:
+        error("invalid assign statement. syntax: \"idf = ...;\"");
+        printErrorLocation();
+        exit(E_GRAMMAR);
+
+    case STMT_IF_COND:
         error("invalid syntax: \"if exp ;\"");
         handleError();
         exit(E_SYNTAX);
+
+    default:
+        print("handleInputAllPassed ignore context type: %s", getContextTypeStr(ctxt));
+        break;
     }
 
     dia("-:handleSemicolon+1");
 
     int top;
-    while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
-        print("in loop");
+    while (!m_operator_stack.empty() && (top = m_operator_stack.top().v) != LOWEST_PRIO_OP) {
         if (!calculate(top)) return false;
         m_operator_stack.pop();
+        if (m_ctxt_stack.top() == CTXT_EXP) {
+            m_ctxt_stack.pop();
+        }
     }
 
-    print("h1");
+    // clean extra CTXT_EXP if exits
+    while (!m_ctxt_stack.empty()) {
+        ContextType& _t = m_ctxt_stack.top();
+        if (_t == CTXT_EXP) {
+            m_ctxt_stack.pop();
+        } else {
+            break;
+        }
+    }
 
-    if (m_ctxt == STMT_DECLARE_ASSIGN) {
-        // TODO: check if condition fit
-        assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), false);
-    } else if (m_ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
-        assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), true);
+    assert(m_ctxt_stack.top() != CTXT_EXP);
+
+    dia("handleSemicolon: after opr ops");
+
+    ctxt = m_ctxt_stack.top();
+    if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
+        // at least two opd need
+        if (m_operand_stack.count() < 3) {
+            error("two opds need to form a assign statement, while \"%d\" gotten", m_operand_stack.count());
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        } else {
+            m_expect_char_types = {};
+        }
+
+        Operand opdv = m_operand_stack.pop();
+        double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+        std::string assign_idf = _2idf(m_operand_stack.pop());
+        assignValueToIdf(assign_idf, assign_v, false);
+
+    } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
+        if (m_operand_stack.count() < 3) { // base + 2
+            error("two opds need to form a assign statement, while \"%d\" gotten", m_operand_stack.count());
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        } else {
+            m_expect_char_types = {};
+        }
+
+        Operand opdv = m_operand_stack.pop();
+        double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+        std::string assign_idf = _2idf(m_operand_stack.pop());
+        assignValueToIdf(assign_idf, assign_v, true);
+
     } else {
+    }
+
+    // clean context stack
+    while(!m_ctxt_stack.empty() && (ctxt = m_ctxt_stack.pop()) != CTXT_BGN) {
+        print("m_ctxt_stack.pop %s", getContextTypeStr(ctxt));
     }
 
     // reset everything
     m_id = "";
     m_id_spc_occurred = false;
     m_lp_count = 0;
-    m_ctxt = CTXT_NON;
+    m_expect_char_types = {};
+
+    pushContextBGNToContextStack();
+
     m_stmt_assign_key = "";
 
-    if (m_operand_stack.count() > 1) {
-        error("more than 1 operand left");
+    while (!m_operand_stack.empty() && m_operand_stack.top().stmt_count == m_stmt_count)
+        m_operand_stack.pop();
+
+    if (m_operand_stack.count() > 2) { // base + 1
+        error("more than 2 (base + real last opd) operand left");
         dia("handleSemicolon");
         printErrorLocation();
         exit(E_DEV_ERROR);
@@ -1109,12 +1384,22 @@ bool ArithmeticExpression::handleSemicolon() {
     return true;
 }
 
+void ArithmeticExpression::pushContextBGNToContextStack() {
+    print("pushContextBGNToContextStack ...");
+    bool top_already_ctxt_non = !m_ctxt_stack.empty() && m_ctxt_stack.top() == CTXT_BGN;
+    if (!top_already_ctxt_non) {
+        m_ctxt_stack.push(CTXT_BGN);
+    }
+}
+
 bool ArithmeticExpression::handleSymbolEqual() {
     dia("-:handleSymbolEqual");
 
+    ++m_token_idx;
+
     // :=
     if (m_state == ST_CLN) {
-        m_ctxt = STMT_SCOPE_DECLARE_ASSIGN;
+        m_ctxt_stack.push(STMT_SCOPE_DECLARE_ASSIGN);
         m_stmt_assign_key = m_id;
         m_id = "";
         if (m_id_spc_occurred) m_id_spc_occurred = false;
@@ -1132,24 +1417,39 @@ bool ArithmeticExpression::handleSymbolEqual() {
         m_state_next_certained = ST_OPR;
         return handleOperator('e');
     } else {
-        // treat it as assign statement if m_state is ST_IDF
-        if (m_state == ST_IDF) {
-            m_ctxt = STMT_DECLARE_ASSIGN;
-            m_stmt_assign_key = m_id;
-            m_id = "";
-            if (m_id_spc_occurred) m_id_spc_occurred = false;
-            m_state_next_certained = ST_BGN;
+        ContextType ctxt = m_ctxt_stack.top();
+
+        if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK) {
+            if (m_state == ST_IDF && (m_state_prev == ST_BGN || m_state_prev == ST_IDF)) { // more restrict grammer
+                // treat it as assign statement
+                m_ctxt_stack.push(STMT_DECLARE_ASSIGN);
+                m_stmt_assign_key = m_id;
+                m_id = "";
+                if (m_id_spc_occurred) m_id_spc_occurred = false;
+                m_state_next_certained = ST_BGN;
+                m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_SPC};
+                return true;
+            }
         } else {
-            error("single '=' can only be used as assign statement: 'id = ...;'");
             dia("handleSymbolEqual");
-            return false;
+            error("single '=' can only be used as assign statement: 'id = ...;', should not be part of contextType:%s", getContextTypeStr(ctxt));
+            printErrorLocation();
+            exit(E_GRAMMAR);
         }
+
+        dia("handleSymbolEqual");
+        error("single '=' can only be used as assign statement: 'id = ...;'");
+        printErrorLocation();
+        exit(E_GRAMMAR);
     }
+
     return true;
 }
 
 bool ArithmeticExpression::handleSymbolAmpersand() {
     dia("-:handleSymbolAmpersand");
+
+    ++m_token_idx;
 
     // &&
     bool hasAtLeastTwoSymbolAmpersand = (m_parse_pos+1) < m_arithmetic_expression.size() && m_arithmetic_expression[m_parse_pos+1] == '&';
@@ -1171,6 +1471,8 @@ bool ArithmeticExpression::handleSymbolAmpersand() {
 bool ArithmeticExpression::handleSymbolVbar() {
     dia("-:handleSymbolVbar");
 
+    ++m_token_idx;
+
     // ||
     bool hasAtLeastTwoSymbolVbar = (m_parse_pos+1) < m_arithmetic_expression.size() && m_arithmetic_expression[m_parse_pos+1] == '|';
 
@@ -1189,6 +1491,8 @@ bool ArithmeticExpression::handleSymbolVbar() {
 }
 
 bool ArithmeticExpression::handleExclamation() {
+    ++m_token_idx;
+
     // TODO: handleExclamation is useless, use handleOperator directly
     return handleOperator('!');
 }
@@ -1196,7 +1500,11 @@ bool ArithmeticExpression::handleExclamation() {
 bool ArithmeticExpression::handleLeftCurlyBrace() {
     dia("-:handleLeftCurlyBrace");
 
-    if (m_ctxt == FUNCTION_CALL) {
+    ++m_token_idx;
+
+    ContextType ctxt = m_ctxt_stack.top();
+
+    if (ctxt == FUNCTION_CALL) {
         ++m_lcb_count;
 
         // merge m_pre_defined_idf_map into m_idf_map;
@@ -1212,13 +1520,13 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
             assignValueToIdf(item.first, item.second, false);
         }
 
-        m_ctxt = CTXT_NON;
+        pushContextBGNToContextStack();
         m_state_next_certained = ST_BGN;
         return true;
     }
 
-    if (m_ctxt == FUNCTION_ARGS) {
-        m_ctxt = FUNCTION_BLOCK;
+    if (ctxt == FUNCTION_ARGS) {
+        m_ctxt_stack.push(FUNCTION_BLOCK);
         m_expect_char_types = {};
 
         // TODO register function definition meta
@@ -1237,7 +1545,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         m_function_map[m_function_name][1] = m_parse_pos + 1;
 
         m_id = "";
-        m_ctxt = CTXT_NON;
+        pushContextBGNToContextStack();
         m_state_next_certained = ST_BGN;
         return true;
     }
@@ -1248,7 +1556,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         exit(E_SYNTAX);
     }
 
-    print("handleLeftCurlyBrace: m_ctxt=%d", m_ctxt);
+    print("handleLeftCurlyBrace: ctxt=%d", ctxt);
 
     print("handleLeftCurlyBrace: calculate all oprs");
 
@@ -1263,12 +1571,12 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     }
 
     if (m_operand_stack.empty() && !m_id.empty() && ( m_id != "else" )) {
-        if (!pushIdfValueToOperandStack(m_id)) return false;
+        pushOpdIdfValue(m_id);
         m_id = ""; // reset after consumed
     }
 
     int top;
-    while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
+    while (!m_operator_stack.empty() && (top = m_operator_stack.top().v) != LOWEST_PRIO_OP) {
         if (!calculate(top)) return false;
         m_operator_stack.pop();
     }
@@ -1295,12 +1603,12 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     // check conditions
     std::vector<int>& v = m_stmt_if_cond[m_lcb_count];
 
-    if (m_ctxt == STMT_IF_COND) {
+    if (ctxt == STMT_IF_COND) {
         int cond = _2n(m_operand_stack.pop()) != 0? 1: 0;
         v.push_back(cond);
 
         if (cond != 0) {
-            m_ctxt = STMT_IF_BLOCK;
+            m_ctxt_stack.push(STMT_IF_BLOCK);
             print("TODO: to process if-block");
         } else {
             print("TODO: to ignore if-block, just skip to balanced '}', no syntax check for skipped content");
@@ -1309,7 +1617,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
                 return false;
             }
         }
-    } else if (m_ctxt == STMT_ELIF_COND) {
+    } else if (ctxt == STMT_ELIF_COND) {
         if (v.size() == 0) {
             error("elif statement must follow if-statement");
             return false;
@@ -1331,7 +1639,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         int cond = (pre_cond_all_zero == true && elif_cond != 0)? 1: 0;
 
         if (cond != 0) {
-            m_ctxt = STMT_ELIF_BLOCK;
+            m_ctxt_stack.push(STMT_ELIF_BLOCK);
             print("TODO: to process elif-block");
         } else {
             print("TODO: to ignore elif-block, just skip to balanced '}', no syntax check for skipped content");
@@ -1360,7 +1668,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
             }
 
             if (pre_cond_all_zero == true) {
-                m_ctxt = STMT_ELSE_BLOCK;
+                m_ctxt_stack.push(STMT_ELSE_BLOCK);
                 print("TODO: to process else-block");
             } else {
                 print("TODO: to ignore else-block, just skip to balanced '}', no syntax check for skipped content");
@@ -1438,6 +1746,8 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigth
 bool ArithmeticExpression::handleRightCurlyBrace() {
     print("handleRightCurlyBrace");
 
+    ++m_token_idx;
+
     if (m_lp_count > 0) {
         error("'}' not allowed inside ()");
         handleError();
@@ -1454,24 +1764,46 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
-            if (!pushIdfValueToOperandStack(m_id)) return false;
+            pushOpdIdfValue(m_id);
             m_id = ""; // reset after consumed
         }
     }
 
     int top;
-    while (!m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
+    while (!m_operator_stack.empty() && (top = m_operator_stack.top().v) != LOWEST_PRIO_OP) {
         if (!calculate(top)) return false;
         m_operator_stack.pop();
     }
 
-    if (m_ctxt == STMT_DECLARE_ASSIGN) {
-        // TODO: check if condition fit
-        assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), false);
-    } else if (m_ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
-        assignValueToIdf(m_stmt_assign_key, _2n(m_operand_stack.pop()), true);
-    } else {
-    }
+    ContextType ctxt = m_ctxt_stack.top();
+
+
+    if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
+        if (m_operand_stack.count() < 3) { // base + 2
+            error("two opds need to form a assign statement, while \"%d\" gotten", m_operand_stack.count());
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        }
+
+        Operand opdv = m_operand_stack.pop();
+        double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+
+        std::string assign_idf = _2idf(m_operand_stack.pop());
+        assignValueToIdf(assign_idf, assign_v, false);
+
+    } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
+        if (m_operand_stack.count() < 3) { // base + 2
+            error("two opds need to form a assign statement, while \"%d\" gotten", m_operand_stack.count());
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        }
+
+        Operand opdv = m_operand_stack.pop();
+        double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+
+        std::string assign_idf = _2idf(m_operand_stack.pop());
+        assignValueToIdf(assign_idf, assign_v, true);
+    } else {}
 
     ////////////////////////////////////////////////////////////////
 
@@ -1520,12 +1852,15 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
         m_state_next_certained = ST_BGN;
     }
 
-    m_ctxt = CTXT_NON;
+    pushContextBGNToContextStack();
 
     return true;
 }
 
 bool ArithmeticExpression::handleColon() {
+
+    // ++m_token_idx;
+
     print("handleColon: expects '=' immediately");
     return true;
 }
@@ -1555,36 +1890,58 @@ bool ArithmeticExpression::handleDoubleQuote() {
     }
 
     // string found, ignore both beginning and ending '"'
+    ++m_token_idx;
+
     int start = m_str_start_pos+1;
     int end = m_parse_pos;      // exclusive
     std::string dbq_content = m_arithmetic_expression.substr(start, end-start);
-    pushStringIntoOperandStack(dbq_content);
+    pushOpdStr(dbq_content);
 
     return true;
 }
 
-void ArithmeticExpression::pushNumberIntoOperandStack(double num) {
-    m_operand_stack.push({ OPD_NUM, num, "" });
+void ArithmeticExpression::pushOpdIdf(std::string idf) {
+    m_operand_stack.push({ m_token_idx, m_stmt_count, OPD_IDF, 0, idf });
 }
 
-void ArithmeticExpression::pushStringIntoOperandStack(std::string str) {
+void ArithmeticExpression::pushOpdIdfValue(const std::string& idf) {
+    pushOpdNum(getIdfValue(idf));
+}
+
+void ArithmeticExpression::pushOpdNum(double num) {
+    m_operand_stack.push({ m_token_idx, m_stmt_count, OPD_NUM, num, "" });
+}
+
+void ArithmeticExpression::pushOpdStr(std::string str) {
     // use std::move to avoid unnecessary string copy
-    m_operand_stack.push({ OPD_STR, 0, std::move(str) });
+    m_operand_stack.push({ m_token_idx, m_stmt_count, OPD_STR, 0, std::move(str) });
 }
 
-bool ArithmeticExpression::_isn(const OperandStackItem& item) {
+bool ArithmeticExpression::_isbase(const Operand& item) {
+    return item.type == OPD_STACK_BOTTOM_BASE;
+}
+
+bool ArithmeticExpression::_isidf(const Operand& item) {
+    return item.type == OPD_IDF;
+}
+
+bool ArithmeticExpression::_isn(const Operand& item) {
     return item.type == OPD_NUM;
 }
 
-bool ArithmeticExpression::_iss(const OperandStackItem& item) {
+bool ArithmeticExpression::_iss(const Operand& item) {
     return item.type == OPD_STR;
 }
 
-double ArithmeticExpression::_2n(const OperandStackItem& item) {
+std::string ArithmeticExpression::_2idf(const Operand& item) {
+    return item.str;
+}
+
+double ArithmeticExpression::_2n(const Operand& item) {
     return item.num;
 }
 
-std::string ArithmeticExpression::_2s(const OperandStackItem& item) {
+std::string ArithmeticExpression::_2s(const Operand& item) {
     return item.str;
 }
 
@@ -1600,7 +1957,7 @@ bool ArithmeticExpression::calculate(int opr)
 
     if ('f' == opr) {
         print("opr is 'f'");
-        int fni = m_operator_stack.top(-1); // get fni
+        int fni = m_operator_stack.top(-1).v; // get fni
         int fncmcnt = m_fncmcnt_stack.top();
         FunctionMeta fm = m_function_meta[fni];
 
@@ -1609,54 +1966,56 @@ bool ArithmeticExpression::calculate(int opr)
         if (fm.args_va) {
             if (fncmcnt < fm.args_count-1) {
                 error("function: '%s' expect at least %d arguments, while %d given. (fncmcnt=%d)", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
-                return false;
+                printErrorLocation();
+                exit(E_GRAMMAR);
             }
         } else {
             if (fncmcnt != fm.args_count-1) {
                 error("function: '%s' expect %d arguments, while %d given. (fncmcnt=%d)", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
-                return false;
+                printErrorLocation();
+                exit(E_GRAMMAR);
             }
         }
 
         switch(fni) {
 
         case FABS: {
-            pushNumberIntoOperandStack(fabs(_2n(m_operand_stack.pop())));
+            pushOpdNum(fabs(_2n(m_operand_stack.pop())));
             break;
         }
         case FMOD: {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(fmod(l_opd, r_opd));
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum(fmod(l_opd, r_opd));
             break;
         }
         case REMAINDER: {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(remainder(l_opd, r_opd));
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum(remainder(l_opd, r_opd));
             break;
         }
         case CEIL: {
-            pushNumberIntoOperandStack(ceil(_2n(m_operand_stack.pop())));
+            pushOpdNum(ceil(_2n(m_operand_stack.pop())));
             break;
         }
         case FLOOR: {
-            pushNumberIntoOperandStack(floor(_2n(m_operand_stack.pop())));
+            pushOpdNum(floor(_2n(m_operand_stack.pop())));
             break;
         }
         case ROUND: {
-            pushNumberIntoOperandStack(round(_2n(m_operand_stack.pop())));
+            pushOpdNum(round(_2n(m_operand_stack.pop())));
             break;
         }
         case TRUNC: {
-            pushNumberIntoOperandStack(trunc(_2n(m_operand_stack.pop())));
+            pushOpdNum(trunc(_2n(m_operand_stack.pop())));
             break;
         }
 
         case POW: {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(pow(l_opd, r_opd));
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum(pow(l_opd, r_opd));
             break;
         }
         case SQRT: {
@@ -1665,151 +2024,151 @@ bool ArithmeticExpression::calculate(int opr)
                 print("sqrt expects unsigned operand, while %f gotten", opd);
                 return false;
             }
-            pushNumberIntoOperandStack(sqrt(opd));
+            pushOpdNum(sqrt(opd));
             break;
         }
         case CBRT: {
-            pushNumberIntoOperandStack(cbrt(_2n(m_operand_stack.pop())));
+            pushOpdNum(cbrt(_2n(m_operand_stack.pop())));
             break;
         }
         case HYPOT: {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(hypot(l_opd, r_opd));
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum(hypot(l_opd, r_opd));
             break;
         }
         case EXP: {
-            pushNumberIntoOperandStack(exp(_2n(m_operand_stack.pop())));
+            pushOpdNum(exp(_2n(m_operand_stack.pop())));
             break;
         }
         case EXP2: {
-            pushNumberIntoOperandStack(exp2(_2n(m_operand_stack.pop())));
+            pushOpdNum(exp2(_2n(m_operand_stack.pop())));
             break;
         }
         case EXPM1: {
-            pushNumberIntoOperandStack(expm1(_2n(m_operand_stack.pop())));
+            pushOpdNum(expm1(_2n(m_operand_stack.pop())));
             break;
         }
         case LOG: {
-            pushNumberIntoOperandStack(log(_2n(m_operand_stack.pop())));
+            pushOpdNum(log(_2n(m_operand_stack.pop())));
             break;
         }
         case LOG10: {
-            pushNumberIntoOperandStack(log10(_2n(m_operand_stack.pop())));
+            pushOpdNum(log10(_2n(m_operand_stack.pop())));
             break;
         }
         case LOG2: {
-            pushNumberIntoOperandStack(log2(_2n(m_operand_stack.pop())));
+            pushOpdNum(log2(_2n(m_operand_stack.pop())));
             break;
         }
         case LOG1P: {
-            pushNumberIntoOperandStack(log1p(_2n(m_operand_stack.pop())));
+            pushOpdNum(log1p(_2n(m_operand_stack.pop())));
             break;
         }
 
         case SIN: {
-            pushNumberIntoOperandStack(sin(_2n(m_operand_stack.pop())));
+            pushOpdNum(sin(_2n(m_operand_stack.pop())));
             break;
         }
         case COS: {
-            pushNumberIntoOperandStack(cos(_2n(m_operand_stack.pop())));
+            pushOpdNum(cos(_2n(m_operand_stack.pop())));
             break;
         }
         case TAN: {
-            pushNumberIntoOperandStack(tan(_2n(m_operand_stack.pop())));
+            pushOpdNum(tan(_2n(m_operand_stack.pop())));
             break;
         }
         case ASIN: {
-            pushNumberIntoOperandStack(asin(_2n(m_operand_stack.pop())));
+            pushOpdNum(asin(_2n(m_operand_stack.pop())));
             break;
         }
         case ACOS: {
-            pushNumberIntoOperandStack(acos(_2n(m_operand_stack.pop())));
+            pushOpdNum(acos(_2n(m_operand_stack.pop())));
             break;
         }
         case ATAN: {
-            pushNumberIntoOperandStack(atan(_2n(m_operand_stack.pop())));
+            pushOpdNum(atan(_2n(m_operand_stack.pop())));
             break;
         }
         case ATAN2: {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(atan2(l_opd,r_opd));
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum(atan2(l_opd,r_opd));
             break;
         }
 
         case SINH: {
-            pushNumberIntoOperandStack(sinh(_2n(m_operand_stack.pop())));
+            pushOpdNum(sinh(_2n(m_operand_stack.pop())));
             break;
         }
         case COSH: {
-            pushNumberIntoOperandStack(cosh(_2n(m_operand_stack.pop())));
+            pushOpdNum(cosh(_2n(m_operand_stack.pop())));
             break;
         }
         case TANH: {
-            pushNumberIntoOperandStack(tanh(_2n(m_operand_stack.pop())));
+            pushOpdNum(tanh(_2n(m_operand_stack.pop())));
             break;
         }
         case ASINH: {
-            pushNumberIntoOperandStack(asinh(_2n(m_operand_stack.pop())));
+            pushOpdNum(asinh(_2n(m_operand_stack.pop())));
             break;
         }
         case ACOSH: {
-            pushNumberIntoOperandStack(acosh(_2n(m_operand_stack.pop())));
+            pushOpdNum(acosh(_2n(m_operand_stack.pop())));
             break;
         }
         case ATANH: {
-            pushNumberIntoOperandStack(atanh(_2n(m_operand_stack.pop())));
+            pushOpdNum(atanh(_2n(m_operand_stack.pop())));
             break;
         }
 
         case FMIN: {
             double x = _2n(m_operand_stack.pop());
             double y = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(fmin(y,x));
+            pushOpdNum(fmin(y,x));
             break;
         }
         case FMAX: {
             double x = _2n(m_operand_stack.pop());
             double y = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(fmax(y,x));
+            pushOpdNum(fmax(y,x));
             break;
         }
         case FDIM: {
             double x = _2n(m_operand_stack.pop());
             double y = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(fdim(y,x));
+            pushOpdNum(fdim(y,x));
             break;
         }
         case COPYSIGN: {
             double x = _2n(m_operand_stack.pop());
             double y = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(copysign(y,x));
+            pushOpdNum(copysign(y,x));
             break;
         }
         case ISFINITE: {
-            pushNumberIntoOperandStack(isfinite(_2n(m_operand_stack.pop())));
+            pushOpdNum(isfinite(_2n(m_operand_stack.pop())));
             break;
         }
         case ISINF: {
-            pushNumberIntoOperandStack(isinf(_2n(m_operand_stack.pop())));
+            pushOpdNum(isinf(_2n(m_operand_stack.pop())));
             break;
         }
         case ISNAN: {
-            pushNumberIntoOperandStack(isnan(_2n(m_operand_stack.pop())));
+            pushOpdNum(isnan(_2n(m_operand_stack.pop())));
             break;
         }
         case ISNORMAL: {
-            pushNumberIntoOperandStack(isnormal(_2n(m_operand_stack.pop())));
+            pushOpdNum(isnormal(_2n(m_operand_stack.pop())));
             break;
         }
         case SIGNBIT: {
-            pushNumberIntoOperandStack(signbit(_2n(m_operand_stack.pop())));
+            pushOpdNum(signbit(_2n(m_operand_stack.pop())));
             break;
         }
 
         case INT: {
-            pushNumberIntoOperandStack((int)_2n(m_operand_stack.pop()));
+            pushOpdNum((int)_2n(m_operand_stack.pop()));
             break;
         }
         case MAX: {
@@ -1820,11 +2179,14 @@ bool ArithmeticExpression::calculate(int opr)
                 opd = _2n(m_operand_stack.pop());
                 if (opd > v) v = opd;
             }
-            if (args_count != 0) {
-                error("no args found in operand stack, should not happen");
-                return false;
-            }
-            pushNumberIntoOperandStack(v);
+
+            // FIXME: [2026-10-23] support checking later
+            // if (args_count != 0) {
+            //     error("no args found in operand stack, should not happen");
+            //     return false;
+            // }
+
+            pushOpdNum(v);
             break;
         }
         case MIN: {
@@ -1835,23 +2197,26 @@ bool ArithmeticExpression::calculate(int opr)
                 opd = _2n(m_operand_stack.pop());
                 if (opd < v) v = opd;
             }
-            if (args_count != 0) {
-                error("no args found in operand stack, should not happen");
-                return false;
-            }
-            pushNumberIntoOperandStack(v);
+
+            // if (args_count != 0) {
+            //     error("no args found in operand stack, should not happen");
+            //     return false;
+            // }
+
+            pushOpdNum(v);
             break;
         }
         case CMP: {
-            if (m_operand_stack.count() < 3) {
+            if (m_operand_stack.count() < 3) { // base + 2
                 error("cpm(v1,v2,v3) expects three operands, while %d left", m_operand_stack.count());
-                return false;
+                printErrorLocation();
+                exit(E_GRAMMAR);
             }
             double v3 = _2n(m_operand_stack.pop());
             double v2 = _2n(m_operand_stack.pop());
             double v1 = _2n(m_operand_stack.pop());
             double v = v1 != 0? v2: v3;
-            pushNumberIntoOperandStack(v);
+            pushOpdNum(v);
             break;
         }
 
@@ -1860,22 +2225,30 @@ bool ArithmeticExpression::calculate(int opr)
                 printf("\n");
                 break;
             }
-            const OperandStackItem& x = m_operand_stack.pop();
-            if (_isn(x)) {
-                printf("%g\n", _2n(x));
+            const Operand& opd = m_operand_stack.pop();
+            if (_isidf(opd)) {
+                printf("%g\n", getIdfValue(opd.str)); // current only support double
+            } else if (_isn(opd)) {
+                printf("%g\n", _2n(opd));
+            } else if (_iss(opd)) {
+                printf("%s\n", _2s(opd).c_str());
             } else {
-                printf("%s\n", _2s(x).c_str());
+                error("un-processed Operand (type:%d) called by PRINT", opd.type);
             }
             break;
         }
 
         case PRINTF: {
             // TODO: to support real printf
-            const OperandStackItem& x = m_operand_stack.pop();
-            if (_isn(x)) {
-                printf("%g", _2n(x));
+            const Operand& opd = m_operand_stack.pop();
+            if (_isidf(opd)) {
+                printf("%g", getIdfValue(opd.str)); // current only support double
+            } else if (_isn(opd)) {
+                printf("%g", _2n(opd));
+            } else if (_iss(opd)) {
+                printf("%s", _2s(opd).c_str());
             } else {
-                printf("%s", _2s(x).c_str());
+                error("un-processed Operand (type:%d) called by PRINT", opd.type);
             }
             break;
         }
@@ -1889,7 +2262,7 @@ bool ArithmeticExpression::calculate(int opr)
         m_fncmcnt_stack.pop();
         return true;
     } else if ('F' == opr) {
-        int exec_pos = m_operator_stack.top(-1); // function exec_pos
+        int exec_pos = m_operator_stack.top(-1).v; // function exec_pos
         const std::string& fnn = m_function_exec_pos_name_map[exec_pos];
         print("call self-defined function: exec_pos=%d fnn:\"%s\"", exec_pos, fnn.c_str());
         std::string scope_name_old = scope_name;
@@ -1900,69 +2273,69 @@ bool ArithmeticExpression::calculate(int opr)
     } else {
         switch (opr) {
         case '^': {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack( pow(l_opd,r_opd) ); break;
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum( pow(l_opd,r_opd) ); break;
         }
         case '+': {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack( l_opd + r_opd ); break;
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum( l_opd + r_opd ); break;
         }
         case '-': {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack( l_opd - r_opd ); break;
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum( l_opd - r_opd ); break;
         }
         case '*': {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack( l_opd * r_opd ); break;
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum( l_opd * r_opd ); break;
         }
         case '/': {
-            double r_opd = _2n(m_operand_stack.pop());
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             if ( 0 == r_opd ) {
                 error("divide 0");
                 return false;
             }
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack( l_opd / r_opd);
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum( l_opd / r_opd);
             break;
         }
         case '>': {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(l_opd > r_opd? 1: 0);
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum(l_opd > r_opd? 1: 0);
             break;
         }
         case '<': {
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(l_opd < r_opd? 1: 0);
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum(l_opd < r_opd? 1: 0);
             break;
         }
         case 'e': {             // "=="
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             print("e: l_opd=%g r_opd=%g ?=%d", l_opd, r_opd, l_opd == r_opd);
-            pushNumberIntoOperandStack(l_opd == r_opd? 1: 0);
+            pushOpdNum(l_opd == r_opd? 1: 0);
             break;
         }
         case 'a': {             // "&&" and
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(l_opd !=0 && r_opd != 0? 1: 0);
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum(l_opd !=0 && r_opd != 0? 1: 0);
             break;
         }
         case 'o': {             // "||" and
-            double r_opd = _2n(m_operand_stack.pop());
-            double l_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack(l_opd !=0 || r_opd != 0? 1: 0);
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            Operand l = m_operand_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
+            pushOpdNum(l_opd !=0 || r_opd != 0? 1: 0);
             break;
         }
         case '!': {
-            double r_opd = _2n(m_operand_stack.pop());
-            pushNumberIntoOperandStack (r_opd == 0? 1: 0);
+            Operand r = m_operand_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
+            pushOpdNum(r_opd == 0? 1: 0);
             break;
         }
         default: {
@@ -2084,7 +2457,7 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
     m_parse_pos = begin_pos;
 
     // print("parse \"%d %d %s\"", m_parse_pos, end_pos, m_arithmetic_expression.c_str());
-    print("PARSE: \"%.*s\"", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
+    print("PARSE: \"%.*s\"\n", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
 
     while ( m_parse_pos < end_pos ) {
         const char *start = &m_arithmetic_expression[m_parse_pos];
@@ -2120,6 +2493,36 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
 
         __print("\n");
     }
+    dia("parse:+");
+
+    return handleInputAllPassed();
+}
+
+bool ArithmeticExpression::handleInputAllPassed()
+{
+    dia("-:handleInputAllPassed");
+
+    ContextType ctxt = m_ctxt_stack.top();
+
+    switch(ctxt) {
+    case STMT_DECLARE_ASSIGN:
+        error("invalid assign statement. syntax: \"idf = ...;\"");
+        printErrorLocation();
+        exit(E_GRAMMAR);
+    default:
+        print("handleInputAllPassed ignore context type: %s", getContextTypeStr(ctxt));
+        break;
+    }
+
+    if (!m_expect_char_types.empty()) {
+        dia("handleInputAllPassed");
+        error("all input parsed, but m_expect_char_types not empty");
+        printErrorLocation();
+        exit(E_GRAMMAR);
+    }
+
+    // handle '\0' : all input been parsed
+    print("handle '\\0', all input been parsed");
 
     // check program terminal state
     if ( ! isOnTerminalState() ) {
@@ -2130,15 +2533,11 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
     if (m_state == ST_IDF) {
         if (m_id_spc_occurred) m_id_spc_occurred = false;
         if (!m_id.empty()) {
-
             if (m_id == "if" || m_id == "elif" || m_id == "else") {
                 error("wrong syntax for %s statement", m_id.c_str());
                 printErrorLocation();
                 exit(E_GRAMMAR);
             }
-
-            if (!pushIdfValueToOperandStack(m_id)) return false;
-            m_id = ""; // reset after consumed
         }
     }
 
@@ -2156,22 +2555,48 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
 
     // fulfill m_rpn_expression using operator stack
     int top;
-    while ( ! m_operator_stack.empty() && (top = m_operator_stack.top()) != LOWEST_PRIO_OP) {
+    while ( ! m_operator_stack.empty() && (top = m_operator_stack.top().v) != LOWEST_PRIO_OP) {
         dia("-:post-process");
-        const int& top = m_operator_stack.top();
-        if ( LOWEST_PRIO_OP != top ) {
-            appendToRpnExpression(top);
-            appendToRpnExpression(' ');
-        }
         if (! calculate(top)) return false;
         // always pop to go on to next opr
         m_operator_stack.pop();
+        if (m_ctxt_stack.top() == CTXT_EXP) {
+            m_ctxt_stack.pop();
+        }
         dia("post-process:+");
     }
-    dia("z");
+
+    // clean extra CTXT_EXP if exits
+    while (!m_ctxt_stack.empty()) {
+        ContextType& _t = m_ctxt_stack.top();
+        if (_t == CTXT_EXP) {
+            m_ctxt_stack.pop();
+        } else {
+            break;
+        }
+    }
 
     print("m_operand_stack.count() = %d", m_operand_stack.count());
+    dia("-:handleInputAllPassed:1");
+
+    ctxt = m_ctxt_stack.top();
+
+    if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
+        if (m_operand_stack.count() < 3) { // base + 2
+            error("two opds need to form a assign statement, while \"%d\" gotten", m_operand_stack.count());
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        }
+
+        Operand opdv = m_operand_stack.pop();
+        double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+
+        std::string assign_idf = _2idf(m_operand_stack.pop());
+        assignValueToIdf(assign_idf, assign_v, false);
+    }
 
     print("arithmetic expression successfully parsed");
+    dia("handleInputAllPassed:+");
+
     return true;
 }

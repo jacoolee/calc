@@ -5,3 +5,5 @@
 .= 261020104324 rename m_stmt as more precise m_ctxt
 = 261020221149 redesign function arguments checking
 = 261021231749 function return
+= 261024214618 get basic opd (num), basic opr working @priority:high
+= 261024224601 "if (m_state" => if top_opd or if context
