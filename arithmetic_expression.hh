@@ -155,6 +155,15 @@ enum FNN
     FNN_UPPER
 };
 
+#define IF_COND_TYPE_IF 0
+#define IF_COND_TYPE_ELIF 1
+#define IF_COND_TYPE_ELSE 2
+
+typedef struct {
+    int type;                      // 0-if, 1-elif, 2-else
+    int value;                      // 0,1
+} IfCond;
+
 class ArithmeticExpression
 {
 public:
@@ -231,6 +240,7 @@ private:
     void printErrorLocation();
 
     char getNextNonSpcChar();
+    std::string getNextToken();
 
     void pushOpr(int);
 
@@ -337,7 +347,7 @@ private:
     std::string m_stmt_assign_key;
 
     // {lcb_count: [if_cond_value, elif_cond_value, ...]}
-    std::unordered_map<int,std::vector<int>> m_stmt_if_cond;
+    std::unordered_map<int,std::vector<IfCond>> m_stmt_if_cond;
 
     std::string m_rpn_expression;
 

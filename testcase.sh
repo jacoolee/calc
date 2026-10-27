@@ -35,7 +35,7 @@ while read -r l; do
         if [ $rc -eq 0 ]; then
             if [ ${v2// /} != ${v// /} ]; then
                 notpass=$((notpass+1))
-                echo -e "${On_Red}NOT EQ:$n${Color_Off} $v2 != $l"
+                echo -e "${On_Red}NOT EQ:$n${Color_Off} calculated: $v2, case: \"$l\""
                 cat /tmp/testcase.${n}.err
                 echo
                 echo "$e"

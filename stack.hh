@@ -20,7 +20,7 @@ enum OpdType {
 
 typedef struct {
     int token_idx;
-    int stmt_count;        // count of count
+    int stmt_count;
     OpdType type; // keep it simple, use 0 - number, 1 - string, 2 - idf
     // TODO: maybe use std::variant, for now, keep simple even with more memory cost
     double num;
@@ -29,6 +29,7 @@ typedef struct {
 
 typedef struct {
     int token_idx;
+    int stmt_count;
     int v;
 } Opr;
 

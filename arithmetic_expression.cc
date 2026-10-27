@@ -21,7 +21,7 @@
 #define print(...)                                  \
     do {                                            \
         if (g_print_enable) {                       \
-            fprintf(stderr,"%04d %d:%s:%d ", __LINE__, g_depth, scope_name.c_str(), g_ln_count); \
+            fprintf(stderr,"%s:%04d:%d: log %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                    \
             fprintf(stderr,"\n");                           \
         }                                           \
@@ -30,7 +30,7 @@
 #define printnoln(...)                              \
     do {                                            \
         if (g_print_enable) {                       \
-            fprintf(stderr,"%04d %d:%s:%d ", __LINE__, g_depth, scope_name.c_str(), g_ln_count); \
+            fprintf(stderr,"%s:%04d:%d: log %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                    \
         }                                           \
     } while (0)
@@ -44,14 +44,14 @@
 
 #define error(...)                              \
     do {                                        \
-        fprintf(stderr,"%04d %d:%s:%d ERROR ", __LINE__, g_depth, scope_name.c_str(), g_ln_count); \
+        fprintf(stderr,"%s:%04d:%d: error %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
         fprintf(stderr,__VA_ARGS__);                    \
         fprintf(stderr,"\n");                           \
     } while (0)
 
 #define errornoln(...)                          \
     do {                                        \
-        fprintf(stderr,"%04d %d:%s:%d ERROR ", __LINE__, g_depth, scope_name.c_str(), g_ln_count); \
+        fprintf(stderr,"%s:%04d:%d: error %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
         fprintf(stderr,__VA_ARGS__);                    \
     } while (0)
 
@@ -63,7 +63,7 @@
 #define warn(...)                                                       \
     do {                                                                \
     if (g_print_enable) {                                               \
-        fprintf(stderr,"%04d %d:%s:%d WARNING ", __LINE__, g_depth, scope_name.c_str(), g_ln_count); \
+        fprintf(stderr,"%s:%04d:%d: warning %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
         fprintf(stderr,__VA_ARGS__);                                    \
         fprintf(stderr,"\n");                                           \
     }                                                                   \
@@ -121,6 +121,8 @@ ArithmeticExpression::ArithmeticExpression(
 
     m_fncmcnt_stack.setName("m_fncmcnt_stack");
 
+    // FIXME: [2026-10-27] idf store should be global, so nested code can re-assign value to global var
+    // one way it to can use setMeta to use referer, or use global var directly.
     m_idf_map = idf_map;
     m_pre_defined_idf_map = pre_defined_idf_map;
 
@@ -404,6 +406,13 @@ void ArithmeticExpression::syntax(ContextType t) {
         error("\tif `condition` starts with '(', the space after `if` is optional");
         break;
     }
+    case STMT_ELSE:
+    case STMT_ELSE_BLOCK: {
+        error("\t`if condition {} else {}`");
+        error("\t`if condition {} elif condition {} else {}`");
+        error("\tspace between `else` and `{` is optional");
+        break;
+    }
     default: {
         warn("TODO add synatx for contextType: %s", getContextTypeStr(t));
         break;
@@ -494,8 +503,8 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         __print(" m_stmt_if_cond");
         for (const auto& item : m_stmt_if_cond) {
             __print("[\"%d\"]=[", item.first);
-            for (int x : item.second) {
-                __print("%d, ", x);
+            for (IfCond x : item.second) {
+                __print("(%d,%d), ", x.type,x.value);
             }
             __print("]");
         }
@@ -533,7 +542,7 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         __print(" m_stmt_count=%d", m_stmt_count);
         __print(" m_token_idx = %d", m_token_idx);
 
-        __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_state_next_certained = %s \n",
+        __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_state_next_certained = %s\n",
                 m_id.c_str(),
                 m_id_spc_occurred?"true":"false",
                 m_lp_count,
@@ -584,11 +593,11 @@ bool ArithmeticExpression::handle(char c)
 
     if (!m_expect_char_types.empty()) {
         if (!isCharTypeExpected(type)) {
-            errornoln("%s expects char type: [", getContextTypeStr(m_ctxt_stack.top()));
+            errornoln("%s expects [", getContextTypeStr(m_ctxt_stack.top()));
             for (const auto& item : m_expect_char_types) {
                 __error("'%s', ", getCharTypeStr(item));
             }
-            __error("], while '%s' gotten\n", getCharTypeStr(type));
+            __error("\b ], while '%s' gotten\n", getCharTypeStr(type));
             printErrorLocation();
             syntax(m_ctxt_stack.top());
             exit(E_GRAMMAR);
@@ -662,7 +671,7 @@ bool ArithmeticExpression::handleNone()
 }
 
 void ArithmeticExpression::pushOpr(int v) {
-    m_opr_stack.push({m_token_idx, v});
+    m_opr_stack.push({m_token_idx, m_stmt_count, v});
 }
 
 bool ArithmeticExpression::handleFlag(char flag)
@@ -853,15 +862,15 @@ void ArithmeticExpression::handleError()
     printErrorLocation();
 
     // better readable error message
-    errornoln("%s expects", getStateStr(m_state));
+    errornoln("%s expects [", getStateStr(m_state));
 
     StateTable* l = m_state_table[m_state];
     for (int i=0; i<CT_UPPER; i++) {
         if (l[i].action_type != AT_ERR) {
-            __error(" '%s'", getCharTypeStr(i));
+            __error(" '%s',", getCharTypeStr(i));
         }
     }
-    __error(", while '%c' gotten\n", m_arithmetic_expression[m_parse_pos]);
+    __error("\b ], while '%c' gotten\n", m_arithmetic_expression[m_parse_pos]);
 
     exit(E_SYNTAX);
 }
@@ -1173,8 +1182,37 @@ bool ArithmeticExpression::handleRightParenthesis()
     return true;
 }
 
+std::string ArithmeticExpression::getNextToken() {
+    int i = m_parse_pos;
+    int size = m_arithmetic_expression.size();
+    while (++i<size) { if (m_arithmetic_expression[i] != ' ') break; } // skip space
+
+    if (i==size) {
+        return "";
+    }
+
+    char c = m_arithmetic_expression[i];
+    switch(getCharType(c)) {
+    case CT_ALP: {
+        std::string token;
+        while (i<size && getCharType(c) == CT_ALP) {
+            token.push_back(c);
+            c = m_arithmetic_expression[++i];
+        }
+        return token;
+    }
+    default:
+        print("getNextToken: TODO to support char type:%s", getCharTypeStr(c));
+        return "";
+    }
+}
+
 char ArithmeticExpression::getNextNonSpcChar() {
-    // TODO: LATER
+    int i = m_parse_pos;
+    int size = m_arithmetic_expression.size();
+    while(++i < size)
+        if (m_arithmetic_expression[i] != ' ')
+            return m_arithmetic_expression[i];
     return '\0';
 }
 
@@ -1250,9 +1288,41 @@ bool ArithmeticExpression::handleAlpha(char _c)
 
     if (ctxt == CTXT_BGN) {
         if (m_id == "if") {     // keyword
+            // ensure "if" is start of current statement
+            Opd top_opd = m_opd_stack.top();
+            Opr top_opr = m_opr_stack.top();
+
+            if ((top_opd.stmt_count == m_stmt_count && top_opd.type != OPD_STACK_BOTTOM_BASE) ||
+                (top_opr.stmt_count == m_stmt_count && top_opr.v != LOWEST_PRIO_OP)) {
+                error("`if` supporse to be at very begin of one statement");
+                printErrorLocation();
+                exit(E_GRAMMAR);
+            }
+
             m_ctxt_stack.push(STMT_IF);
             m_expect_char_types = {CT_LP, CT_SPC}; // 'if(' or 'if '
             m_state_next_certained = ST_BGN; // can get any chars to compose exp
+            return true;
+
+        } else if (m_id == "elif") { // keyword
+            print("TODO elif keyword");
+            return true;
+
+        } else if (m_id == "else") { // keyword
+            // NOTE: following-"if"-or-"elif"-checking is done in handleRightParenthesis
+            Opd top_opd = m_opd_stack.top();
+            Opr top_opr = m_opr_stack.top();
+
+            if ((top_opd.stmt_count == m_stmt_count && top_opd.type != OPD_STACK_BOTTOM_BASE) ||
+                (top_opr.stmt_count == m_stmt_count && top_opr.v != LOWEST_PRIO_OP)) {
+                error("`else` supporse to be at very begin of one statement");
+                printErrorLocation();
+                syntax(STMT_ELSE);
+                exit(E_GRAMMAR);
+            }
+
+            m_ctxt_stack.push(STMT_ELSE);
+            m_expect_char_types = {CT_LCB, CT_SPC};
             return true;
 
         } else if (m_id == "function") { // keyword
@@ -1266,16 +1336,18 @@ bool ArithmeticExpression::handleAlpha(char _c)
             m_state_next_certained = ST_BGN;
             return true;
 
-        } else {
-            // fnn or var
-            // always treat it as opd first, if is turn out be fnn,
-            // it must be followed by '(', we will check out there.
+        } else { // fnn or var or assign-left-var, undetermined, just push idf for later use
             pushOpdIdf(m_id);
             return true;
+
         }
 
-    } else if (ctxt == CTXT_EXP) {
-        pushOpdIdf(m_id);
+    } else if (ctxt == CTXT_EXP) { // fnn or var
+        if (getNextNonSpcChar() == '(') {
+            pushOpdIdf(m_id);
+        } else {
+            pushOpdIdfValue(m_id);
+        }
         return true;
 
     } else if (ctxt == STMT_IF_COND) { // STMT_IF_COND is a special case of CTXT_EXP
@@ -1289,9 +1361,14 @@ bool ArithmeticExpression::handleAlpha(char _c)
         // if is '(', then treat as fnn (and we can *push into opr stack* immediately),
         // else treat x as var (opd) and use pushOpdIdfValue.
 
+        // TODO: later, if next non-spc char is '(', treat as opr directly and in '('-handler,
+        // check top opr's token_idx to determine '(' is fnc_olp or grouping
+
+        // TODO: m_id here can not be following keywords:
+        // if elif else function
+
+        print("getNextNonSpcChar(): '%c'", getNextNonSpcChar());
         if (getNextNonSpcChar() == '(') {
-            // TODO: later, treat as opr directly and in '('-handler, check top opr's token_idx
-            // to determine '(' is fnc_olp or grouping
             pushOpdIdf(m_id);
         } else {
             pushOpdIdfValue(m_id);
@@ -1312,13 +1389,21 @@ bool ArithmeticExpression::handleAlpha(char _c)
         return true;
 
     } else if (ctxt == STMT_DECLARE_ASSIGN) {
-        pushOpdIdf(m_id);
+        if (getNextNonSpcChar() == '(') {
+            pushOpdIdf(m_id);
+        } else {
+            pushOpdIdfValue(m_id);
+        }
         m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
         m_expect_char_types = {};
         return true;
 
     } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
-        pushOpdIdf(m_id);
+        if (getNextNonSpcChar() == '(') {
+            pushOpdIdf(m_id);
+        } else {
+            pushOpdIdfValue(m_id);
+        }
         return true;
     } else {
         warn("handleAlpha: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
@@ -1445,7 +1530,7 @@ bool ArithmeticExpression::handleSemicolon() {
         exit(E_GRAMMAR);
 
     case STMT_IF_COND:
-        error("invalid syntax: \"if exp ;\", should never come here, ';' should not be in m_expect_char_types under context: m_IF_COND");
+        error("invalid syntax: \"if exp ;\", should never come here, ';' should not be in m_expect_char_types under context: STMT_IF_COND");
         printErrorLocation();
         exit(E_SYNTAX);
 
@@ -1669,8 +1754,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     dia("-:handleLeftCurlyBrace");
 
     ++m_token_idx;
-
-    print("handleLeftCurlyBrace: pre-process");
+    ++m_stmt_count;
 
     if (m_lp_count > 0) {
         error("'{' not allowed inside ()");
@@ -1685,7 +1769,61 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     ContextType ctxt = m_ctxt_stack.top();
     print("handleLeftCurlyBrace: ctxt=%d", ctxt);
 
-    if (ctxt == FUNCTION_CALL) {
+    if (ctxt == STMT_ELSE) {
+        // NOTE: no exp before this context pos needed to evaluate, so process immediately
+
+        const int if_cond_key = m_lcb_count;
+        if (m_stmt_if_cond.find(if_cond_key) == m_stmt_if_cond.end()) {
+            error("else: no if/elif found before this else");
+            printErrorLocation();
+            syntax(ctxt);
+            exit(E_GRAMMAR);
+        }
+
+        std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[if_cond_key];
+        if (if_elif_conds.empty()) {
+            error("else: if/elif found, but cond value list is empty, should not happen");
+            printErrorLocation();
+            syntax(ctxt);
+            exit(E_SHOULD_NOT_HAPPEN);
+        }
+
+        // calculate
+        bool pre_cond_all_zero = true;
+        for (int i = 0; i < if_elif_conds.size(); i++) {
+            if (if_elif_conds[i].value != 0) {
+                pre_cond_all_zero = false;
+                break;
+            }
+        }
+        if_elif_conds.push_back({IF_COND_TYPE_ELSE, pre_cond_all_zero?1:0});
+
+        if (pre_cond_all_zero == true) {
+            m_ctxt_stack.push(STMT_ELSE_BLOCK);
+            m_ctxt_stack.push(CTXT_BGN);
+            m_expect_char_types = {};
+
+        } else {
+            m_ctxt_stack.push(STMT_ELSE_BLOCK);
+            m_ctxt_stack.push(CTXT_BGN);
+            m_expect_char_types = {};
+
+            print("TODO: to ignore else-block, just skip to balanced '}'");
+            if (!findBalancedRightCurlyBraceAndSkipToIt()) {
+                error("else: no balanced } found to close else block");
+                printErrorLocation();
+                syntax(ctxt);
+                exit(E_SYNTAX);
+            }
+        }
+
+        m_state_next_certained = ST_BGN;
+        ++m_lcb_count;
+        return true;
+
+    } else if (ctxt == FUNCTION_CALL) {
+        // NOTE: no exp before this context pos needed to evaluate, so process immediately
+
         // merge m_pre_defined_idf_map into m_idf_map;
         // why put here?
         // we wanna treat m_pre_defined_idf_map as local variables, mainly for
@@ -1701,9 +1839,12 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         pushContextBGN();
         m_state_next_certained = ST_BGN;
+        ++m_lcb_count;
         return true;
 
     } else if (ctxt == FUNCTION_ARGS) {
+        // NOTE: no exp before this context pos needed to evaluate, so process immediately
+
         m_ctxt_stack.push(FUNCTION_BLOCK);
         m_expect_char_types = {};
 
@@ -1715,7 +1856,9 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         if (!findBalancedRightCurlyBraceAndSkipToIt(true /*skipRigthCurlyBraceAlong*/)) {
             error("function: no balanced ending-block symbol '}' found");
-            return false;
+            printErrorLocation();
+            syntax(ctxt);
+            exit(E_GRAMMAR);
         }
 
         // '}*' end_pos (exclusive)
@@ -1724,6 +1867,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         pushContextBGN();
         m_state_next_certained = ST_BGN;
+        ++m_lcb_count;
         return true;
 
     } else {
@@ -1761,7 +1905,6 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
     dia("-:handleLeftCurlyBrace:after-calculate");
 
-    m_state_next_certained = ST_BGN;
 
     // NOTE: clear m_stmt_if_cond
     // for those key larger than m_lcb_count, clear the value
@@ -1784,11 +1927,10 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
     if (ctxt == CTXT_BGN) {
         ++m_lcb_count;
+        m_state_next_certained = ST_BGN;
         return true;
 
     } else if (ctxt == STMT_IF_COND) {
-        m_expect_char_types = {}; // clear
-
         // condtion
         // why always process top opd, coz opr stack can be empty, so idf opd will
         // never be calculated. esp. for case:
@@ -1796,7 +1938,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         Opd top = m_opd_stack.top();
         if (_isbase(top)) {
-            error("on condtion found for context: %s", getContextTypeStr(ctxt));
+            error("no condition found for context: %s", getContextTypeStr(ctxt));
             printErrorLocation();
             exit(E_GRAMMAR);
         } else if (_isidf(top)) {
@@ -1812,23 +1954,30 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         if (m_stmt_if_cond.find(m_lcb_count) == m_stmt_if_cond.end()) {
             m_stmt_if_cond[m_lcb_count] = {};
         }
-        std::vector<int>& v = m_stmt_if_cond[m_lcb_count];
+        std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[m_lcb_count];
 
         int condv = _2num(m_opd_stack.pop()) != 0? 1: 0;
-
-        v.push_back(condv);
+        if_elif_conds.push_back({IF_COND_TYPE_IF, condv});
 
         if (condv != 0) {
             m_ctxt_stack.push(STMT_IF_BLOCK);
             m_ctxt_stack.push(CTXT_BGN);
+            m_expect_char_types = {}; // clear
+
         } else {
+            m_ctxt_stack.push(STMT_IF_BLOCK);
+            m_expect_char_types = {}; // clear
+
             print("TODO: to ignore if-block, just skip to balanced '}', no syntax check for skipped content");
             if (!findBalancedRightCurlyBraceAndSkipToIt()) {
                 error("if: no balanced } found");
-                return false;
+                printErrorLocation();
+                syntax(ctxt);
+                exit(E_GRAMMAR);
             }
         }
 
+        m_state_next_certained = ST_BGN;
         ++m_lcb_count;
         return true;
 
@@ -1840,26 +1989,26 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
             m_stmt_if_cond[m_lcb_count] = {};
         }
 
-        std::vector<int>& v = m_stmt_if_cond[m_lcb_count];
+        std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[m_lcb_count];
 
-        if (v.size() == 0) {
+        if (if_elif_conds.size() == 0) {
             error("elif statement must follow if-statement");
             printErrorLocation();
             exit(E_GRAMMAR);
         }
 
-        double elif_cond = _2num(m_opd_stack.pop()) !=0? 1: 0;
 
         bool pre_cond_all_zero = true;
-        for (int i = 0; i < v.size(); i++) {
-            if (v[i] != 0) {
+        for (int i = 0; i < if_elif_conds.size(); i++) {
+            if (if_elif_conds[i].value != 0) {
                 pre_cond_all_zero = false;
                 break;
             }
         }
 
+        int elif_cond = _2num(m_opd_stack.pop()) !=0? 1: 0;
         // always record elif_cond
-        v.push_back(elif_cond);
+        if_elif_conds.push_back({IF_COND_TYPE_ELIF, elif_cond});
 
         int cond = (pre_cond_all_zero == true && elif_cond != 0)? 1: 0;
 
@@ -1875,50 +2024,14 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
             }
         }
 
+        m_state_next_certained = ST_BGN;
         ++m_lcb_count;
         return true;
 
     } else {                    // other context
-        if (m_stmt_if_cond.find(m_lcb_count) == m_stmt_if_cond.end()) {
-            m_stmt_if_cond[m_lcb_count] = {};
-        }
+        warn("handleLeftCurlyBrace: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
 
-        std::vector<int>& v = m_stmt_if_cond[m_lcb_count];
-
-        // TODO: do not rely on m_id, rely on context + opd
-
-        if (m_id == "else") {
-            if (v.size() == 0) {
-                error("else statement must follow if-statement");
-                printErrorLocation();
-                exit(E_GRAMMAR);
-            }
-
-            if (m_id_spc_occurred) m_id_spc_occurred = false;
-
-            bool pre_cond_all_zero = true;
-            for (int i = 0; i < v.size(); i++) {
-                if (v[i] != 0) {
-                    pre_cond_all_zero = false;
-                    break;
-                }
-            }
-
-            if (pre_cond_all_zero == true) {
-                m_ctxt_stack.push(STMT_ELSE_BLOCK);
-                print("TODO: to process else-block");
-            } else {
-                print("TODO: to ignore else-block, just skip to balanced '}', no syntax check for skipped content");
-                if (!findBalancedRightCurlyBraceAndSkipToIt()) {
-                    error("else: no balanced } found");
-                    printErrorLocation();
-                    exit(E_SYNTAX);
-                }
-            }
-
-        } else {
-        }
-
+        m_state_next_certained = ST_BGN;
         ++m_lcb_count;
         return true;
     }
@@ -1983,67 +2096,13 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     print("handleRightCurlyBrace");
 
     ++m_token_idx;
+    ++m_stmt_count;
 
     if (m_lp_count > 0) {
         error("'}' not allowed inside ()");
         handleError();
         exit(E_SYNTAX);
     }
-
-    ////////////////////////////////////////////////////////////////
-    // support syntax: "idf}", so last statement of block can ignore ';'
-    // TODO: maybe normalize syntax: *ALWAYS && MUST* use ';' as statement terminal
-    //
-    // x=2; y=0; if 1{y=x} print(y)
-    //              ^^
-
-    Opd opd = m_opd_stack.top();
-    if (_isidf(opd) && opd.token_idx == m_token_idx-1) {
-        m_opd_stack.pop();
-        pushOpdIdfValue(_2idf(opd));
-    }
-
-    ////////////////////////////////////////////////////////////////
-
-    int top;
-    while (!m_opr_stack.empty() && (top = m_opr_stack.top().v) != LOWEST_PRIO_OP) {
-        if (!calculate(top)) return false;
-        m_opr_stack.pop();
-    }
-
-    ContextType ctxt = m_ctxt_stack.top();
-    print("handleRightCurlyBrace: ctxt: %s", getContextTypeStr(ctxt));
-
-    if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
-        if (m_opd_stack.count() < 3) { // base + 2
-            error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
-            printErrorLocation();
-            exit(E_GRAMMAR);
-        }
-
-        Opd opdv = m_opd_stack.pop();
-        double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
-
-        std::string assign_idf = _2idf(m_opd_stack.pop());
-        assignValueToIdf(assign_idf, assign_v, false);
-
-    } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
-        if (m_opd_stack.count() < 3) { // base + 2
-            error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
-            printErrorLocation();
-            exit(E_GRAMMAR);
-        }
-
-        Opd opdv = m_opd_stack.pop();
-        double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
-
-        std::string assign_idf = _2idf(m_opd_stack.pop());
-        assignValueToIdf(assign_idf, assign_v, true);
-    } else {
-        warn("handleRightCurlyBrace: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
-    }
-
-    ////////////////////////////////////////////////////////////////
 
     // firstly, ensure balanced left curly brace exists
     if (m_lcb_count == 0) {
@@ -2052,17 +2111,72 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
         exit(E_GRAMMAR);
     }
 
-    // clear context stack
-    const int m_stmt_if_cond_key = m_lcb_count - 1;
-    print("handleRightCurlyBrace: m_stmt_if_cond_key = %d", m_stmt_if_cond_key);
+    ////////////////////////////////////////////////////////////////
+    // support syntax: "idf}", due to last statement of block can ignore statement
+    // terminal marker: ';'
+    // TODO: maybe normalize syntax: *ALWAYS && MUST* use ';' as statement terminal
+    //
+    // x=2; y=0; if 1{y=x} print(y)
+    //              ^^
 
-    if (m_stmt_if_cond.find(m_stmt_if_cond_key) != m_stmt_if_cond.end()) {
-        std::vector<int>& if_elif_conds = m_stmt_if_cond[m_stmt_if_cond_key];
-        const bool has_if = if_elif_conds.size() > 0;
-        if (has_if) {
-            // clear current if_cond value
-            if_elif_conds.pop_back();
-            // pop to STMT_IF
+    // prepare opds for last ';'-missing statement in block
+    Opd top_opd = m_opd_stack.top();
+    if (_isidf(top_opd) && top_opd.token_idx == m_token_idx-1) {
+        m_opd_stack.pop();
+        pushOpdIdfValue(_2idf(top_opd));
+    }
+
+    // calculate for last ';'-missing statement in block
+    int top_opr;
+    while (!m_opr_stack.empty() && (top_opr = m_opr_stack.top().v) != LOWEST_PRIO_OP) {
+        if (!calculate(top_opr)) return false;
+        m_opr_stack.pop();
+    }
+
+    // NOTE: block exists in following cases:
+    //
+    // 1) `{}`                  : pure empty block
+    // 2) `if/elif/else {}`     : if control flow block
+    // 3) `function fn(...) {}` : function block
+    // ...
+    // check one by one
+
+    bool is_if_seq_block = false;
+
+    const int if_cond_key = m_lcb_count - 1;
+    if (m_stmt_if_cond.find(if_cond_key) != m_stmt_if_cond.end()) {
+        std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[if_cond_key];
+        is_if_seq_block = if_elif_conds.size() > 0;
+    }
+    print("is_if_seq_block: %d", is_if_seq_block);
+
+    if (is_if_seq_block) {
+        std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[if_cond_key];
+        IfCond last = if_elif_conds[if_elif_conds.size()-1];
+        bool last_is_ending_if_seq = false;
+
+        if (last.type == IF_COND_TYPE_IF || last.type == IF_COND_TYPE_ELIF) {
+            std::string token = getNextToken();
+            print("handleRightCurlyBrace: next token:\"%s\"", token.c_str());
+            if (token == "elif" || token == "else") {
+                // keep m_stmt_if_cond and context stack for later use
+            } else {
+                last_is_ending_if_seq = true;
+            }
+        } else if (last.type == IF_COND_TYPE_ELSE) {
+            last_is_ending_if_seq = true;
+        } else {                // else
+            error("unsupported IfCond.t:%d, should not happen", last.type);
+            printErrorLocation();
+            exit(E_SHOULD_NOT_HAPPEN);
+        }
+        print("last_is_ending_if_seq: %d", last_is_ending_if_seq);
+
+        if (last_is_ending_if_seq) {
+            // clean m_stmt_if_cond
+            m_stmt_if_cond.erase(if_cond_key);
+
+            // clean context stack: pop to STMT_IF
             ContextType top;
             while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_IF) {
                 print("handleRightCurlyBrace: pop %s", getContextTypeStr(top));
@@ -2073,11 +2187,57 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
                 m_ctxt_stack.pop();
             }
         }
+
+        goto handleRightCurlyBrace_common;
+
+    } else {
+        ContextType ctxt = m_ctxt_stack.top();
+        print("handleRightCurlyBrace: ctxt: %s", getContextTypeStr(ctxt));
+
+        if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
+            if (m_opd_stack.count() < 3) { // base + 2
+                error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+                printErrorLocation();
+                exit(E_GRAMMAR);
+            }
+
+            Opd opdv = m_opd_stack.pop();
+            double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+
+            std::string assign_idf = _2idf(m_opd_stack.pop());
+            assignValueToIdf(assign_idf, assign_v, false);
+
+            goto handleRightCurlyBrace_common;
+
+        } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
+            if (m_opd_stack.count() < 3) { // base + 2
+                error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+                printErrorLocation();
+                exit(E_GRAMMAR);
+            }
+
+            Opd opdv = m_opd_stack.pop();
+            double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+
+            std::string assign_idf = _2idf(m_opd_stack.pop());
+            assignValueToIdf(assign_idf, assign_v, true);
+
+            goto handleRightCurlyBrace_common;
+
+        } else {
+            warn("handleRightCurlyBrace: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+            goto handleRightCurlyBrace_common;
+        }
     }
-    // TODO: else if (fn declare block)
+
+    // TODO: function (fn declare block)
     // TODO: else if (elif block)
     // TODO: else if (else block)
     // TODO: else { /*do nothing*/ }
+
+    // common:
+
+handleRightCurlyBrace_common:
 
     // clear scope-declared idf, so later same-depth scope will not re-use the old, wrong data
     if (m_idf_scope_declared.find(m_depth + m_lcb_count) != m_idf_scope_declared.end()) { // scope has idf scope-declared
