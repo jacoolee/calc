@@ -10,7 +10,7 @@ enum State
 {
     ST_BGN = 0,
     ST_OPR,
-    ST_OPD,
+    ST_NUM,
     ST_LPS,
     ST_RPS,
     ST_FLG,
@@ -29,26 +29,26 @@ enum CharType
 {
     CT_SPC = 0,
 
-    CT_OP,                      // 1 (fundamental)
+    CT_OP,                      // (fundamental) see .cc
 
-    CT_NUM,                     // 2 (fundamental) to be opd or compose idf
+    CT_NUM,                     // 0-9
 
-    CT_LP,                      // 3 ( group op start
-    CT_RP,                      // 4 ) group op end
+    CT_LP,                      // ( group
+    CT_RP,                      // ) group
 
-    CT_FLG,                     // 5 +/-
-    CT_ALP,                     // 6 _A-z0-9 alpha, to compose idf (opd or keyword)
+    CT_FLG,                     // +/-
+    CT_ALP,                     // A-Za-z alpha
 
-    CT_CMA,                   // ,
-    CT_SMC,               //  ;
-    CT_SEQ,               // =
-    CT_AMP,               // &
-    CT_VBR,               // |
-    CT_EXM,               // !
-    CT_LCB,               // {
-    CT_RCB,               // }
-    CT_CLN,               // :
-    CT_DBQ,               // " mainly for string (ipd)
+    CT_CMA,                     // ,
+    CT_SMC,                     // ;
+    CT_SEQ,                     // =
+    CT_AMP,                     // &
+    CT_VBR,                     // |
+    CT_EXM,                     // !
+    CT_LCB,                     // {
+    CT_RCB,                     // }
+    CT_CLN,                     // :
+    CT_DBQ,                     // " mainly for string (ipd)
 
     CT_UPPER                    // upper bound
 };
@@ -57,7 +57,7 @@ enum ActionType
 {
     AT_NON = 0,
     AT_OPR, // 1
-    AT_OPD,// 2
+    AT_NUM,// 2
     AT_LPS,// 3
     AT_RPS,// 4
     AT_ERR,// 5
@@ -185,7 +185,7 @@ private:
     bool handleFlag(char flag);
     void handleError();
     bool handleOperator(char opr);
-    bool handleOperand();
+    bool handleNum();
     bool handleLeftParenthesis();
     bool handleRightParenthesis();
     bool handleAlpha(char c);
@@ -214,6 +214,7 @@ private:
     int fnn2fni(const std::string& fnn);
     std::string fni2fnn(const int fni);
 
+    void syntax(ContextType);
     void dia(const std::string& marker);
     void appendToRpnExpression(char c);
 
@@ -229,6 +230,8 @@ private:
     bool findBalancedRightCurlyBraceAndSkipToIt(bool skipRigthCurlyBraceAlong=false);
     void printErrorLocation();
 
+    char getNextNonSpcChar();
+
     void pushOpr(int);
 
     void pushOpdIdf(std::string idf);
@@ -236,14 +239,16 @@ private:
     void pushOpdNum(double num);
     void pushOpdStr(std::string str);
 
-    bool _isbase(const Operand& item);
-    bool _isidf(const Operand& item);
-    bool _isn(const Operand& item);
-    bool _iss(const Operand& item);
+    // TODO: marked following funs as inline
+    bool _isbase(const Opd& item);
+    bool _isidf(const Opd& item);
+    bool _isnum(const Opd& item);
+    bool _isstr(const Opd& item);
 
-    std::string _2idf(const Operand& item);
-    double _2n(const Operand& item);
-    std::string _2s(const Operand& item);
+    // TODO: marked following funs as inline
+    std::string _2idf(const Opd& item);
+    double _2num(const Opd& item);
+    std::string _2str(const Opd& item);
 
     std::unordered_map<std::string,std::array<int,2>>& getFunctionMap() {
         return m_function_map;
@@ -275,11 +280,11 @@ private:
         return m_lcb_count;
     }
 
-    void pushContextBGNToContextStack();
+    void pushContextBGN();
 
 private:
-    Stack<Operand> m_operand_stack;
-    Stack<Opr> m_operator_stack;
+    Stack<Opd> m_opd_stack;
+    Stack<Opr> m_opr_stack;
 
     int m_token_idx;
     int m_depth;                // use for function call
@@ -330,6 +335,8 @@ private:
     Stack<ContextType> m_ctxt_stack;
 
     std::string m_stmt_assign_key;
+
+    // {lcb_count: [if_cond_value, elif_cond_value, ...]}
     std::unordered_map<int,std::vector<int>> m_stmt_if_cond;
 
     std::string m_rpn_expression;

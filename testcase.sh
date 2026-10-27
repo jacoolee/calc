@@ -40,6 +40,10 @@ while read -r l; do
                 echo
                 echo "$e"
 
+                if [ ${ENV_BREAK:-0} -eq 1 ]; then
+                    break
+                fi
+
             else
                 npass=$((npass+1))
                 echo -e "${Green}PASS:$n${Color_Off} $l"
@@ -51,6 +55,11 @@ while read -r l; do
             cat /tmp/testcase.${n}.err
             echo
             echo "$e"
+
+            if [ ${ENV_BREAK:-0} -eq 1 ]; then
+                break
+            fi
+
         fi
     fi
 done < testcase.txt

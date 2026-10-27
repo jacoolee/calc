@@ -126,11 +126,6 @@
 
 # if, elif (multiple), else
 
-1 = x=0; if 1 {x=1;} elif 1 {x=2;} elif 1 {x=3;} else {x=4;} print(x);
-2 = x=0; if 0 {x=1;} elif 1 {x=2;} elif 1 {x=3;} else {x=4;} print(x);
-3 = x=0; if 0 {x=1;} elif 0 {x=2;} elif 1 {x=3;} else {x=4;} print(x);
-4 = x=0; if 0 {x=1;} elif 0 {x=2;} elif 0 {x=3;} else {x=4;} print(x);
-
 0 = x=0; r=0; if x { r=2; } print(r);
 2 = x=1; r=0; if x { r=2; } print(r);
 
@@ -140,6 +135,11 @@
 2 = x=1; r=0; if x > 0 { r=2; } else { r=3; } print(r);
 2 = x=0; r=0; if x == 0 { r=2; } else { r=3; } print(r);
 3 = x=0; r=0; if x < 0 { r=2; } else { r=3; } print(r);
+
+1 = x=0; if 1 {x=1;} elif 1 {x=2;} elif 1 {x=3;} else {x=4;} print(x);
+2 = x=0; if 0 {x=1;} elif 1 {x=2;} elif 1 {x=3;} else {x=4;} print(x);
+3 = x=0; if 0 {x=1;} elif 0 {x=2;} elif 1 {x=3;} else {x=4;} print(x);
+4 = x=0; if 0 {x=1;} elif 0 {x=2;} elif 0 {x=3;} else {x=4;} print(x);
 
 # test if(.. elif(..
 

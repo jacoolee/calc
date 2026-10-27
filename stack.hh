@@ -11,7 +11,7 @@
 #include <string>
 #include <type_traits>
 
-enum OperandType {
+enum OpdType {
     OPD_STACK_BOTTOM_BASE=-1,
     OPD_NUM,
     OPD_STR,
@@ -21,11 +21,11 @@ enum OperandType {
 typedef struct {
     int token_idx;
     int stmt_count;        // count of count
-    OperandType type; // keep it simple, use 0 - number, 1 - string, 2 - idf
+    OpdType type; // keep it simple, use 0 - number, 1 - string, 2 - idf
     // TODO: maybe use std::variant, for now, keep simple even with more memory cost
     double num;
     std::string str;
-} Operand;
+} Opd;
 
 typedef struct {
     int token_idx;
@@ -36,28 +36,36 @@ enum ContextType {
     CTXT_STACK_BOTTOM_BASE=-1,
     CTXT_BGN,
     CTXT_EXP,
+
     STMT_DECLARE_ASSIGN,
     STMT_DECLARE_ASSIGN_VALUE,
     STMT_SCOPE_DECLARE_ASSIGN,
+
+    STMT_IF,                    // keyword
     STMT_IF_COND,
-    STMT_ELIF_COND,
     STMT_IF_BLOCK,
+
+    STMT_ELIF,
+    STMT_ELIF_COND,
     STMT_ELIF_BLOCK,
+
+    STMT_ELSE,
     STMT_ELSE_BLOCK,
+
     FUNCTION_DEFINITION,
     FUNCTION_ARGS,
     FUNCTION_BLOCK,
     FUNCTION_CALL,
 };
 
-inline const char* getOperandTypeStr(OperandType t) {
+inline const char* getOpdTypeStr(OpdType t) {
     switch(t) {
     case OPD_STACK_BOTTOM_BASE: return "*BASE*";
     case OPD_NUM: return "OPD_NUM";
     case OPD_STR: return "OPD_STR";
     case OPD_IDF: return "OPD_IDF";
     default: {
-        fprintf(stderr, "error: getOperandTypeStr unsupported OperandType: %d\n", (int)t);
+        fprintf(stderr, "error: getOpdTypeStr unsupported OpdType: %d\n", (int)t);
         exit(-1);
     }
     }
@@ -67,20 +75,30 @@ inline const char* getContextTypeStr(ContextType t)
 {
     switch(t) {
     case CTXT_STACK_BOTTOM_BASE: return "*BASE*";
+
     case CTXT_BGN: return "CTXT_BGN";
     case CTXT_EXP: return "CTXT_EXP";
+
     case STMT_DECLARE_ASSIGN: return "STMT_DECLARE_ASSIGN";
     case STMT_DECLARE_ASSIGN_VALUE: return "STMT_DECLARE_ASSIGN_VALUE";
     case STMT_SCOPE_DECLARE_ASSIGN: return "STMT_SCOPE_DECLARE_ASSIGN";
+
+    case STMT_IF: return "STMT_IF";
     case STMT_IF_COND: return "STMT_IF_COND";
-    case STMT_ELIF_COND: return "STMT_ELIF_COND";
     case STMT_IF_BLOCK: return "STMT_IF_BLOCK";
+
+    case STMT_ELIF: return "STMT_ELIF";
+    case STMT_ELIF_COND: return "STMT_ELIF_COND";
     case STMT_ELIF_BLOCK: return "STMT_ELIF_BLOCK";
+
+    case STMT_ELSE: return "STMT_ELSE";
     case STMT_ELSE_BLOCK: return "STMT_ELSE_BLOCK";
+
     case FUNCTION_DEFINITION: return "FUNCTION_DEFINITION";
     case FUNCTION_ARGS: return "FUNCTION_ARGS";
     case FUNCTION_BLOCK: return "FUNCTION_BLOCK";
     case FUNCTION_CALL: return "FUNCTION_CALL";
+
     default: {
         fprintf(stderr, "error: getContextTypeStr unsupported contextType: %d\n", (int)t);
         exit(-1);
@@ -88,8 +106,8 @@ inline const char* getContextTypeStr(ContextType t)
     }
 }
 
-inline void printStackItem(const Operand& item) {
-    fprintf(stderr, "(%d,%d,%s,%g,\"%s\"), ", item.token_idx, item.stmt_count, getOperandTypeStr(item.type), item.num, item.str.c_str());
+inline void printStackItem(const Opd& item) {
+    fprintf(stderr, "(%d,%d,%s,%g,\"%s\"), ", item.token_idx, item.stmt_count, getOpdTypeStr(item.type), item.num, item.str.c_str());
 }
 
 inline void printStackItem(const Opr& item) {
@@ -114,7 +132,7 @@ public:
 
     T& top(int step=0) {
         if (empty()) {
-            fprintf(stderr, "top: no top item found, because current stack is empty");
+            fprintf(stderr, "*** %s.top: no top item found, because current stack is empty", m_name.c_str());
             exit(-1);
         };
 
@@ -124,13 +142,15 @@ public:
     void push(T val);
     T pop() {
         if (empty()) {
-            fprintf(stderr, "pop: failed because current stack is already empty\n");
+            fprintf(stderr, "*** %s.pop: failed because current stack is already empty\n", m_name.c_str());
             exit(-1);
         }
 
-        // fprintf(stderr, "pop ...");
-        // printStackItem(m_tunk[m_sp]);
-        // fprintf(stderr, "\n");
+        if (m_print_enable) {
+            fprintf(stderr, "*** %s.pop ...", m_name.c_str());
+            printStackItem(m_tunk[m_sp]);
+            fprintf(stderr, "\n");
+        }
 
         return m_tunk[m_sp--];
     }
@@ -147,6 +167,13 @@ public:
         fprintf(stderr, m_sp>=0? "]": "]");
     }
 
+    void setName(std::string name) {
+        m_name = name;
+    }
+
+    void setPrintEnable(bool enable) {
+        m_print_enable = enable;
+    }
 
 protected:
     virtual T& get(int idx);
@@ -158,6 +185,8 @@ private:
 private:
     std::vector<T> m_tunk;
     int m_sp;
+    std::string m_name="";
+    bool m_print_enable = false;
 };
 
 template<class T>
