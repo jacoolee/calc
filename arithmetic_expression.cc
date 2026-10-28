@@ -10,7 +10,7 @@
 #define FLG_ACTIVE 1
 
 #define E_DEV_ERROR 1       // ERROR happened during development, *must* to be fixed by coding
-#define E_INPUT_ERROR 10          // *fundamental* parse error
+#define E_INPUT_ERROR 10    // *fundamental* parse error
 #define E_SYNTAX 20         // parse error
 #define E_GRAMMAR 30        // language rule error
 #define E_EVALUATE 50       // evaluating error
@@ -32,7 +32,6 @@
         if (g_print_enable) {                                           \
             fprintf(stderr,"%s:%04d:%d: note: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                                \
-            fprintf(stderr," (%s)", __func__);                          \
         }                                                               \
     } while (0)
 
@@ -54,7 +53,6 @@
     do {                                                                \
         fprintf(stderr,"%s:%04d:%d: error: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
         fprintf(stderr,__VA_ARGS__);                                    \
-        fprintf(stderr," (%s)", __func__);                              \
     } while (0)
 
 #define __error(...)                            \
@@ -402,15 +400,26 @@ void ArithmeticExpression::syntax(ContextType t) {
     case STMT_IF:
     case STMT_IF_COND:
     case STMT_IF_BLOCK: {
-        error("\t`if condition {}`");
-        error("\tif `condition` starts with '(', the space after `if` is optional");
+        errornoln("\t`if condition {}`\n");
+        errornoln("\u200B\n");
+        errornoln("\tif `condition` starts with '(', the space after `if` is optional\n");
+        break;
+    }
+    case STMT_ELIF:
+    case STMT_ELIF_COND:
+    case STMT_ELIF_BLOCK: {
+        errornoln("\t`if condition {} elif condtion {}`\n");
+        errornoln("\t`if condition {} elif condition {} else {}`\n");
+        errornoln("\u200B\n");
+        errornoln("\tif `condition` of `elif` starts with '(', the space after `elif` is optional\n");
         break;
     }
     case STMT_ELSE:
     case STMT_ELSE_BLOCK: {
-        error("\t`if condition {} else {}`");
-        error("\t`if condition {} elif condition {} else {}`");
-        error("\tspace between `else` and `{` is optional");
+        errornoln("\t`if condition {} else {}`\n");
+        errornoln("\t`if condition {} elif condition {} else {}`\n");
+        errornoln("\u200B\n");
+        errornoln("\tspace between `else` and `{` is optional\n");
         break;
     }
     default: {
@@ -693,6 +702,9 @@ bool ArithmeticExpression::handleFlag(char flag)
     } else if (ctxt == STMT_IF_COND) {
         return true;
 
+    } else if (ctxt == STMT_ELIF_COND) {
+        return true;
+
     } else {
         warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         return true;
@@ -844,7 +856,7 @@ bool ArithmeticExpression::handleOperator(char opr)
 
 void ArithmeticExpression::printErrorLocation() {
     errornoln("\u200B\n");
-    errornoln("'%s'\n", m_arithmetic_expression.c_str());
+    errornoln("`%s`\n", m_arithmetic_expression.c_str());
     errornoln("%*s^\n", m_parse_pos+1, ""); // for head added "'"
     errornoln("%*s%d\n", m_parse_pos+1, "", m_parse_pos);
     errornoln("\u200B\n");
@@ -887,6 +899,7 @@ bool ArithmeticExpression::handleNum()
     bool dot_occurred = false;
     int dot_part_length = 0;
 
+    // compose a number
     while ( m_parse_pos < size ) {
         char c = m_arithmetic_expression[m_parse_pos];
         if ( ! ('.' == c || (c >= '0' && c <= '9'))) {
@@ -923,6 +936,7 @@ bool ArithmeticExpression::handleNum()
     }
 
     double num = int_val + dot_val;
+
     pushOpdNum(num);
 
     print("int part=\"%g\", dot part=\"%g\", dot occurred=\"%s\"",
@@ -937,6 +951,11 @@ bool ArithmeticExpression::handleNum()
         return true;
 
     } else if (ctxt == STMT_IF_COND) {
+        // num is sufficient for if cond, so expect '{'
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_CMA, CT_EXM, CT_SPC };
+        return true;
+
+    } else if (ctxt == STMT_ELIF_COND) {
         // num is sufficient for if cond, so expect '{'
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_CMA, CT_EXM, CT_SPC };
         return true;
@@ -961,39 +980,17 @@ bool ArithmeticExpression::handleLeftParenthesis()
         m_id_spc_occurred = false;
     }
 
-    ////////////////////////////////////////////////////////////////
-    // TODO: to support "if(" "elif("
-    // no need set if/elif context here,coz that can be done in handleAlpha immediately
-    // in where we know what m_id is. Here, we only process the following stuff of if/elif context
-
-    // Opd opd = m_opd_stack.top();
-    // if (_isidf(opd) || _isstr(opd)) {
-
-    //     std::string idf = _2str(opd);
-
-    //     if (idf == "if") {     // keyword
-    //         ++m_lp_count;
-    //         m_ctxt_stack.push(STMT_IF_COND);
-    //         m_state_next_certained = ST_BGN;
-
-    //     } else if (idf == "elif") {     // keyword
-    //         ++m_lp_count;
-    //         m_ctxt_stack.push(STMT_ELIF_COND);
-    //         m_state_next_certained = ST_BGN;
-
-    //     } else {                // normal idf
-    //     }
-    // }
-
-    ////////////////////////////////////////////////////////////////
-
     // check context first
     ContextType ctxt = m_ctxt_stack.top();
     print("in context: %s", getContextTypeStr(ctxt));
 
-    if (ctxt == CTXT_BGN || ctxt == CTXT_EXP || ctxt == STMT_DECLARE_ASSIGN_VALUE || ctxt == STMT_IF_COND) {
+    if (ctxt == CTXT_BGN ||
+        ctxt == CTXT_EXP ||
+        ctxt == STMT_DECLARE_ASSIGN_VALUE ||
+        ctxt == STMT_IF_COND ||
+        ctxt == STMT_ELIF_COND) {
 
-        if (ctxt == STMT_IF_COND) {
+        if (ctxt == STMT_IF_COND || ctxt == STMT_ELIF_COND) {
             m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_CMA, CT_EXM, CT_SPC };
         }
 
@@ -1021,7 +1018,7 @@ bool ArithmeticExpression::handleLeftParenthesis()
 
         } else if (_isidf(opd)) { // 'idf?('
 
-            bool is_fnc_olp = (opd.token_idx == m_token_idx-1);
+            bool is_fnc_olp = (opd.token_idx == m_token_idx-1); // prev-token
             print("is_fnc_olp = %d", is_fnc_olp);
 
             if (is_fnc_olp) { // 'idf(' => treat as 'fnn('
@@ -1087,6 +1084,12 @@ bool ArithmeticExpression::handleLeftParenthesis()
     } else if (ctxt == STMT_IF) { // 'if('
         m_ctxt_stack.push(STMT_IF_COND); // STMT_IF_COND is a special case of CTXT_EXP
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_EXM, CT_SPC}; // 'if COND'
+        m_state_next_certained = ST_BGN; // can get any chars to compose exp
+        return true;
+
+    } else if (ctxt == STMT_ELIF) { // 'elif('
+        m_ctxt_stack.push(STMT_ELIF_COND); // STMT_ELIF_COND is a special case of CTXT_EXP
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_EXM, CT_SPC}; // 'elif COND'
         m_state_next_certained = ST_BGN; // can get any chars to compose exp
         return true;
 
@@ -1305,7 +1308,21 @@ bool ArithmeticExpression::handleAlpha(char _c)
             return true;
 
         } else if (m_id == "elif") { // keyword
-            print("TODO elif keyword");
+            // ensure "elif" is start of current statement
+            Opd top_opd = m_opd_stack.top();
+            Opr top_opr = m_opr_stack.top();
+
+            if ((top_opd.stmt_count == m_stmt_count && top_opd.type != OPD_STACK_BOTTOM_BASE) ||
+                (top_opr.stmt_count == m_stmt_count && top_opr.v != LOWEST_PRIO_OP)) {
+                error("`else` supporse to be at very begin of one statement");
+                printErrorLocation();
+                syntax(STMT_ELSE);
+                exit(E_GRAMMAR);
+            }
+
+            m_ctxt_stack.push(STMT_ELIF);
+            m_expect_char_types = {CT_LP, CT_SPC}; // 'elif(' or 'elif '
+            m_state_next_certained = ST_BGN; // can get any chars to compose exp
             return true;
 
         } else if (m_id == "else") { // keyword
@@ -1351,6 +1368,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
         return true;
 
     } else if (ctxt == STMT_IF_COND) { // STMT_IF_COND is a special case of CTXT_EXP
+
         // TODO: due to now we are in exp context, use pushOpdIdfValue(m_id) instead of
         // pushOpdIdf(m_id) directly for faster error-checking and performance
         // pushOpdIdfValue(m_id);
@@ -1367,6 +1385,18 @@ bool ArithmeticExpression::handleAlpha(char _c)
         // TODO: m_id here can not be following keywords:
         // if elif else function
 
+        print("'%c'", getNextNonSpcChar());
+        if (getNextNonSpcChar() == '(') {
+            pushOpdIdf(m_id);
+        } else {
+            pushOpdIdfValue(m_id);
+        }
+
+        // alpha is sufficient for if cond, so expect '{'
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_CMA, CT_EXM, CT_SPC };
+        return true;
+
+    } else if (ctxt == STMT_ELIF_COND) { // STMT_ELIF_COND is a special case of CTXT_EXP
         print("'%c'", getNextNonSpcChar());
         if (getNextNonSpcChar() == '(') {
             pushOpdIdf(m_id);
@@ -1423,12 +1453,13 @@ bool ArithmeticExpression::handleAlpha(char _c)
 }
 
 bool ArithmeticExpression::handleSpace() {
+    // make next state certained on pre-state as ST_IDF
     if (m_state == ST_IDF) {
         Opd top = m_opd_stack.top();
         if (_isidf(top) && (top.str == "if" || top.str == "elif" || top.str == "else" || top.str == "function") ) {
             m_state_next_certained = ST_BGN;
         } else {
-            m_id_spc_occurred = true;
+            m_id_spc_occurred = true; // TODO: bind to idf
             m_state_next_certained = ST_IDF;
         }
     }
@@ -1447,7 +1478,21 @@ bool ArithmeticExpression::handleSpace() {
         m_state_next_certained = ST_BGN; // can get any chars to compose exp
         goto handleSpace_common;
 
+    } else if (ctxt == STMT_ELIF) {
+        m_ctxt_stack.push(STMT_ELIF_COND); // STMT_ELIF_COND is a special case of CTXT_EXP
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_EXM, CT_SPC}; // 'elif COND'
+        m_state_next_certained = ST_BGN; // can get any chars to compose exp
+        goto handleSpace_common;
+
     } else if (ctxt == STMT_IF_COND) {
+        // always treat '{' as candiate. worst case is 'if {' which will be catched and treated as error
+        // by st transition.
+        // always treat ')' as candiate, to closing openning '('. worst case is 'if whatever_no_lp )'
+        // which will be guranteed by st transition.
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_CMA, CT_EXM, CT_SPC };
+        goto handleSpace_common;
+
+    } else if (ctxt == STMT_ELIF_COND) {
         // always treat '{' as candiate. worst case is 'if {' which will be catched and treated as error
         // by st transition.
         // always treat ')' as candiate, to closing openning '('. worst case is 'if whatever_no_lp )'
@@ -1677,7 +1722,7 @@ bool ArithmeticExpression::handleSymbolEqual() {
     } else {
         ContextType ctxt = m_ctxt_stack.top();
 
-        if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK) {
+        if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK || ctxt == STMT_ELIF_BLOCK) {
             if (m_state == ST_IDF && (m_state_prev == ST_BGN || m_state_prev == ST_IDF)) { // more restrict grammer
                 // treat it as assign statement
                 m_ctxt_stack.push(STMT_DECLARE_ASSIGN);
@@ -1964,10 +2009,10 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         }
         std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[m_lcb_count];
 
-        int condv = _2num(m_opd_stack.pop()) != 0? 1: 0;
-        if_elif_conds.push_back({IF_COND_TYPE_IF, condv});
+        int cond = _2num(m_opd_stack.pop()) != 0? 1: 0;
+        if_elif_conds.push_back({IF_COND_TYPE_IF, cond});
 
-        if (condv != 0) {
+        if (cond != 0) {
             m_ctxt_stack.push(STMT_IF_BLOCK);
             m_ctxt_stack.push(CTXT_BGN);
             m_expect_char_types = {}; // clear
@@ -1990,22 +2035,38 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         return true;
 
     } else if (ctxt == STMT_ELIF_COND) {
+        // condtion
+        // why always process top opd, coz opr stack can be empty, so idf opd will
+        // never be calculated. esp. for case:
+        // `x=1; if x {}`
 
-        print("TODO: process top opd firstly as STMT_IF_COND");
+        Opd top = m_opd_stack.top();
+        if (_isbase(top)) {
+            error("no condition found for context: %s", getContextTypeStr(ctxt));
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        } else if (_isidf(top)) {
+            std::string idf = _2str(m_opd_stack.pop());
+            pushOpdIdfValue(idf);
+        } else if (_isnum(top)) {
+            // ok, do nothing
+        } else if (_isstr(top)) {
+            print("TODO");
+            exit(0);
+        }
 
         if (m_stmt_if_cond.find(m_lcb_count) == m_stmt_if_cond.end()) {
             m_stmt_if_cond[m_lcb_count] = {};
         }
-
         std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[m_lcb_count];
 
         if (if_elif_conds.size() == 0) {
-            error("elif statement must follow if-statement");
+            error("`elif` statement must follow `if` statement");
             printErrorLocation();
             exit(E_GRAMMAR);
         }
 
-
+        // pre if/elif condtions
         bool pre_cond_all_zero = true;
         for (int i = 0; i < if_elif_conds.size(); i++) {
             if (if_elif_conds[i].value != 0) {
@@ -2014,16 +2075,21 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
             }
         }
 
+        // self condtion
         int elif_cond = _2num(m_opd_stack.pop()) !=0? 1: 0;
-        // always record elif_cond
         if_elif_conds.push_back({IF_COND_TYPE_ELIF, elif_cond});
 
         int cond = (pre_cond_all_zero == true && elif_cond != 0)? 1: 0;
 
         if (cond != 0) {
             m_ctxt_stack.push(STMT_ELIF_BLOCK);
-            print("TODO: to process elif-block");
+            m_ctxt_stack.push(CTXT_BGN);
+            m_expect_char_types = {}; // clear
+
         } else {
+            m_ctxt_stack.push(STMT_ELIF_BLOCK);
+            m_expect_char_types = {}; // clear
+
             print("TODO: to ignore elif-block, just skip to balanced '}', no syntax check for skipped content");
             if (!findBalancedRightCurlyBraceAndSkipToIt()) {
                 error("elif: no balanced } found");
@@ -2175,11 +2241,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
         if (last_cond.type == IF_COND_TYPE_IF || last_cond.type == IF_COND_TYPE_ELIF) {
             std::string token = getNextToken();
             print("next token:\"%s\"", token.c_str());
-            if (token == "elif" || token == "else") {
-                // keep m_stmt_if_cond and context stack for later use
-            } else {
-                last_cond_is_ending_if_seq = true;
-            }
+            last_cond_is_ending_if_seq = !(token == "elif" || token == "else");
         } else if (last_cond.type == IF_COND_TYPE_ELSE) {
             last_cond_is_ending_if_seq = true;
         } else {                // else
@@ -2327,6 +2389,7 @@ bool ArithmeticExpression::handleDoubleQuote() {
 
     if (m_parse_pos == size) {
         error("no ending '\"' found from %d to end", m_str_start_pos);
+        printErrorLocation();
         exit(E_SYNTAX);
     }
 
@@ -2966,12 +3029,14 @@ bool ArithmeticExpression::handleInputAllParsed()
         dia("handleInputAllParsed");
         errornoln("all input parsed, but m_expect_char_types not empty, context = %s,", getContextTypeStr(ctxt));
         __error(" m_expect_char_types = [");
+
         for (const auto& item : m_expect_char_types) {
             __error("'%s', ", getCharTypeStr(item));
         }
         __error("]\n");
 
         printErrorLocation();
+        syntax(ctxt);
         exit(E_GRAMMAR);
     }
 
