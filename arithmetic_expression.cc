@@ -18,56 +18,58 @@
 
 #define E_SHOULD_NOT_HAPPEN 99
 
-#define print(...)                                  \
-    do {                                            \
-        if (g_print_enable) {                       \
-            fprintf(stderr,"%s:%04d:%d: log %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
-            fprintf(stderr,__VA_ARGS__);                    \
-            fprintf(stderr,"\n");                           \
-        }                                           \
+#define print(...)                                                      \
+    do {                                                                \
+        if (g_print_enable) {                                           \
+            fprintf(stderr,"%s:%04d:%d: note: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
+            fprintf(stderr,__VA_ARGS__);                                \
+            fprintf(stderr," - %s\n", __func__);                        \
+        }                                                               \
     } while (0)
 
-#define printnoln(...)                              \
-    do {                                            \
-        if (g_print_enable) {                       \
-            fprintf(stderr,"%s:%04d:%d: log %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
-            fprintf(stderr,__VA_ARGS__);                    \
-        }                                           \
+#define printnoln(...)                                                  \
+    do {                                                                \
+        if (g_print_enable) {                                           \
+            fprintf(stderr,"%s:%04d:%d: note: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
+            fprintf(stderr,__VA_ARGS__);                                \
+            fprintf(stderr," (%s)", __func__);                          \
+        }                                                               \
     } while (0)
 
 #define __print(...)                            \
     do {                                        \
         if (g_print_enable) {                   \
-            fprintf(stderr,__VA_ARGS__);                \
+            fprintf(stderr,__VA_ARGS__);        \
         }                                       \
     } while (0)
 
-#define error(...)                              \
-    do {                                        \
-        fprintf(stderr,"%s:%04d:%d: error %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
-        fprintf(stderr,__VA_ARGS__);                    \
-        fprintf(stderr,"\n");                           \
+#define error(...)                                                      \
+    do {                                                                \
+        fprintf(stderr,"%s:%04d:%d: error: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
+        fprintf(stderr,__VA_ARGS__);                                    \
+        fprintf(stderr," - %s\n", __func__);                            \
     } while (0)
 
-#define errornoln(...)                          \
-    do {                                        \
-        fprintf(stderr,"%s:%04d:%d: error %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
-        fprintf(stderr,__VA_ARGS__);                    \
+#define errornoln(...)                                                  \
+    do {                                                                \
+        fprintf(stderr,"%s:%04d:%d: error: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
+        fprintf(stderr,__VA_ARGS__);                                    \
+        fprintf(stderr," (%s)", __func__);                              \
     } while (0)
 
 #define __error(...)                            \
     do {                                        \
-        fprintf(stderr,__VA_ARGS__);                    \
+        fprintf(stderr,__VA_ARGS__);            \
     } while (0)
 
 #define warn(...)                                                       \
     do {                                                                \
-    if (g_print_enable) {                                               \
-        fprintf(stderr,"%s:%04d:%d: warning %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
-        fprintf(stderr,__VA_ARGS__);                                    \
-        fprintf(stderr,"\n");                                           \
-    }                                                                   \
-} while (0) \
+        if (g_print_enable) {                                           \
+            fprintf(stderr,"%s:%04d:%d: warning: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
+            fprintf(stderr,__VA_ARGS__);                                \
+            fprintf(stderr," - %s\n", __func__);                        \
+        }                                                               \
+    } while (0)                                                         \
 
 int g_print_enable = 0;
 int g_depth = 0;
@@ -166,15 +168,15 @@ ArithmeticExpression::m_state_table[ST_UPPER][CT_UPPER] = {
     // Code:
     //             CT_SPC            CT_OP             CT_NUM 0-9        CT_LP (           CT_RP )           CT_FLG -+         CT_ALP            CT_CMA ,          CT_SMC ;          CT_SEQ =          CT_AMP &          CT_VBR |          CT_EXM !          CT_LCB {          CT_RCB }          CT_CLN :          CT_DBQ "
     //
-    /* ST_BGN */ {{AT_NON, ST_BGN}, {AT_ERR, ST_ERR}, {AT_NUM, ST_NUM}, {AT_LPS, ST_LPS}, {AT_RPS, ST_UNC}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_NUM}},
-    /* ST_OPR */ {{AT_NON, ST_OPR}, {AT_ERR, ST_ERR}, {AT_NUM, ST_NUM}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_NUM}},
-    /* ST_NUM */ {{AT_NON, ST_NUM}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
-    /* ST_LPS */ {{AT_NON, ST_LPS}, {AT_ERR, ST_ERR}, {AT_NUM, ST_NUM}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_NUM}},
-    /* ST_RPS */ {{AT_NON, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_BGN */ {{AT_SPC, ST_BGN}, {AT_ERR, ST_ERR}, {AT_NUM, ST_NUM}, {AT_LPS, ST_LPS}, {AT_RPS, ST_UNC}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_NUM}},
+    /* ST_OPR */ {{AT_SPC, ST_OPR}, {AT_ERR, ST_ERR}, {AT_NUM, ST_NUM}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_NUM}},
+    /* ST_NUM */ {{AT_SPC, ST_NUM}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_LPS */ {{AT_SPC, ST_LPS}, {AT_ERR, ST_ERR}, {AT_NUM, ST_NUM}, {AT_LPS, ST_LPS}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_DBQ, ST_NUM}},
+    /* ST_RPS */ {{AT_SPC, ST_RPS}, {AT_OPR, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_RPS, ST_RPS}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
     /* ST_FLG */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_NUM, ST_NUM}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_EXM, ST_OPR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
     /* ST_IDF */ {{AT_SPC, ST_UNC}, {AT_OPR, ST_OPR}, {AT_ALP, ST_IDF}, {AT_LPS, ST_BGN}, {AT_RPS, ST_RPS}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_CMA, ST_BGN}, {AT_SMC, ST_STT}, {AT_SEQ, ST_UNC}, {AT_AMP, ST_UNC}, {AT_VBR, ST_UNC}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_RCB, ST_RCB}, {AT_CLN, ST_CLN}, {AT_CLN, ST_CLN}},
-    /* ST_LCB */ {{AT_NON, ST_LCB}, {AT_ERR, ST_ERR}, {AT_NUM, ST_NUM}, {AT_LPS, ST_BGN}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_NON, ST_UNC}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
-    /* ST_RCB */ {{AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}},
+    /* ST_LCB */ {{AT_SPC, ST_LCB}, {AT_ERR, ST_ERR}, {AT_NUM, ST_NUM}, {AT_LPS, ST_BGN}, {AT_ERR, ST_ERR}, {AT_FLG, ST_FLG}, {AT_ALP, ST_IDF}, {AT_ERR, ST_ERR}, {AT_SMC, ST_STT}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_LCB, ST_LCB}, {AT_NON, ST_UNC}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
+    /* ST_RCB */ {{AT_SPC, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}, {AT_NON, ST_UNC}},
     /* ST_RCB */ {{AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_SEQ, ST_UNC}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}, {AT_ERR, ST_ERR}},
 };
 
@@ -292,34 +294,32 @@ int ArithmeticExpression::getPriority(char c)
 
 bool ArithmeticExpression::handleAction(ActionType type, char c)
 {
-    bool rc = false;
     switch (type) {
-    case AT_NON: rc = handleNone(); break;
-    case AT_FLG: rc = handleFlag(c); break;
-    case AT_OPR: rc = handleOperator(c); break;
-    case AT_NUM: rc = handleNum(); break;
-    case AT_LPS: rc = handleLeftParenthesis(); break;
-    case AT_RPS: rc = handleRightParenthesis(); break;
-    case AT_ALP: rc = handleAlpha(c); break;
-    case AT_SPC: rc = handleSpace(); break;
-    case AT_CMA: rc = handleComma(); break;
-    case AT_SMC: rc = handleSemicolon(); break;
-    case AT_SEQ: rc = handleSymbolEqual(); break;
-    case AT_AMP: rc = handleSymbolAmpersand(); break;
-    case AT_VBR: rc = handleSymbolVbar(); break;
-    case AT_EXM: rc = handleExclamation(); break;
-    case AT_LCB: rc = handleLeftCurlyBrace(); break;
-    case AT_RCB: rc = handleRightCurlyBrace(); break;
-    case AT_CLN: rc = handleColon(); break;
-    case AT_DBQ: rc = handleDoubleQuote(); break;
+    case AT_NON: return handleNone();
+    case AT_FLG: return handleFlag(c);
+    case AT_OPR: return handleOperator(c);
+    case AT_NUM: return handleNum();
+    case AT_LPS: return handleLeftParenthesis();
+    case AT_RPS: return handleRightParenthesis();
+    case AT_ALP: return handleAlpha(c);
+    case AT_SPC: return handleSpace();
+    case AT_CMA: return handleComma();
+    case AT_SMC: return handleSemicolon();
+    case AT_SEQ: return handleSymbolEqual();
+    case AT_AMP: return handleSymbolAmpersand();
+    case AT_VBR: return handleSymbolVbar();
+    case AT_EXM: return handleExclamation();
+    case AT_LCB: return handleLeftCurlyBrace();
+    case AT_RCB: return handleRightCurlyBrace();
+    case AT_CLN: return handleColon();
+    case AT_DBQ: return handleDoubleQuote();
     // more here
-    case AT_ERR: handleError(); rc= false; break;
+    case AT_ERR: handleError(); return false;
     default:
         print("no handler found for action type:%d", type);
-        rc = false;
-        break;
+        return false;
     }
-    return rc;
+    return false;
 }
 
 const char* ArithmeticExpression::getCharTypeStr(int ct) const {
@@ -425,7 +425,7 @@ void ArithmeticExpression::dia(const std::string& marker="") {
     CharType type = getCharType(c);
     StateTable* table_item = &m_state_table[m_state][type];
 
-    printnoln("dia: %s @%d", marker.c_str(), m_parse_pos);
+    printnoln("%s @%d", marker.c_str(), m_parse_pos);
 
     if (g_print_enable & 1) {   // st
         __print(" #1");
@@ -659,7 +659,7 @@ bool ArithmeticExpression::handle(char c)
     }
 
     if (table_item->new_state != m_state) {
-        print("handle: after action_type:%d, state manual-switched %s -> %s", table_item->action_type, getStateStr(table_item->new_state), getStateStr(m_state));
+        print("after action_type:%d, state manual-switched %s -> %s", table_item->action_type, getStateStr(table_item->new_state), getStateStr(m_state));
     }
 
     return rc;
@@ -683,7 +683,7 @@ bool ArithmeticExpression::handleFlag(char flag)
     }
 
     ContextType ctxt = m_ctxt_stack.top();
-    print("handleFlag: ctxt: %s", getContextTypeStr(ctxt));
+    print("ctxt: %s", getContextTypeStr(ctxt));
 
     if (ctxt == STMT_DECLARE_ASSIGN) {
         m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
@@ -694,7 +694,7 @@ bool ArithmeticExpression::handleFlag(char flag)
         return true;
 
     } else {
-        warn("handleFlag: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         return true;
     }
 
@@ -713,7 +713,7 @@ double ArithmeticExpression::getIdfValue(const std::string& idf) {
     for (int i=idf_key; i>=0; --i) {
         if (dv.find(i) != dv.end()) { // found
             v = dv[i];
-            print("getIdfValue: found, idf:%s, i:%d, value:%g", idf.c_str(), i, v);
+            print("found, idf:%s, i:%d, value:%g", idf.c_str(), i, v);
             return v;
         }
     }
@@ -732,7 +732,7 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
         exit(E_SYNTAX);
     }
 
-    print("assignValueToIdf: : idf=%s, m_depth=%d, m_lcb_count=%d, value=%g, is_scope_declared=%d", idf.c_str(), m_depth, m_lcb_count, value, is_scope_declared);
+    print("idf=%s, m_depth=%d, m_lcb_count=%d, value=%g, is_scope_declared=%d", idf.c_str(), m_depth, m_lcb_count, value, is_scope_declared);
 
     if (m_idf_map.find(idf) == m_idf_map.end()) {
         // not found, to init
@@ -810,7 +810,7 @@ bool ArithmeticExpression::handleOperator(char opr)
 
     // STMT_DECLARE_ASSIGN_VALUE is a special case of CTXT_EXP
     ContextType ctxt = m_ctxt_stack.top();
-    print("handleOperator: current ctxt:%s", getContextTypeStr(ctxt));
+    print("current ctxt:%s", getContextTypeStr(ctxt));
 
     if (ctxt == STMT_DECLARE_ASSIGN) {
         m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
@@ -821,7 +821,7 @@ bool ArithmeticExpression::handleOperator(char opr)
         return true;
 
     } else {
-        warn("handleOperator: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
 
         bool is_exp_context = (ctxt == CTXT_EXP || ctxt == STMT_DECLARE_ASSIGN_VALUE || ctxt == STMT_IF_COND);
         if (!is_exp_context) {
@@ -929,7 +929,7 @@ bool ArithmeticExpression::handleNum()
           int_val, dot_val, dot_occurred ? "yes" : "no");
 
     ContextType ctxt = m_ctxt_stack.top();
-    print("handleNum in context: %s", getContextTypeStr(ctxt));
+    print("in context: %s", getContextTypeStr(ctxt));
 
     if (ctxt == STMT_DECLARE_ASSIGN) {
         m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
@@ -942,7 +942,7 @@ bool ArithmeticExpression::handleNum()
         return true;
 
     } else {
-        warn("handleNum: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         return true;
     }
 
@@ -989,7 +989,7 @@ bool ArithmeticExpression::handleLeftParenthesis()
 
     // check context first
     ContextType ctxt = m_ctxt_stack.top();
-    print("handleLeftParenthesis in context: %s", getContextTypeStr(ctxt));
+    print("in context: %s", getContextTypeStr(ctxt));
 
     if (ctxt == CTXT_BGN || ctxt == CTXT_EXP || ctxt == STMT_DECLARE_ASSIGN_VALUE || ctxt == STMT_IF_COND) {
 
@@ -1022,7 +1022,7 @@ bool ArithmeticExpression::handleLeftParenthesis()
         } else if (_isidf(opd)) { // 'idf?('
 
             bool is_fnc_olp = (opd.token_idx == m_token_idx-1);
-            print("handleLeftParenthesis: is_fnc_olp = %d", is_fnc_olp);
+            print("is_fnc_olp = %d", is_fnc_olp);
 
             if (is_fnc_olp) { // 'idf(' => treat as 'fnn('
                 std::string idf = opd.str;
@@ -1101,7 +1101,7 @@ bool ArithmeticExpression::handleLeftParenthesis()
         return true;
 
     } else {
-        warn("handleLeftParenthesis: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         return true;
     }
 
@@ -1202,7 +1202,7 @@ std::string ArithmeticExpression::getNextToken() {
         return token;
     }
     default:
-        print("getNextToken: TODO to support char type:%s", getCharTypeStr(c));
+        print("TODO to support char type:%s", getCharTypeStr(c));
         return "";
     }
 }
@@ -1284,7 +1284,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
     dia("-:handleAlpha:.h1");
 
     ContextType ctxt = m_ctxt_stack.top();
-    print("handleAlpha: ctxt: %s", getContextTypeStr(ctxt));
+    print("ctxt: %s", getContextTypeStr(ctxt));
 
     if (ctxt == CTXT_BGN) {
         if (m_id == "if") {     // keyword
@@ -1367,7 +1367,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
         // TODO: m_id here can not be following keywords:
         // if elif else function
 
-        print("getNextNonSpcChar(): '%c'", getNextNonSpcChar());
+        print("'%c'", getNextNonSpcChar());
         if (getNextNonSpcChar() == '(') {
             pushOpdIdf(m_id);
         } else {
@@ -1406,7 +1406,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
         }
         return true;
     } else {
-        warn("handleAlpha: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         return true;
         // PATTERN: context + expects
 
@@ -1423,7 +1423,6 @@ bool ArithmeticExpression::handleAlpha(char _c)
 }
 
 bool ArithmeticExpression::handleSpace() {
-
     if (m_state == ST_IDF) {
         Opd top = m_opd_stack.top();
         if (_isidf(top) && (top.str == "if" || top.str == "elif" || top.str == "else" || top.str == "function") ) {
@@ -1435,18 +1434,18 @@ bool ArithmeticExpression::handleSpace() {
     }
 
     ContextType ctxt = m_ctxt_stack.top();
-    print("handleSpace: ctxt: %s", getContextTypeStr(ctxt));
+    print("ctxt: %s", getContextTypeStr(ctxt));
 
     if (ctxt == STMT_DECLARE_ASSIGN) {
         m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
         m_expect_char_types = {};
-        return true;
+        goto handleSpace_common;
 
     } else if (ctxt == STMT_IF) {
         m_ctxt_stack.push(STMT_IF_COND); // STMT_IF_COND is a special case of CTXT_EXP
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_EXM, CT_SPC}; // 'if COND'
         m_state_next_certained = ST_BGN; // can get any chars to compose exp
-        return true;
+        goto handleSpace_common;
 
     } else if (ctxt == STMT_IF_COND) {
         // always treat '{' as candiate. worst case is 'if {' which will be catched and treated as error
@@ -1454,10 +1453,22 @@ bool ArithmeticExpression::handleSpace() {
         // always treat ')' as candiate, to closing openning '('. worst case is 'if whatever_no_lp )'
         // which will be guranteed by st transition.
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_CMA, CT_EXM, CT_SPC };
-        return true;
+        goto handleSpace_common;
 
     } else {
-        warn("handleSpace: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        goto handleSpace_common;
+    }
+
+handleSpace_common: {
+        int size = m_arithmetic_expression.size();
+        while (m_parse_pos<size) {
+            if (m_arithmetic_expression[++m_parse_pos] == ' ');
+            else break;
+        }
+        if (m_parse_pos != size) {
+            --m_parse_pos;      // leave non-space char untouched
+        }
         return true;
     }
 
@@ -1509,7 +1520,7 @@ bool ArithmeticExpression::handleComma() {
 bool ArithmeticExpression::handleSemicolon() {
     ++m_stmt_count;
 
-    print("TODO: handleSemicolon should consume everything.");
+    print("TODO: should consume everything.");
     dia("-:handleSemicolon");
 
     if (m_lp_count > 0) {
@@ -1535,7 +1546,7 @@ bool ArithmeticExpression::handleSemicolon() {
         exit(E_SYNTAX);
 
     default:
-        print("handleInputAllPassed ignore context type: %s", getContextTypeStr(ctxt));
+        print("ignore context type: %s", getContextTypeStr(ctxt));
         break;
     }
 
@@ -1567,7 +1578,7 @@ bool ArithmeticExpression::handleSemicolon() {
     ctxt = m_ctxt_stack.top();
 
     if (ctxt == STMT_DECLARE_ASSIGN) {
-        error("handleSemicolon: STMT_DECLARE_ASSIGN can not be terminal context type for a statement (marked';')");
+        error("STMT_DECLARE_ASSIGN can not be terminal context type for a statement (marked';')");
         printErrorLocation();
         exit(E_GRAMMAR);
 
@@ -1601,12 +1612,12 @@ bool ArithmeticExpression::handleSemicolon() {
         assignValueToIdf(assign_idf, assign_v, true);
 
     } else {
-        warn("handleSemicolon: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
     }
 
-    print("handleSemicolon: clean context stack ...");
+    print("clean context stack ...");
     while(!m_ctxt_stack.empty() && (ctxt = m_ctxt_stack.pop()) != CTXT_BGN) {
-        print("handleSemicolon: m_ctxt_stack.pop %s", getContextTypeStr(ctxt));
+        print("m_ctxt_stack.pop %s", getContextTypeStr(ctxt));
     }
 
     // reset everything
@@ -1619,15 +1630,12 @@ bool ArithmeticExpression::handleSemicolon() {
 
     m_stmt_assign_key = "";
 
-    while (!m_opd_stack.empty() && m_opd_stack.top().stmt_count == m_stmt_count)
+    while (!m_opd_stack.empty() && m_opd_stack.top().stmt_count == m_stmt_count) {
         m_opd_stack.pop();
-
-    if (m_opd_stack.count() > 2) { // base + 1
-        error("more than 2 (base + real last opd) operand left, real count:%d", m_opd_stack.count());
-        dia("handleSemicolon");
-        printErrorLocation();
-        exit(E_DEV_ERROR);
     }
+
+    print("m_opd_stack.count() = %d", m_opd_stack.count());
+    dia("-:handleSemicolon:1");
 
     dia("handleSemicolon:+");
 
@@ -1635,7 +1643,7 @@ bool ArithmeticExpression::handleSemicolon() {
 }
 
 void ArithmeticExpression::pushContextBGN() {
-    print("pushContextBGN ...");
+    print("pushing ...");
     bool top_already_ctxt_bgn = !m_ctxt_stack.empty() && m_ctxt_stack.top() == CTXT_BGN;
     if (!top_already_ctxt_bgn) {
         m_ctxt_stack.push(CTXT_BGN);
@@ -1767,7 +1775,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     }
 
     ContextType ctxt = m_ctxt_stack.top();
-    print("handleLeftCurlyBrace: ctxt=%d", ctxt);
+    print("ctxt=%d", ctxt);
 
     if (ctxt == STMT_ELSE) {
         // NOTE: no exp before this context pos needed to evaluate, so process immediately
@@ -1871,10 +1879,10 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         return true;
 
     } else {
-        warn("handleLeftCurlyBrace: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
     }
 
-    print("handleLeftCurlyBrace: process '{' self");
+    print("process '{' self");
 
     ////////////////////////////////////////////////////////////////
     // do not rely on context-free m_id, it can not be used to construct grammar
@@ -1896,7 +1904,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
     ////////////////////////////////////////////////////////////////
 
-    print("handleLeftCurlyBrace: calculate all oprs");
+    print("calculate all oprs");
     int top;
     while (!m_opr_stack.empty() && (top = m_opr_stack.top().v) != LOWEST_PRIO_OP) {
         if (!calculate(top)) return false;
@@ -1910,7 +1918,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     // for those key larger than m_lcb_count, clear the value
     // TODO: maybe just clean vector value is good enough, for later reuse.
 
-    print("handleLeftCurlyBrace: lcb count:%d", m_lcb_count);
+    print("lcb count:%d", m_lcb_count);
 
     for (auto it = m_stmt_if_cond.begin(); it != m_stmt_if_cond.end();) {
         if (it->first > m_lcb_count) {
@@ -2029,7 +2037,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         return true;
 
     } else {                    // other context
-        warn("handleLeftCurlyBrace: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
 
         m_state_next_certained = ST_BGN;
         ++m_lcb_count;
@@ -2054,7 +2062,7 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigth
 
     while (++m_parse_pos < size) {
         const char& c = m_arithmetic_expression.at(m_parse_pos);
-        print("findBalancedRightCurlyBraceAndSkipToIt: c='%c'", c);
+        print("c='%c'", c);
 
         if (c == '\n') {
             ++m_ln_count;
@@ -2081,7 +2089,7 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigth
         exit(E_INPUT_ERROR);
     }
 
-    print("findBalancedRightCurlyBraceAndSkipToIt: '}' found at:%d, skipRigthCurlyBraceAlong:%d", (int)m_parse_pos, skipRigthCurlyBraceAlong);
+    print("'}' found at:%d, skipRigthCurlyBraceAlong:%d", (int)m_parse_pos, skipRigthCurlyBraceAlong);
     if (!skipRigthCurlyBraceAlong) {
         --m_parse_pos;          // restore '}', so parse get chance to process it
     }
@@ -2093,8 +2101,6 @@ bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigth
 }
 
 bool ArithmeticExpression::handleRightCurlyBrace() {
-    print("handleRightCurlyBrace");
-
     ++m_token_idx;
     ++m_stmt_count;
 
@@ -2141,49 +2147,60 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     // ...
     // check one by one
 
-    bool is_if_seq_block = false;
+    // NOTE: find context type to which current block's openning '{' belongs
+    int step = 0;
+    ContextType lcb_ctxt = m_ctxt_stack.top(step);
 
-    const int if_cond_key = m_lcb_count - 1;
-    if (m_stmt_if_cond.find(if_cond_key) != m_stmt_if_cond.end()) {
-        std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[if_cond_key];
-        is_if_seq_block = if_elif_conds.size() > 0;
+    // skip CTXT_BGN, CTXT_EXP
+    while (-1*step < m_ctxt_stack.count() && (lcb_ctxt == CTXT_BGN || lcb_ctxt == CTXT_EXP) ) {
+        --step;
+        lcb_ctxt = m_ctxt_stack.top(step);
     }
-    print("is_if_seq_block: %d", is_if_seq_block);
 
-    if (is_if_seq_block) {
+    if (-1*step == m_ctxt_stack.count()) {
+        error("no context type found for current balanced '{' belongs");
+        printErrorLocation();
+        exit(E_GRAMMAR);
+    }
+    print("lcb_ctxt: %s", getContextTypeStr(lcb_ctxt));
+
+    assert (lcb_ctxt == STMT_IF_BLOCK || lcb_ctxt == STMT_ELIF_BLOCK || lcb_ctxt == STMT_ELSE_BLOCK);
+
+    if (lcb_ctxt == STMT_IF_BLOCK || lcb_ctxt == STMT_ELIF_BLOCK || lcb_ctxt == STMT_ELSE_BLOCK) {
+        int if_cond_key = m_lcb_count - 1;
         std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[if_cond_key];
-        IfCond last = if_elif_conds[if_elif_conds.size()-1];
-        bool last_is_ending_if_seq = false;
+        IfCond last_cond = if_elif_conds[if_elif_conds.size()-1];
+        bool last_cond_is_ending_if_seq = false;
 
-        if (last.type == IF_COND_TYPE_IF || last.type == IF_COND_TYPE_ELIF) {
+        if (last_cond.type == IF_COND_TYPE_IF || last_cond.type == IF_COND_TYPE_ELIF) {
             std::string token = getNextToken();
-            print("handleRightCurlyBrace: next token:\"%s\"", token.c_str());
+            print("next token:\"%s\"", token.c_str());
             if (token == "elif" || token == "else") {
                 // keep m_stmt_if_cond and context stack for later use
             } else {
-                last_is_ending_if_seq = true;
+                last_cond_is_ending_if_seq = true;
             }
-        } else if (last.type == IF_COND_TYPE_ELSE) {
-            last_is_ending_if_seq = true;
+        } else if (last_cond.type == IF_COND_TYPE_ELSE) {
+            last_cond_is_ending_if_seq = true;
         } else {                // else
-            error("unsupported IfCond.t:%d, should not happen", last.type);
+            error("unsupported IfCond.t:%d, should not happen", last_cond.type);
             printErrorLocation();
             exit(E_SHOULD_NOT_HAPPEN);
         }
-        print("last_is_ending_if_seq: %d", last_is_ending_if_seq);
+        print("last_cond_is_ending_if_seq: %d", last_cond_is_ending_if_seq);
 
-        if (last_is_ending_if_seq) {
+        if (last_cond_is_ending_if_seq) {
             // clean m_stmt_if_cond
             m_stmt_if_cond.erase(if_cond_key);
 
             // clean context stack: pop to STMT_IF
             ContextType top;
             while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_IF) {
-                print("handleRightCurlyBrace: pop %s", getContextTypeStr(top));
+                print("pop %s", getContextTypeStr(top));
                 m_ctxt_stack.pop();
             }
             if ((top = m_ctxt_stack.top()) == STMT_IF) {
-                print("handleRightCurlyBrace: pop %s", getContextTypeStr(top));
+                print("pop %s", getContextTypeStr(top));
                 m_ctxt_stack.pop();
             }
         }
@@ -2192,7 +2209,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
     } else {
         ContextType ctxt = m_ctxt_stack.top();
-        print("handleRightCurlyBrace: ctxt: %s", getContextTypeStr(ctxt));
+        print("ctxt: %s", getContextTypeStr(ctxt));
 
         if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
             if (m_opd_stack.count() < 3) { // base + 2
@@ -2225,7 +2242,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
             goto handleRightCurlyBrace_common;
 
         } else {
-            warn("handleRightCurlyBrace: un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+            warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
             goto handleRightCurlyBrace_common;
         }
     }
@@ -2285,7 +2302,7 @@ bool ArithmeticExpression::handleColon() {
 
     // ++m_token_idx;
 
-    print("handleColon: expects '=' immediately");
+    print("expects '=' immediately");
     return true;
 }
 
@@ -2375,7 +2392,7 @@ std::string ArithmeticExpression::_2str(const Opd& item) {
 // NOTE: for easier maintainance, only modify m_opd_stack when calculating, *KEEP m_opr_stack STAY*.
 bool ArithmeticExpression::calculate(int opr)
 {
-    print("calculate: opr=<'%c',%d>", opr, opr);
+    print("opr=<'%c',%d>", opr, opr);
 
     if ( '(' == opr || ')' == opr || LOWEST_PRIO_OP == opr ) {
         print("do nothing for opr='<%c %d>'", opr, opr);
@@ -2388,7 +2405,7 @@ bool ArithmeticExpression::calculate(int opr)
         int fncmcnt = m_fncmcnt_stack.top();
         FunctionMeta fm = m_function_meta[fni];
 
-        print("calculate: fni=%d, fm.args_va=%d fm.args_count=%d fncmcnt=%d", fni, fm.args_va, fm.args_count, fncmcnt);
+        print("fni=%d, fm.args_va=%d fm.args_count=%d fncmcnt=%d", fni, fm.args_va, fm.args_count, fncmcnt);
 
         if (fm.args_va) {
             if (fncmcnt < fm.args_count-1) {
@@ -2807,7 +2824,7 @@ bool ArithmeticExpression::calculate(int opr)
 // }
 
 bool ArithmeticExpression::call(const std::string function_name) {
-    print("CALL: function_name = %s", function_name.c_str());
+    print("function_name = %s", function_name.c_str());
 
     if (m_function_map.find(function_name) == m_function_map.end()) {
         error("no such self-defined function: \"%s\"", function_name.c_str());
@@ -2884,7 +2901,7 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
     m_parse_pos = begin_pos;
 
     // print("parse \"%d %d %s\"", m_parse_pos, end_pos, m_arithmetic_expression.c_str());
-    print("PARSE: \"%.*s\"\n", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
+    print("\"%.*s\"\n", end_pos - m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
 
     while ( m_parse_pos < end_pos ) {
         const char *start = &m_arithmetic_expression[m_parse_pos];
@@ -2899,6 +2916,8 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
         }
 
         print("> \"%.*s\"", (int)(end - start), start);
+
+        print("c = '%c'", c);
 
         if ( ! handle(c) ) {
             error("failed to handle, "
@@ -2922,14 +2941,14 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
     }
     dia("parse:+");
 
-    return handleInputAllPassed();
+    return handleInputAllParsed();
 }
 
-bool ArithmeticExpression::handleInputAllPassed()
+bool ArithmeticExpression::handleInputAllParsed()
 {
     __print("\n");
 
-    dia("-:handleInputAllPassed");
+    dia("-:handleInputAllParsed");
 
     ContextType ctxt = m_ctxt_stack.top();
 
@@ -2939,12 +2958,12 @@ bool ArithmeticExpression::handleInputAllPassed()
         printErrorLocation();
         exit(E_GRAMMAR);
     default:
-        print("handleInputAllPassed ignore context type: %s", getContextTypeStr(ctxt));
+        print("ignore context type: %s", getContextTypeStr(ctxt));
         break;
     }
 
     if (!m_expect_char_types.empty()) {
-        dia("handleInputAllPassed");
+        dia("handleInputAllParsed");
         errornoln("all input parsed, but m_expect_char_types not empty, context = %s,", getContextTypeStr(ctxt));
         __error(" m_expect_char_types = [");
         for (const auto& item : m_expect_char_types) {
@@ -3008,7 +3027,7 @@ bool ArithmeticExpression::handleInputAllPassed()
     }
 
     print("m_opd_stack.count() = %d", m_opd_stack.count());
-    dia("-:handleInputAllPassed:1");
+    dia("-:handleInputAllParsed:1");
 
     ctxt = m_ctxt_stack.top();
 
@@ -3027,7 +3046,7 @@ bool ArithmeticExpression::handleInputAllPassed()
     }
 
     print("arithmetic expression successfully parsed");
-    dia("handleInputAllPassed:+");
+    dia("handleInputAllParsed:+");
 
     return true;
 }

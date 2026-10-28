@@ -211,7 +211,7 @@ private:
     bool handleDoubleQuote();
 
     bool handleAction(ActionType type, char c);
-    bool handleInputAllPassed();
+    bool handleInputAllParsed();
 
     bool calculate(int opr);
     bool call_old(const std::string);
