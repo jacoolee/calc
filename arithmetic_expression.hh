@@ -330,7 +330,7 @@ private:
     // The main design purpose of {} in C is to group statements into a block,
     // so they can be treated as a single unit of code.
 
-    std::unordered_map<std::string,double> m_pre_defined_idf_map;
+    std::unordered_map<std::string,double> m_pre_defined_scoped_idf_map;
 
     // record id's value
     // { idf: {block_depth: idf_value} }

@@ -170,13 +170,20 @@ hello world = print("hello world")
 
 # self-defined function
 
-in fn = function fn() {print("in fn");} fn();
+in f = function f() {print("in f");} f();
 
-123100 = function fn(a,b,c) {localvar=100; printf(a); printf(b); printf(c); printf(localvar); } fn(1,2,3) # passing arguments
+123100 = function f(a,b,c) {localvar=100; printf(a); printf(b); printf(c); printf(localvar); } f(1,2,3) # passing arguments
 
-9876543210 = function fn(n) { n=n-1; printf(n); if n > 0 { fn(n); }; } fn(10) # recursive
+9876543210 = function f(n) { n=n-1; printf(n); if n > 0 { f(n); }; } f(10) # recursive
 
 0123456789 = n=-1; function a() { n=n+1; if n<10 { printf(n); a(); } } a();
+
+1 = a=0; function f() {a=1;} f(); print(a);
+
+# function call with arguments
+
+a1 = function f(a) { printf("a"); print(a); } f(1);
+a1b2 = function f(a,b) { printf("a"); printf(a); printf("b"); printf(b); } f(1,2);
 
 # idf scope-declare (AE function depth scope + lcb scope with same AE depth)
 
