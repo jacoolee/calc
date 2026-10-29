@@ -1264,20 +1264,20 @@ bool ArithmeticExpression::handleAlpha(char _c)
     // process m_id_spc_occurred firstly
     do {
         if (m_id_spc_occurred) {
-            if (m_ctxt_stack.top() == FUNCTION_DEFINITION) { // function fnn
-                // ok
+            // avoid `idf idf`
+            ContextType ctxt = m_ctxt_stack.top();
+            if (ctxt == FUNCTION_DEFINITION) { // `function fnn`
                 break;
-            }
-            if (m_id == "else") {
-                error("identifer can not follow keyword: \"%s\"", m_id.c_str());
-                printErrorLocation();
-                exit(E_SYNTAX);
+            } else if (ctxt == STMT_IF || ctxt == STMT_IF_COND) { // `if var`
+                break;
+            } else if (ctxt == STMT_ELIF || ctxt == STMT_ELIF_COND) { // `elif var`
+                break;
+            } else {
             }
 
-            // error("space not allowed between alphas, current m_id:%s, m_id_spc_occurred: %d", m_id.c_str(), m_id_spc_occurred);
-            // printErrorLocation();
-            // exit(E_SYNTAX);
-
+            error("space not allowed between alphas, current ctxt:%s, m_id:%s, m_id_spc_occurred: %d", getContextTypeStr(ctxt), m_id.c_str(), m_id_spc_occurred);
+            printErrorLocation();
+            exit(E_SYNTAX);
         }
     } while (0);
 
