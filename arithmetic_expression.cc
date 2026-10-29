@@ -1121,6 +1121,8 @@ bool ArithmeticExpression::handleLeftParenthesis()
         return true;
 
     } else if (ctxt == STMT_ELIF) { // 'elif('
+        checkFollowingIforElif();
+
         m_ctxt_stack.push(STMT_ELIF_COND); // STMT_ELIF_COND is a special case of CTXT_EXP
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_EXM, CT_SPC}; // 'elif COND'
         m_state_next_certained = ST_BGN; // can get any chars to compose exp
@@ -1536,6 +1538,8 @@ bool ArithmeticExpression::handleSpace() {
         goto handleSpace_common;
 
     } else if (ctxt == STMT_ELIF) {
+        checkFollowingIforElif();
+
         m_ctxt_stack.push(STMT_ELIF_COND); // STMT_ELIF_COND is a special case of CTXT_EXP
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_EXM, CT_SPC}; // 'elif COND'
         m_state_next_certained = ST_BGN; // can get any chars to compose exp
@@ -1854,6 +1858,18 @@ bool ArithmeticExpression::handleExclamation() {
 
     // TODO: handleExclamation is useless, use handleOperator directly
     return handleOperator('!');
+}
+
+void ArithmeticExpression::checkFollowingIforElif() {
+    if (m_stmt_if_cond.find(m_lcb_count) == m_stmt_if_cond.end()) {
+        m_stmt_if_cond[m_lcb_count] = {};
+    }
+    std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[m_lcb_count];
+    if (if_elif_conds.size() == 0) {
+        error("`elif` statement must follow `if` statement");
+        printErrorLocation();
+        exit(E_GRAMMAR);
+    }
 }
 
 bool ArithmeticExpression::handleLeftCurlyBrace() {

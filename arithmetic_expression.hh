@@ -220,6 +220,8 @@ private:
     double getIdfValue(const std::string& idf);
     void assignValueToIdf(const std::string& idf, double value, bool scoped);
 
+    void checkFollowingIforElif();
+
     int fnn2fni(const std::string& fnn);
     std::string fni2fnn(const int fni);
 
