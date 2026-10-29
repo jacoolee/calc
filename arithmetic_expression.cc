@@ -124,7 +124,8 @@ ArithmeticExpression::ArithmeticExpression(
     // FIXME: [2026-10-27] idf store should be global, so nested code can re-assign value to global var
     // one way it to can use setMeta to use referer, or use global var directly.
     m_idf_map = idf_map;
-    m_pre_defined_scoped_idf_map = pre_defined_idf_map;
+    m_idf_pre_defined_scoped_map = pre_defined_idf_map;
+    m_idf_outer_scope_reassigned_map = {};
 
     g_print_enable = print_enable;
     print("g_print_enable: %d", g_print_enable);
@@ -494,8 +495,14 @@ void ArithmeticExpression::dia(const std::string& marker="") {
             __print("");
         }
 
-        __print(" m_pre_defined_scoped_idf_map={");
-        for (const auto& item : m_pre_defined_scoped_idf_map) {
+        __print(" m_idf_pre_defined_scoped_map={");
+        for (const auto& item : m_idf_pre_defined_scoped_map) {
+            __print("%s=%g,", item.first.c_str(), item.second);
+        }
+        __print("}");
+
+        __print(" m_idf_outer_scope_reassigned_map={");
+        for (const auto& item : m_idf_outer_scope_reassigned_map) {
             __print("%s=%g,", item.first.c_str(), item.second);
         }
         __print("}");
@@ -774,10 +781,15 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
             assign_success = true;
 
         } else {                // overwrite/re-use ancient scope if exists
-            for (int i=m_depth + m_lcb_count; i>=0; --i) {
+            int scope = m_depth + m_lcb_count;
+            for (int i=scope; i>=0; --i) {
                 if (dv.find(i) != dv.end()) { // found
                     dv[i] = value;
                     assign_success = true;
+                    if (i < scope) { // is outer scope
+                        print("reassign: %s = %g, scope:%d", idf.c_str(), value, scope);
+                        m_idf_outer_scope_reassigned_map[idf] = value; // always update
+                    }
                     break;
                 }
             }
@@ -795,11 +807,11 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
             idf1map[idf] = 1;
             m_idf_scope_declared[m_depth + m_lcb_count] = idf1map;
 
-        } else {            // scope has idf scope-declared
+        } else {            // been scope-declared
             std::unordered_map<std::string,int>& idf1map = m_idf_scope_declared[m_depth + m_lcb_count];
             if (idf1map.find(idf) != idf1map.end()) {
                 // for better debugging to separate functions arguments from scope declare
-                if (m_pre_defined_scoped_idf_map.find(idf) != m_pre_defined_scoped_idf_map.end()) {
+                if (m_idf_pre_defined_scoped_map.find(idf) != m_idf_pre_defined_scoped_map.end()) {
                     bool is_in_function_call = false;
                     int step = 0;
                     while (-1*step < m_ctxt_stack.count()) {
@@ -1945,11 +1957,10 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
     } else if (ctxt == FUNCTION_CALL) {
         // NOTE: no exp before this context pos needed to evaluate, so process immediately
-
-        print("now, we are in block of called function, merge m_pre_defined_scoped_idf_map into m_idf_map");
         dia("FUNCTION_CALL");
+        print("now, we are in block of called function, merge m_idf_pre_defined_scoped_map into m_idf_map");
 
-        // NOTE: m_pre_defined_scoped_idf_map will be treated as local variables, mainly for
+        // NOTE: m_idf_pre_defined_scoped_map will be treated as local variables, mainly for
         // passing function arguments which need treated as local vars
         //
         // `function f(a,b) {}`
@@ -1968,10 +1979,10 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         // scope so assignValueToIdf works as expected.
         ++m_lcb_count;
 
-        for (const auto& item : m_pre_defined_scoped_idf_map) {
+        for (const auto& item : m_idf_pre_defined_scoped_map) {
             assignValueToIdf(item.first, item.second, true); // :=
         }
-        dia("after merge");
+        dia("after idf pre defined scoped map merge");
 
         pushContextBGN();
         m_state_next_certained = ST_BGN;
@@ -3032,6 +3043,14 @@ bool ArithmeticExpression::call(const std::string function_name) {
     if (! fnblock.parse(begin, end)) {
         exit(E_EVALUATE);
     }
+
+    print("merge fnblock's outer scope reassigned map to caller's m_idf_map");
+    std::unordered_map<std::string,double>& m = fnblock.getIdfOuterScopeReassignedMap();
+    for (const auto& item : m) {
+        assignValueToIdf(item.first, item.second, false);
+    }
+    dia("after outer scope reassigned map merge");
+
     --g_depth;
     return true;
 }

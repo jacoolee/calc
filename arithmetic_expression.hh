@@ -274,6 +274,10 @@ private:
         return m_idf_map;
     }
 
+    std::unordered_map<std::string,double>& getIdfOuterScopeReassignedMap() {
+        return m_idf_outer_scope_reassigned_map;
+    }
+
     std::unordered_map<int, std::unordered_map<std::string,int>>& getIdfScopeDeclared() {
         return m_idf_scope_declared;
     }
@@ -332,7 +336,12 @@ private:
     // The main design purpose of {} in C is to group statements into a block,
     // so they can be treated as a single unit of code.
 
-    std::unordered_map<std::string,double> m_pre_defined_scoped_idf_map;
+    // NOTE: instead of using global var to record idf stuff, self-maintain class member is more
+    // scope-friedly, without global state management headache, esp. for `function call`, `eval`
+    // and other cases, this is prefered even with the cost of using more memory.
+
+    // mainly used for passing function arguments when do function call
+    std::unordered_map<std::string,double> m_idf_pre_defined_scoped_map;
 
     // record id's value
     // { idf: {block_depth: idf_value} }
@@ -340,7 +349,11 @@ private:
     // record redeclared idf in block_depth, used for clear m_idf_map
     // { block_depth: { idf: 1 }}
     // NOTE: use {idf: 1} instead of [idf1, idf2] for simplicity and performance
+    // value is marker: 1 - yes, 0 - no
     std::unordered_map<int, std::unordered_map<std::string,int>> m_idf_scope_declared;
+    // used for record value of reassigned outer scope idf, to merge into outer m_idf_map,
+    // mainly used for function call
+    std::unordered_map<std::string,double> m_idf_outer_scope_reassigned_map;
 
     // FIXME: [2026-10-22] m_ctxt should be a stack for nested contexts,
     // so better grammar checking can be supported
