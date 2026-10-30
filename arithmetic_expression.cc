@@ -14,8 +14,7 @@
 #define E_SYNTAX 20         // parse error
 #define E_GRAMMAR 30        // language rule error
 #define E_EVALUATE 50       // evaluating error
-#define E_OTHER 99          // other undefined error
-
+#define E_RUN 89
 #define E_SHOULD_NOT_HAPPEN 99
 
 #define print(...)                                                      \
@@ -1287,9 +1286,12 @@ bool ArithmeticExpression::handleAlpha(char _c)
             } else {
             }
 
-            error("space not allowed between alphas, current ctxt:%s, m_id:%s, m_id_spc_occurred: %d", getContextTypeStr(ctxt), m_id.c_str(), m_id_spc_occurred);
-            printErrorLocation();
-            exit(E_SYNTAX);
+            Opd opd = m_opd_stack.top();
+            if (opd.type == OPD_IDF && opd.token_idx == m_token_idx-1) {
+                error("space not allowed between alphas, current ctxt:%s, m_id:%s, m_id_spc_occurred: %d", getContextTypeStr(ctxt), m_id.c_str(), m_id_spc_occurred);
+                printErrorLocation();
+                exit(E_SYNTAX);
+            }
         }
     } while (0);
 
@@ -2552,8 +2554,11 @@ std::string ArithmeticExpression::_2idf(const Opd& item) {
 }
 
 double ArithmeticExpression::_2num(const Opd& item) {
-    assert(_isnum(item));
-    return item.num;
+    if (_isidf(item)) return getIdfValue(item.str);
+    if (_isnum(item)) return item.num;
+    error("unsupported type:%d found for _2num", item.type);
+    printErrorLocation();
+    exit(E_RUN);
 }
 
 std::string ArithmeticExpression::_2str(const Opd& item) {
