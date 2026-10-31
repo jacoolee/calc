@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+script_file=${BASH_SOURCE[0]}
+script_root=$(cd $(dirname "${script_file}") && pwd)
+
 # set -x
 
 Green='\033[0;32m'
@@ -29,7 +32,7 @@ while read -r l; do
 
         v=$(echo "$l" | cut -d'=' -f1)
         e=$(echo "$l" | cut -d'=' -f2- | cut -d'#' -f1)
-        v2=$(../calc "$e" ${2} 2>/tmp/testcase.${n}.err)
+        v2=$("${script_root}"/../calc "$e" ${2} 2>/tmp/testcase.${n}.err)
         rc=$?
 
         if [ $rc -eq 0 ]; then
@@ -62,7 +65,7 @@ while read -r l; do
 
         fi
     fi
-done < testcase.txt
+done < "${script_root}"/testcase.txt
 
 echo
 echo "${ntotal} total, ${npass} pass, ${notpass} not pass, ${nerror} error"

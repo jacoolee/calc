@@ -1035,8 +1035,8 @@ bool ArithmeticExpression::handleNum()
         return true;
 
     } else if (ctxt == FUNCTION_RETURN_VALUE) {
-        // num is sufficient for return cond, so expect ';', exclude ',', '{'
-        m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_SPC, CT_SMC, CT_RCB};
+        // num is sufficient for return cond, so expect ';', exclude '{'
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_SPC, CT_SMC, CT_CMA, CT_RCB};
         return true;
 
     } else {
@@ -1575,13 +1575,13 @@ bool ArithmeticExpression::handleAlpha(char _c)
         }
         return true;
 
-    } else if (ctxt == FUNCTION_RETURN_VALUE) { // exclude ',', '{', '}'
+    } else if (ctxt == FUNCTION_RETURN_VALUE) { // exclude '{'
         if (getNextNonSpcChar() == '(') {
             pushOpdIdf(m_id);
         } else {
             pushOpdIdfValue(m_id);
         }
-        m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_SPC, CT_SMC};
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_SPC, CT_SMC, CT_CMA, CT_RCB};
         return true;
 
     } else {
@@ -1653,8 +1653,8 @@ bool ArithmeticExpression::handleSpace() {
 
     } else if (ctxt == FUNCTION_RETURN) {
         m_ctxt_stack.push(FUNCTION_RETURN_VALUE); // FUNCTION_RETURN_VALUE is a special case of CTXT_EXP
-        // 'return exp' or 'return ;', exclude ',', '{', '}'
-        m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_SPC, CT_SMC};
+        // 'return exp' or 'return ;', exclude '{'
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_SPC, CT_SMC, CT_CMA, CT_RCB};
         m_state_next_certained = ST_BGN; // can get any chars to compose exp
         goto handleSpace_common;
 
@@ -1711,11 +1711,13 @@ bool ArithmeticExpression::handleComma() {
         handleError();
         exit(E_SYNTAX);
     }
+
     if (m_fncmcnt_stack.empty()) {
         error("comma can only be used as function argumet separator");
         return false;
     }
     m_fncmcnt_stack.push(m_fncmcnt_stack.pop() + 1);
+
     return true;
 }
 
@@ -2698,24 +2700,25 @@ bool ArithmeticExpression::calculate(int opr)
     if ('f' == opr) {
         print("opr is 'f'");
         int fni = m_opr_stack.top(-1).v; // get fni
+
         int fncmcnt = m_fncmcnt_stack.top();
-        FunctionMeta fm = m_function_meta[fni];
+        // FunctionMeta fm = m_function_meta[fni];
 
-        print("fni=%d, fm.args_va=%d fm.args_count=%d fncmcnt=%d", fni, fm.args_va, fm.args_count, fncmcnt);
+        // print("fni=%d, fm.args_va=%d fm.args_count=%d fncmcnt=%d", fni, fm.args_va, fm.args_count, fncmcnt);
 
-        if (fm.args_va) {
-            if (fncmcnt < fm.args_count-1) {
-                error("function: '%s' expect at least %d arguments, while %d given. (fncmcnt=%d)", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
-                printErrorLocation();
-                exit(E_GRAMMAR);
-            }
-        } else {
-            if (fncmcnt != fm.args_count-1) {
-                error("function: '%s' expect %d arguments, while %d given. (fncmcnt=%d)", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
-                printErrorLocation();
-                exit(E_GRAMMAR);
-            }
-        }
+        // if (fm.args_va) {
+        //     if (fncmcnt < fm.args_count-1) {
+        //         error("function: '%s' expect at least %d arguments, while %d given. (fncmcnt=%d)", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
+        //         printErrorLocation();
+        //         exit(E_GRAMMAR);
+        //     }
+        // } else {
+        //     if (fncmcnt != fm.args_count-1) {
+        //         error("function: '%s' expect %d arguments, while %d given. (fncmcnt=%d)", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
+        //         printErrorLocation();
+        //         exit(E_GRAMMAR);
+        //     }
+        // }
 
         switch(fni) {
 
@@ -2999,7 +3002,7 @@ bool ArithmeticExpression::calculate(int opr)
         }
 
         // NOTE: always pop when fn has successfully been processed
-        m_fncmcnt_stack.pop();
+        // m_fncmcnt_stack.pop();
         return true;
     } else if ('F' == opr) {
         int exec_begin = m_opr_stack.top(-1).v; // function exec_begin
