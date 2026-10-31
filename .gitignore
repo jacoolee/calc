@@ -1,3 +1,4 @@
 calc
 *.o
 cscope.out
+.DS_Store
