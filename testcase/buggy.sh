@@ -19,7 +19,7 @@ cat buggy.txt | while read i; do
         echo $i
     else
         e=$(echo "$i" | cut -d'#' -f1)
-        x=$(./calc "$e" $2 2> /tmp/buggy.${n}.err)
+        x=$(../calc "$e" $2 2> /tmp/buggy.${n}.err)
         if [ $? -eq 0 ]; then
             echo -e "${Green}PASS:$n${Color_Off} $i"
         else

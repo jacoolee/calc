@@ -29,7 +29,7 @@ while read -r l; do
 
         v=$(echo "$l" | cut -d'=' -f1)
         e=$(echo "$l" | cut -d'=' -f2- | cut -d'#' -f1)
-        v2=$(./calc "$e" ${2} 2>/tmp/testcase.${n}.err)
+        v2=$(../calc "$e" ${2} 2>/tmp/testcase.${n}.err)
         rc=$?
 
         if [ $rc -eq 0 ]; then
