@@ -40,7 +40,8 @@ enum ContextType {
 
     STMT_DECLARE_ASSIGN,
     STMT_DECLARE_ASSIGN_VALUE,
-    STMT_SCOPE_DECLARE_ASSIGN,
+
+    STMT_SCOPE_DECLARE_ASSIGN,  // TODO
 
     STMT_IF,                    // keyword
     STMT_IF_COND,
@@ -57,6 +58,10 @@ enum ContextType {
     FUNCTION_ARGS,
     FUNCTION_BLOCK,
     FUNCTION_CALL,
+
+    FUNCTION_RETURN,
+    FUNCTION_RETURN_VALUE,
+
 };
 
 inline const char* getOpdTypeStr(OpdType t) {
@@ -99,6 +104,9 @@ inline const char* getContextTypeStr(ContextType t)
     case FUNCTION_ARGS: return "FUNCTION_ARGS";
     case FUNCTION_BLOCK: return "FUNCTION_BLOCK";
     case FUNCTION_CALL: return "FUNCTION_CALL";
+
+    case FUNCTION_RETURN: return "FUNCTION_RETURN";
+    case FUNCTION_RETURN_VALUE: return "FUNCTION_RETURN_VALUE";
 
     default: {
         fprintf(stderr, "error: getContextTypeStr unsupported contextType: %d\n", (int)t);

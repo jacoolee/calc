@@ -73,5 +73,26 @@ int main(int argc, char *argv[])
     ArithmeticExpression ari_exp(str, 0, 0, {}, {}, CTXT_BGN, debug);
     ari_exp.parse();
 
+    if (debug) {
+        Opd *return_value_ptr = ari_exp.getReturnValuePtr();
+        if (return_value_ptr != NULL) {
+            fprintf(stderr, "\n%s:%d:1: note: *return_value_ptr=(%d,%d,%s,%g,\"%s\")\n",
+                    __FILE__,
+                    __LINE__,
+                    return_value_ptr->token_idx,
+                    return_value_ptr->stmt_count,
+                    getOpdTypeStr(return_value_ptr->type),
+                    return_value_ptr->num,
+                    return_value_ptr->str.c_str()
+                );
+        } else {
+            fprintf(stderr, "\n%s:%d:1: note: no return value\n",
+                    __FILE__,
+                    __LINE__
+                );
+        }
+    }
+
+
     return 0;
 }

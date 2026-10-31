@@ -160,6 +160,12 @@ enum FNN
 #define IF_COND_TYPE_ELSE 2
 
 typedef struct {
+    int exec_begin;
+    int exec_end;
+    std::vector<std::string> args;
+} FunctionDeclare;
+
+typedef struct {
     int type;                      // 0-if, 1-elif, 2-else
     int value;                      // 0,1
 } IfCond;
@@ -184,6 +190,14 @@ public:
     }
     const std::string& getArithmeticExpression() const {
         return m_arithmetic_expression;
+    }
+
+    bool returnStatementExists() {
+        return m_return_stmt_exists;
+    }
+
+    Opd* getReturnValuePtr() const {
+        return m_return_value_ptr;
     }
 
     // bool getExpressionValue(double &val) const;
@@ -262,12 +276,12 @@ private:
     double _2num(const Opd& item);
     std::string _2str(const Opd& item);
 
-    std::unordered_map<std::string,std::array<int,2>>& getFunctionMap() {
-        return m_function_map;
+    std::unordered_map<std::string,FunctionDeclare>& getFunctionDeclareMap() {
+        return m_function_declare_map;
     }
 
-    std::unordered_map<int,std::string>& getFunctionExecPosNameMap() {
-        return m_function_exec_pos_name_map;
+    std::unordered_map<int,std::string>& getFunctionDeclareExecBeginNameMap() {
+        return m_function_declare_exec_begin_name_map;
     }
 
     std::unordered_map<std::string,std::unordered_map<int,double>>& getIdfMap() {
@@ -283,7 +297,7 @@ private:
     }
 
     void setMeta(
-        std::unordered_map<std::string,std::array<int,2>>&,
+        std::unordered_map<std::string,FunctionDeclare>&,
         std::unordered_map<int,std::string>&,
         std::unordered_map<int, std::unordered_map<std::string,int>>&
         );
@@ -320,12 +334,10 @@ private:
 
     Stack<int> m_fncmcnt_stack;
 
-    std::string m_function_name;
-    std::unordered_map<std::string,std::array<int,2>> m_function_map;
-    std::unordered_map<int,std::string> m_function_exec_pos_name_map;
-
-    // FIXME: should merge m_function_args into m_function_map to support function in function
-    std::vector<std::string> m_function_args;
+    std::string m_function_declare_cur_name; // temporary for faster accessing
+    std::vector<std::string> m_function_declare_cur_argidfs; // temporary for faster accessing
+    std::unordered_map<std::string,FunctionDeclare> m_function_declare_map;
+    std::unordered_map<int,std::string> m_function_declare_exec_begin_name_map;
 
     std::vector<CharType> m_expect_char_types;
 
@@ -354,6 +366,9 @@ private:
     // used for record value of reassigned outer scope idf, to merge into outer m_idf_map,
     // mainly used for function call
     std::unordered_map<std::string,double> m_idf_outer_scope_reassigned_map;
+
+    bool m_return_stmt_exists = true;
+    Opd *m_return_value_ptr = NULL;
 
     // FIXME: [2026-10-22] m_ctxt should be a stack for nested contexts,
     // so better grammar checking can be supported
@@ -384,6 +399,7 @@ private:
     } CharTypeInfo;
     static CharTypeInfo m_char_type_info[CT_UPPER+1];
 
+    // main for built-in function
     typedef struct {
         const char* name;
         const int args_count;
