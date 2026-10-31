@@ -23,112 +23,144 @@ $ ./calc 'fabs((-5 + (-00.01 - 0.09) * 10 ^ 2) / 5)'
 ```
 # basic
 
-7   = 1 + 2 * 3
-9   = (1 + 2) * 3
--4  = -2^2                   # conventional math precedence
-4   = (-2)^2
-0.3 = 0.1 + 0.2
-8   = 2^3
-512 = 2^3^2                  # right-associative ^
-64  = (2^3)^2
--3  = (-5 + (-0.01 - 0.09) * 10^2) / 5
--4  = 1 - 2 - 3
-1   = 10 / 2 / 5
-50  = 2 + 3 * 4^2
-80  = (2 + 3) * 4^2
+7   = print( 1 + 2 * 3 )
+9   = print( (1 + 2) * 3 )
+-4  = print( -2^2 )                   # conventional math precedence
+4   = print( (-2)^2 )
+0.3 = print( 0.1 + 0.2 )
+8   = print( 2^3 )
+512 = print( 2^3^2 )                  # right-associative ^
+64  = print( (2^3)^2 )
+-3  = print( (-5 + (-0.01 - 0.09) * 10^2) / 5 )
+-4  = print( 1 - 2 - 3 )
+1   = print( 10 / 2 / 5 )
+50  = print( 2 + 3 * 4^2)
+80  = print( (2 + 3) * 4^2)
 
 # fn
 
-6   = sqrt(ceil(5.1) + floor(10.2 * 3))
-6   = fabs(-1 * sqrt(ceil(5.1) + floor(10.2 * 3)))
+6   = print( sqrt(ceil(5.1) + floor(10.2 * 3)) )
+6   = print( fabs(-1 * sqrt(ceil(5.1) + floor(10.2 * 3))) )
 
 # fn args
 
-3   = fmax(2,3)
-3   = fmax(fmin(5,1), fmax(0,3))
-6   = fmax(floor(5.1), fmin(ceil(5.1), 7))
+3   = print( fmax(2,3) )
+3   = print( fmax(fmin(5,1), fmax(0,3)) )
+6   = print( fmax(floor(5.1), fmin(ceil(5.1), 7)) )
 
 # fn variable args
 
-7   = max(6,7)
-7   = max(1,2,3,4,5,6,7)
+7   = print( max(6,7) )
+7   = print( max(1,2,3,4,5,6,7) )
 
-1   = min(1,2)
-1   = min(1,2,3,4,5,6,7)
+1   = print( min(1,2) )
+1   = print( min(1,2,3,4,5,6,7) )
 
 # opd compare opd
 
-1   = 2 > 1
-0   = 2 > 2
-0   = 2 > 3
+1   = print( 2 > 1 )
+0   = print( 2 > 2 )
+0   = print( 2 > 3 )
 
-0   = 2 < 1
-0   = 2 < 2
-1   = 2 < 3
+0   = print( 2 < 1 )
+0   = print( 2 < 2 )
+1   = print( 2 < 3 )
 
-1   = 2 == 2
+1   = print( 2 == 2 )
 
 # ...) compare opd
 
-1   = (1+1) > 1
-0   = (1+1) > 2
-0   = (1+1) > 3
+1   = print( (1+1) > 1 )
+0   = print( (1+1) > 2 )
+0   = print( (1+1) > 3 )
 
-0   = (1+1) < 1
-0   = (1+1) < 2
-1   = (1+1) < 3
+0   = print( (1+1) < 1 )
+0   = print( (1+1) < 2 )
+1   = print( (1+1) < 3 )
 
-1   = (1+1) == 2
+1   = print( (1+1) == 2 )
 
 # id compare opd
 
-1   = x=2; x > 1
-0   = x=2; x > 2
-0   = x=2; x > 3
+1   = x=2; print( x > 1 )
+0   = x=2; print( x > 2 )
+0   = x=2; print( x > 3 )
 
-0   = x=2; x < 1
-0   = x=2; x < 2
-1   = x=2; x < 3
+0   = x=2; print( x < 1 )
+0   = x=2; print( x < 2 )
+1   = x=2; print( x < 3 )
 
-1   = x=2; x == 2
+1   = x=2; print( x == 2 )
 
 # nested compare
 
-1 = (3>2) == 1 == 1
-0 = (3>2) == 1 == 0
+1 = print( (3>2) == 1 == 1 )
+0 = print( (3>2) == 1 == 0 )
 
 # ! logical NOT
 
-1 = !0
-0 = !1
-0 = !9
+1 = print( !0 )
+0 = print( !1 )
+0 = print( !9 )
 
-0 = !!0
-1 = !!1
-1 = !!9
+0 = print( !!0 )
+1 = print( !!1 )
+1 = print( !!9 )
 
-0 = (!(!0))
-1 = (!(!1))
-1 = (!(!9))
+0 = print( (!(!0)) )
+1 = print( (!(!1)) )
+1 = print( (!(!9)) )
 
--1 = -!0
--0 = -!1
+-1 = print( -!0 )
+-0 = print( -!1 )
 
-1 = !-0
-0 = !-1
-0 = !-9
+1 = print( !-0 )
+0 = print( !-1 )
+0 = print( !-9 )
 
-7 = x=3; 7 + !x;
-8 = x=3; 7 + !!x;
+7 = x=3; print(7 + !x);
+8 = x=3; print(7 + !!x);
 
 # cmp
 
-2 = cmp(1,2,3)
-3 = cmp(0,2,3)
+2 = print( cmp(1,2,3) )
+3 = print( cmp(0,2,3) )
 
-6 = x1 = 1; x2 = 2; y=cmp(x1 < x2, 6, 9); y;
-9 = x1 = 1; x2 = 2; y=cmp(x1 > x2, 6, 9); y;
+6 = x1 = 1; x2 = 2; y=cmp(x1 < x2, 6, 9); print(y);
+9 = x1 = 1; x2 = 2; y=cmp(x1 > x2, 6, 9); print(y);
 
-9 = x1 = 1; x2 = 2; y=cmp(x1 == x2, 6, 9); y;
-6 = x1 = 1; x2 = 2; y=cmp(!(x1 == x2), 6, 9); y;
+9 = x1 = 1; x2 = 2; y=cmp(x1 == x2, 6, 9); print(y);
+6 = x1 = 1; x2 = 2; y=cmp(!(x1 == x2), 6, 9); print(y);
+
+# and, or
+
+1 = print( 1 && 1 )
+0 = print( 1 && 0 )
+0 = print( 0 && 1 )
+0 = print( 0 && 0 )
+
+1 = print( 1 || 1 )
+1 = print( 1 || 0 )
+1 = print( 0 || 1 )
+0 = print( 0 || 0 )
+
+1 = print( 3>1 && 3<1 || 1 )
+0 = print( 3>1 && 3<1 && 1 )
+
+# if, elif (multiple), else
+
+0 = x=0; r=0; if x { r=2; } print(r);
+2 = x=1; r=0; if x { r=2; } print(r);
+
+2 = x=0; r=0; if !x { r=2; } print(r);
+0 = x=1; r=0; if !x { r=2; } print(r);
+
+2 = x=1; r=0; if x > 0 { r=2; } else { r=3; } print(r);
+2 = x=0; r=0; if x == 0 { r=2; } else { r=3; } print(r);
+3 = x=0; r=0; if x < 0 { r=2; } else { r=3; } print(r);
+
+1 = x=0; if 1 {x=1;} elif 1 {x=2;} elif 1 {x=3;} else {x=4;} print(x);
+2 = x=0; if 0 {x=1;} elif 1 {x=2;} elif 1 {x=3;} else {x=4;} print(x);
+3 = x=0; if 0 {x=1;} elif 0 {x=2;} elif 1 {x=3;} else {x=4;} print(x);
+4 = x=0; if 0 {x=1;} elif 0 {x=2;} elif 0 {x=3;} else {x=4;} print(x);
 ```
