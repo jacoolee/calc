@@ -1,11 +1,9 @@
 # calc
 
-![](./state_transition.png)
-
 ## Usage
 
 ```bash
-$ ./calc 'fabs((-5 + (-00.01 - 0.09) * 10 ^ 2) / 5)'
+$ ./calc 'print( fabs((-5 + (-00.01 - 0.09) * 10 ^ 2) / 5) )'
 3
 ```
 
@@ -164,3 +162,5 @@ $ ./calc 'fabs((-5 + (-00.01 - 0.09) * 10 ^ 2) / 5)'
 3 = x=0; if 0 {x=1;} elif 0 {x=2;} elif 1 {x=3;} else {x=4;} print(x);
 4 = x=0; if 0 {x=1;} elif 0 {x=2;} elif 0 {x=3;} else {x=4;} print(x);
 ```
+
+Check out [./testcase](./testcase) for more examples.
