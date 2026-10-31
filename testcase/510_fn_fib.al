@@ -5,7 +5,7 @@ function fib(n) {
     return fib(n-1) + fib(n-2);
 }
 
-n = 20;
+n = 30;
 r = fib(n);
 
 printf("fib(");
