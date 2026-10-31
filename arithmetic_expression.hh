@@ -472,7 +472,7 @@ private:
     bool findBalancedRightCurlyBraceAndSkipToIt(bool skipRigthCurlyBraceAlong=false);
     void printErrorLocation();
 
-    char getNextNonSpcChar();
+    char nextChar(bool skipWhitespace=true);
     std::string getNextToken();
 
     void pushOpr(int);

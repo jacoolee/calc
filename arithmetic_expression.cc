@@ -1302,12 +1302,13 @@ std::string ArithmeticExpression::getNextToken() {
     }
 }
 
-char ArithmeticExpression::getNextNonSpcChar() {
+char ArithmeticExpression::nextChar(bool skipWhitespace) {
     int i = m_parse_pos;
-    int size = m_arithmetic_expression.size();
-    while(++i < size)
+    while(++i < m_arithmetic_expression.size()) {
+        if (!skipWhitespace) return m_arithmetic_expression[i];
         if (m_arithmetic_expression[i] != ' ')
             return m_arithmetic_expression[i];
+    }
     return '\0';
 }
 
@@ -1498,7 +1499,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
             exit(E_GRAMMAR);
         }
 
-        if (getNextNonSpcChar() == '(') {
+        if (nextChar() == '(') {
             pushOpdIdf(m_id);
         } else {
             pushOpdIdfValue(m_id);
@@ -1523,8 +1524,8 @@ bool ArithmeticExpression::handleAlpha(char _c)
         // TODO: m_id here can not be following keywords:
         // if elif else function
 
-        print("'%c'", getNextNonSpcChar());
-        if (getNextNonSpcChar() == '(') {
+        print("'%c'", nextChar());
+        if (nextChar() == '(') {
             pushOpdIdf(m_id);
         } else {
             pushOpdIdfValue(m_id);
@@ -1535,8 +1536,8 @@ bool ArithmeticExpression::handleAlpha(char _c)
         return true;
 
     } else if (ctxt == STMT_ELIF_COND) { // STMT_ELIF_COND is a special case of CTXT_EXP
-        print("'%c'", getNextNonSpcChar());
-        if (getNextNonSpcChar() == '(') {
+        print("'%c'", nextChar());
+        if (nextChar() == '(') {
             pushOpdIdf(m_id);
         } else {
             pushOpdIdfValue(m_id);
@@ -1558,7 +1559,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
         return true;
 
     } else if (ctxt == STMT_DECLARE_ASSIGN) {
-        if (getNextNonSpcChar() == '(') {
+        if (nextChar() == '(') {
             pushOpdIdf(m_id);
         } else {
             pushOpdIdfValue(m_id);
@@ -1568,7 +1569,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
         return true;
 
     } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
-        if (getNextNonSpcChar() == '(') {
+        if (nextChar() == '(') {
             pushOpdIdf(m_id);
         } else {
             pushOpdIdfValue(m_id);
@@ -1576,7 +1577,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
         return true;
 
     } else if (ctxt == FUNCTION_RETURN_VALUE) { // exclude '{'
-        if (getNextNonSpcChar() == '(') {
+        if (nextChar() == '(') {
             pushOpdIdf(m_id);
         } else {
             pushOpdIdfValue(m_id);
@@ -2594,7 +2595,7 @@ handleRightCurlyBrace_common:
 }
 
 bool ArithmeticExpression::handleColon() {
-    if (getNextNonSpcChar() == '=') return true;
+    if (nextChar(false) == '=') return true;
     error("':' only allow be part of `:=`");
     printErrorLocation();
     exit(E_GRAMMAR);
