@@ -154,7 +154,7 @@ public:
             exit(-1);
         }
 
-        if (m_print_enable) {
+        if (m_print_log_level & 1024) {
             fprintf(stderr, "*** %s.pop ...", m_name.c_str());
             printStackItem(m_tunk[m_sp]);
             fprintf(stderr, "\n");
@@ -179,8 +179,8 @@ public:
         m_name = name;
     }
 
-    void setPrintEnable(bool enable) {
-        m_print_enable = enable;
+    void setPrintEnable(int log_level) {
+        m_print_log_level = log_level;
     }
 
 protected:
@@ -194,7 +194,7 @@ private:
     std::vector<T> m_tunk;
     int m_sp;
     std::string m_name="";
-    bool m_print_enable = false;
+    int m_print_log_level = 0;
 };
 
 template<class T>
@@ -296,7 +296,7 @@ enum ActionType
 };
 
 // TODO: convert +-*/^ into fnn too, so we can use state-like StateInfo to manage a->b/b->a conversion.
-// TODO: to bind argument count for function, so can used paired up with m_fncmcnt_stack,
+// TODO: to bind argument count for function, so can used paired up with m_fnargscnt_stack,
 //       for more ux-friendly, eg. error out for case that wrong count of comma been
 //       used for function.
 enum FNN
@@ -383,6 +383,8 @@ typedef struct {
 } FunctionDeclare;
 
 typedef struct {
+    int ukey;
+    std::string jz_label;
     int type;                      // 0-if, 1-elif, 2-else
     int value;                      // 0,1
 } IfCond;
@@ -397,7 +399,7 @@ public:
         std::unordered_map<std::string,std::unordered_map<int,double>>, // copy
         std::unordered_map<std::string,double> pre_defined_idf_map, // copy
         ContextType contextType,
-        int print_enable
+        int print_log_level
         );
     ~ArithmeticExpression() {}
 
@@ -424,6 +426,7 @@ private:
     bool handleNone();
     bool handleFlag(char flag);
     void handleError();
+    void handleComment();
     bool handleOperator(char opr);
     bool handleNum();
     bool handleLeftParenthesis();
@@ -458,7 +461,7 @@ private:
 
     void syntax(ContextType);
     void dia(const std::string& marker);
-    void appendToRpnExpression(char c);
+    void appendToRpnExpression(std::string item);
 
     bool isOnTerminalState() const;
     bool isCharTypeExpected(CharType type);
@@ -473,14 +476,14 @@ private:
     void printErrorLocation();
 
     char nextChar(bool skipWhitespace=true);
-    std::string getNextToken();
+    std::string nextToken();
 
     void pushOpr(int);
 
-    void pushOpdIdf(std::string idf);
-    void pushOpdIdfValue(const std::string& idf);
-    void pushOpdNum(double num);
-    void pushOpdStr(std::string str);
+    void pushOpdIdf(std::string idf, bool gen_instruct=true);
+    void pushOpdIdfValue(const std::string& idf, bool gen_instruct=true);
+    void pushOpdNum(double num, bool gen_instruct=true);
+    void pushOpdStr(std::string str, bool gen_instruct=true);
 
     // TODO: marked following funs as inline
     bool _isbase(const Opd& item);
@@ -549,7 +552,7 @@ private:
     int m_lcb_count_init;
     int m_lcb_count;            // aka. '{' block depth of current AE depth
 
-    Stack<int> m_fncmcnt_stack;
+    Stack<int> m_fnargscnt_stack;
 
     std::string m_function_declare_cur_name; // temporary for faster accessing
     std::vector<std::string> m_function_declare_cur_argidfs; // temporary for faster accessing
@@ -595,6 +598,8 @@ private:
 
     // {lcb_count: [if_cond_value, elif_cond_value, ...]}
     std::unordered_map<int,std::vector<IfCond>> m_stmt_if_cond;
+
+    bool m_execute_at_compile_time;
 
     std::string m_rpn_expression;
 

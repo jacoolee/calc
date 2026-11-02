@@ -59,8 +59,8 @@ int main(int argc, char *argv[])
     atexit(cleanup);
 
     char* arg1 = argv[1];
-    int debug = argc>2? (int)strtol(argv[2], NULL, 10): 0;
-    // fprintf(stderr, "debug = %d\n", debug);
+    int log_level = argc>2? (int)strtol(argv[2], NULL, 10): 0;
+    // fprintf(stderr, "log_level = %d\n", log_level);
 
     char *str = NULL;
     if (ends_with(arg1, ".al")) {
@@ -70,10 +70,10 @@ int main(int argc, char *argv[])
         str = arg1;
     }
 
-    ArithmeticExpression ari_exp(str, 0, 0, {}, {}, CTXT_BGN, debug);
+    ArithmeticExpression ari_exp(str, 0, 0, {}, {}, CTXT_BGN, log_level);
     ari_exp.parse();
 
-    if (debug) {
+    if (!(log_level & 2048)) {
         Opd *return_value_ptr = ari_exp.getReturnValuePtr();
         if (return_value_ptr != NULL) {
             fprintf(stderr, "\n%s:%d:1: note: *return_value_ptr=(%d,%d,%s,%g,\"%s\")\n",

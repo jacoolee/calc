@@ -17,18 +17,30 @@
 #define E_RUN 89
 #define E_SHOULD_NOT_HAPPEN 99
 
+// 2048: show instruct, to combine other log, use 2048 + log_level (::dia)
+
+#define instruct(...)                           \
+    do {                                        \
+        if (g_print_log_level & 2048) {            \
+            fprintf(stderr,__VA_ARGS__);        \
+            fprintf(stderr," # %s\n", __func__); \
+        }                                       \
+    } while (0)
+
+// 6144 (2048 + 4096): hide non-instruct output, aka. only print instruct
+
 #define print(...)                                                      \
     do {                                                                \
-        if (g_print_enable) {                                           \
+        if (g_print_log_level > 0 && g_print_log_level < 6144) {                                 \
             fprintf(stderr,"%s:%04d:%d: note: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                                \
-            fprintf(stderr," :%s\n", __func__);                        \
+            fprintf(stderr," # %s\n", __func__);                         \
         }                                                               \
     } while (0)
 
 #define printnoln(...)                                                  \
     do {                                                                \
-        if (g_print_enable) {                                           \
+        if (g_print_log_level > 0 && g_print_log_level < 6144) {                                 \
             fprintf(stderr,"%s:%04d:%d: note: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                                \
         }                                                               \
@@ -36,7 +48,7 @@
 
 #define __print(...)                            \
     do {                                        \
-        if (g_print_enable) {                   \
+        if (g_print_log_level > 0 && g_print_log_level < 6144) {         \
             fprintf(stderr,__VA_ARGS__);        \
         }                                       \
     } while (0)
@@ -45,7 +57,7 @@
     do {                                                                \
         fprintf(stderr,"%s:%04d:%d: error: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
         fprintf(stderr,__VA_ARGS__);                                    \
-        fprintf(stderr," :%s\n", __func__);                            \
+        fprintf(stderr," # %s\n", __func__);                             \
     } while (0)
 
 #define errornoln(...)                                                  \
@@ -61,14 +73,14 @@
 
 #define warn(...)                                                       \
     do {                                                                \
-        if (g_print_enable) {                                           \
+        if (g_print_log_level > 0 && g_print_log_level < 6144) {                                 \
             fprintf(stderr,"%s:%04d:%d: warning: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                                \
-            fprintf(stderr," :%s\n", __func__);                        \
+            fprintf(stderr," # %s\n", __func__);                         \
         }                                                               \
     } while (0)                                                         \
 
-int g_print_enable = 0;
+int g_print_log_level = 0;
 int g_depth = 0;
 int g_ln_count = 1;
 std::string scope_name = "global";
@@ -80,7 +92,7 @@ ArithmeticExpression::ArithmeticExpression(
     std::unordered_map<std::string,std::unordered_map<int,double>> idf_map, // FIXME: [2026-10-21] not memory-saving friendly
     std::unordered_map<std::string,double> pre_defined_idf_map,
     ContextType contextType,
-    int print_enable)
+    int print_log_level)
     : m_depth(depth),
       m_state_prev(ST_UPPER),
       m_state(ST_BGN),
@@ -119,7 +131,7 @@ ArithmeticExpression::ArithmeticExpression(
     m_ctxt_stack.push(CTXT_STACK_BOTTOM_BASE); // to ensure top() always have stuff to avoid break
     m_ctxt_stack.push(contextType);
 
-    m_fncmcnt_stack.setName("m_fncmcnt_stack");
+    m_fnargscnt_stack.setName("m_fnargscnt_stack");
 
     // FIXME: [2026-10-27] idf store should be global, so nested code can re-assign value to global var
     // one way it to can use setMeta to use referer, or use global var directly.
@@ -127,8 +139,10 @@ ArithmeticExpression::ArithmeticExpression(
     m_idf_pre_defined_scoped_map = pre_defined_idf_map;
     m_idf_outer_scope_reassigned_map = {};
 
-    g_print_enable = print_enable;
-    print("g_print_enable: %d", g_print_enable);
+    g_print_log_level = print_log_level;
+    print("g_print_log_level: %d", g_print_log_level);
+
+    m_execute_at_compile_time = false;
 
     dia("ArithmeticExpression:+");
 }
@@ -276,14 +290,19 @@ int ArithmeticExpression::getPriority(char c)
     case '(': return 66;
     case '!': return 56;
     case '^': return 55;
+
     case '*':
     case '/': return 44;
+
     case '+':
     case '-': return 33;
     case ')': return 22;
+
     case '>':
     case '<': return 11;
+
     case 'e': return 9;
+
     case 'a':
     case 'o': return 5;
     case LOWEST_PRIO_OP: return 0;
@@ -312,7 +331,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     case AT_RCB: return handleRightCurlyBrace();
     case AT_CLN: return handleColon();
     case AT_DBQ: return handleDoubleQuote();
-    // more here
+        // more here
     case AT_ERR: handleError(); return false;
     default:
         print("no handler found for action type:%d", type);
@@ -446,7 +465,7 @@ void ArithmeticExpression::syntax(ContextType t) {
 }
 
 void ArithmeticExpression::dia(const std::string& marker="") {
-    if (g_print_enable== 0) return;
+    if (g_print_log_level== 0) return;
 
     const char& c = m_arithmetic_expression[m_parse_pos];
     CharType type = getCharType(c);
@@ -454,8 +473,9 @@ void ArithmeticExpression::dia(const std::string& marker="") {
 
     printnoln("%s @%d", marker.c_str(), m_parse_pos);
 
-    if (g_print_enable & 1) {   // st
-        __print(" #1");
+    int log_level = 1;
+    if (g_print_log_level & log_level) {   // st
+        __print(" #%d", log_level);
         __print(" [%s:%s + '%c'(CT=%d,AT=%d) => %s]",
                 getStateStr(m_state_prev),
                 getStateStr(m_state),
@@ -464,33 +484,42 @@ void ArithmeticExpression::dia(const std::string& marker="") {
                 table_item->action_type,
                 getStateStr(table_item->new_state)
             );
-        if (g_print_enable <1*2) __print(" :dia\n");
+        if (g_print_log_level < log_level*2) __print(" :dia\n");
     }
 
-    if (g_print_enable & 2) {   // opr, opd
-        __print(" #2");
-        __print(" opd_stack="); m_opd_stack.dia(g_print_enable);
-        __print(" opr_stack="); m_opr_stack.dia(g_print_enable);
-        if (g_print_enable <2*2) __print(" :dia\n");
-    }
-    if (g_print_enable & 4) {
-        __print(" #4");
-        __print(" cmc_stack="); m_fncmcnt_stack.dia(g_print_enable);
+    log_level = 2;
+    if (g_print_log_level & log_level) {   // opr, opd
+        __print(" #%d", log_level);
+        __print(" opd_stack="); m_opd_stack.dia(g_print_log_level);
+        __print(" opr_stack="); m_opr_stack.dia(g_print_log_level);
+
+        if (g_print_log_level < log_level*2) __print(" :dia\n");
     }
 
-    if (g_print_enable & 8) {
-        __print(" #8");
-        __print(" m_ctxt_stack="); m_ctxt_stack.dia(g_print_enable);
+    log_level = 4;
+    if (g_print_log_level & log_level) {
+        __print(" #%d", log_level);
+        __print(" cmc_stack="); m_fnargscnt_stack.dia(g_print_log_level);
+
+        if (g_print_log_level < log_level*2) __print(" :dia\n");
+    }
+
+    log_level = 8;
+    if (g_print_log_level & log_level) {
+        __print(" #%d", log_level);
+        __print(" m_ctxt_stack="); m_ctxt_stack.dia(g_print_log_level);
         __print(" m_expect_char_types=[");
         for (const auto& item : m_expect_char_types) {
             __print("'%s,' ", getCharTypeStr(item));
         }
         __print("]");
-        if (g_print_enable <8*2) __print(" :dia\n");
+
+        if (g_print_log_level < log_level*2) __print(" :dia\n");
     }
 
-    if (g_print_enable & 16) {  // idf
-        __print(" #16");
+    log_level = 16;
+    if (g_print_log_level & log_level) {  // idf
+        __print(" #%d", log_level);
         __print(" m_idf_map");
         for (const auto& item : m_idf_map) {
             __print("[\"%s\"]={", item.first.c_str());
@@ -516,11 +545,12 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         }
         __print("}");
 
-        if (g_print_enable <16*2) __print(" :dia\n");
+        if (g_print_log_level < log_level*2) __print(" :dia\n");
     }
 
-    if (g_print_enable & 32) {  // idf (scope_declared)
-        __print(" #32");
+    log_level = 32;
+    if (g_print_log_level & log_level) {  // idf (scope_declared)
+        __print(" #%d", log_level);
         __print(" m_idf_scope_declared");
         for (const auto& item : m_idf_scope_declared) {
             __print("[\"%d\"]={", item.first);
@@ -535,25 +565,27 @@ void ArithmeticExpression::dia(const std::string& marker="") {
             __print("");
         }
 
-        if (g_print_enable <32*2) __print(" :dia\n");
+        if (g_print_log_level < log_level*2) __print(" :dia\n");
     }
 
-    if (g_print_enable & 64) {  // if
-        __print(" #64");
+    log_level = 64;
+    if (g_print_log_level & log_level) {  // if
+        __print(" #%d", log_level);
         __print(" m_stmt_if_cond");
         for (const auto& item : m_stmt_if_cond) {
             __print("[\"%d\"]=[", item.first);
             for (IfCond x : item.second) {
-                __print("(%d,%d), ", x.type,x.value);
+                __print("(%d,%s,%d,%d), ", x.ukey, x.jz_label.c_str(), x.type,x.value);
             }
             __print("]");
         }
 
-        if (g_print_enable <64*2) __print(" :dia\n");
+        if (g_print_log_level < log_level*2) __print(" :dia\n");
     }
 
-    if (g_print_enable & 128) { // fn
-        __print(" #128");
+    log_level = 128;
+    if (g_print_log_level & log_level) { // fn
+        __print(" #%d", log_level);
         __print(" m_function_declare_cur_name = %s", m_function_declare_cur_name.c_str());
 
         __print(" m_function_declare_map");
@@ -577,11 +609,12 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         }
         __print("]");
 
-        if (g_print_enable <128*2) __print(" @\n");
+        if (g_print_log_level < log_level*2) __print(" :dia\n");
     }
 
-    if (g_print_enable & 256) {
-        __print(" #256");
+    log_level = 256;
+    if (g_print_log_level & log_level) {
+        __print(" #log_level");
         __print(" m_depth = %d", m_depth);
         __print(" m_stmt_count = %d", m_stmt_count);
         __print(" m_token_idx = %d", m_token_idx);
@@ -605,12 +638,14 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         } else {
             __print(" m_return_value_ptr = NULL");
         }
+
+        if (g_print_log_level < log_level*2) __print(" :dia\n");
     }
 
     __print("\n");
 }
 
-void ArithmeticExpression::appendToRpnExpression(char c) {
+void ArithmeticExpression::appendToRpnExpression(std::string item) {
     // if (c == 'f') {
     //     m_rpn_expression.append( fni2fnn(m_opr_stack.top(-1)) );
     // } else {
@@ -708,6 +743,14 @@ bool ArithmeticExpression::handle(char c)
             // more chars left to process
             if (m_parse_pos < m_arithmetic_expression.size()-1) {
                 m_state = ST_BGN;
+            }
+        }
+
+        // comment
+        else if (m_state == ST_OPR) {
+            if (m_state_next_certained != ST_UPPER) {
+                m_state = m_state_next_certained;
+                m_state_next_certained = ST_UPPER;
             }
         }
 
@@ -865,9 +908,31 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
     }
 }
 
+// void ArithmeticExpression::handleComment() {
+//     ++m_parse_pos;              // now at second '/' of "//"
+
+//     int size = m_arithmetic_expression.size();
+//     while (m_parse_pos < size && m_arithmetic_expression[m_parse_pos] != '\n') {
+//         ++m_parse_pos;
+//     }
+//     if (m_parse_pos < size) {   // '\n' encountered
+//         m_state_next_certained = m_state_prev;
+//     }
+// }
+
 bool ArithmeticExpression::handleOperator(char opr)
 {
     dia("-:handleOperator");
+
+    // // comment
+    // bool is_comment = opr == '/' && nextChar(false) == '/';
+    // if (is_comment) {
+    //     handleComment();
+    //     return true;
+    // }
+
+    m_state_next_certained = ST_UPPER;
+    // state keep unchange
 
     ++m_token_idx;
 
@@ -1114,7 +1179,7 @@ bool ArithmeticExpression::handleLeftParenthesis()
                     pushOpr('F'); // self-defined function
 
                     // TODO, use m_function_declare_call_args_count_stack directly, comma can't tell 0 argument and 1 argument
-                    m_fncmcnt_stack.push(0);
+                    m_fnargscnt_stack.push(0);
 
                     m_opd_stack.pop(); // pop idf opd after been registered in to opr stack
 
@@ -1131,8 +1196,8 @@ bool ArithmeticExpression::handleLeftParenthesis()
                     pushOpr(fni);
                     pushOpr('f'); // built-in function, means function left parenthesis
 
-                    // NOTE: always record fncmcnt's comma count when fn gotten
-                    m_fncmcnt_stack.push(0);
+                    // NOTE: always record fnargscnt's comma count when fn gotten
+                    m_fnargscnt_stack.push(0);
 
                     m_opd_stack.pop(); // pop idf opd after been registered in to opr stack
 
@@ -1251,8 +1316,19 @@ bool ArithmeticExpression::handleRightParenthesis()
         }
 
         if (top == 'f' || top == 'F') {
+            {
+                Opr x = m_opr_stack.top();
+                if (x.token_idx == m_token_idx-1) { // fnn(), no args
+                } else {
+                    m_fnargscnt_stack.push(m_fnargscnt_stack.pop()+1); // calculate will use this data
+                }
+            }
+
             // NOTE: always calculate whole function when 'f' met.
             if (! calculate(top)) return false;
+
+            m_fnargscnt_stack.pop(); // pop after consumed
+
             // NOTE: 'f' already pop-ed in calculate(...), and due
             // to whole function: [fni, 'f', ..., ')'] have been processed,
             // so 1) pop 'f', fni, 2) break the loop immediately
@@ -1261,6 +1337,7 @@ bool ArithmeticExpression::handleRightParenthesis()
             // function if opr is 'f'.
             m_opr_stack.pop(); // 'f', 'F'
             m_opr_stack.pop(); // fni, exec_begin
+
             break;
         } else {
             if (! calculate(top)) return false;
@@ -1277,10 +1354,12 @@ bool ArithmeticExpression::handleRightParenthesis()
     return true;
 }
 
-std::string ArithmeticExpression::getNextToken() {
+std::string ArithmeticExpression::nextToken() {
     int i = m_parse_pos;
     int size = m_arithmetic_expression.size();
-    while (++i<size) { if (m_arithmetic_expression[i] != ' ') break; } // skip space
+
+    // skip space(s)
+    while (++i<size) { if (m_arithmetic_expression[i] != ' ') break; }
 
     if (i==size) {
         return "";
@@ -1288,13 +1367,27 @@ std::string ArithmeticExpression::getNextToken() {
 
     char c = m_arithmetic_expression[i];
     switch(getCharType(c)) {
-    case CT_ALP: {
+    case CT_ALP: {              // alpha(s) => idf
         std::string token;
         while (i<size && getCharType(c) == CT_ALP) {
             token.push_back(c);
             c = m_arithmetic_expression[++i];
         }
         return token;
+    }
+    case CT_SEQ: {
+        bool hasAtLeastTwoSymbolEqual = (i+1) < m_arithmetic_expression.size() && m_arithmetic_expression[i+1] == '=';
+        if (hasAtLeastTwoSymbolEqual) {
+            return "==";
+        } else {
+            return "=";
+        }
+    }
+    case CT_CLN: { // now, due to only used for :=, so no need parse next chars
+        return ":";
+    }
+    case CT_LP: {
+        return "(";
     }
     default:
         print("TODO to support char type:%s", getCharTypeStr(c));
@@ -1438,6 +1531,9 @@ bool ArithmeticExpression::handleAlpha(char _c)
 
             m_ctxt_stack.push(STMT_ELSE);
             m_expect_char_types = {CT_LCB, CT_SPC};
+
+            // instruct("    %-11s %-10s", (std::string("else_")+std::to_string(m_parse_pos)+":").c_str(), "");
+
             return true;
 
         } else if (m_id == "function") { // keyword
@@ -1485,7 +1581,22 @@ bool ArithmeticExpression::handleAlpha(char _c)
             return true;
 
         } else { // fnn or var or assign-left-var, undetermined, just push idf for later use
-            pushOpdIdf(m_id);
+            std::string tkn = nextToken();
+
+            if (tkn == "(") {     // fnn
+                pushOpdIdf(m_id, false);
+            } else if (tkn == "=") {     // assign
+                // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
+                pushOpdIdf(m_id, false);
+            } else if (tkn == ":") {     // scope assign
+                pushOpdIdf(m_id, false);
+            } else if (tkn == "==") {     // eq, idf must have value, so use value directly
+                pushOpdIdfValue(m_id);
+            } else {                   // var
+                pushOpdIdfValue(m_id);
+            }
+
+            //pushOpdIdf(m_id);
             return true;
 
         }
@@ -1499,8 +1610,8 @@ bool ArithmeticExpression::handleAlpha(char _c)
             exit(E_GRAMMAR);
         }
 
-        if (nextChar() == '(') {
-            pushOpdIdf(m_id);
+        if (nextChar() == '(') { // fnn
+            pushOpdIdf(m_id, false);
         } else {
             pushOpdIdfValue(m_id);
         }
@@ -1713,11 +1824,11 @@ bool ArithmeticExpression::handleComma() {
         exit(E_SYNTAX);
     }
 
-    if (m_fncmcnt_stack.empty()) {
+    if (m_fnargscnt_stack.empty()) {
         error("comma can only be used as function argumet separator");
         return false;
     }
-    m_fncmcnt_stack.push(m_fncmcnt_stack.pop() + 1);
+    m_fnargscnt_stack.push(m_fnargscnt_stack.pop() + 1);
 
     return true;
 }
@@ -1802,6 +1913,9 @@ bool ArithmeticExpression::handleSemicolon() {
         std::string assign_idf = _2idf(m_opd_stack.pop());
         assignValueToIdf(assign_idf, assign_v, false);
 
+        // instruct("store %s", assign_idf.c_str());
+        instruct("    %-11s %-10s", "store", assign_idf.c_str());
+
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         if (m_opd_stack.count() < 3) { // base + 2
             error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
@@ -1815,6 +1929,9 @@ bool ArithmeticExpression::handleSemicolon() {
         double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
         std::string assign_idf = _2idf(m_opd_stack.pop());
         assignValueToIdf(assign_idf, assign_v, true);
+
+        // instruct("store %s", assign_idf.c_str());
+        instruct("    %-11s %-10s", "store_local", assign_idf.c_str());
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return;' or 'return ;'
         m_parse_pos = m_arithmetic_expression.size();
@@ -1838,10 +1955,22 @@ bool ArithmeticExpression::handleSemicolon() {
         print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
     }
 
-    print("clean context stack ...");
-    while(!m_ctxt_stack.empty() && (ctxt = m_ctxt_stack.pop()) != CTXT_BGN) {
-        print("m_ctxt_stack.pop %s", getContextTypeStr(ctxt));
+    ////////////////////////////////////////////////////////////////
+    // print("clean context stack ...");
+    // while(!m_ctxt_stack.empty() && (ctxt = m_ctxt_stack.pop()) != CTXT_BGN) {
+    //     print("m_ctxt_stack.pop %s", getContextTypeStr(ctxt));
+    // }
+
+    // buggy? why clean all, you are semicolon, should just clean what belong to you.
+    // aka. CTXT_BGN, CTXT_EXP.
+    ContextType _ctxt = m_ctxt_stack.top();
+    while(!m_ctxt_stack.empty() && (_ctxt == CTXT_BGN || _ctxt == CTXT_EXP)) {
+        print("m_ctxt_stack.pop %s", getContextTypeStr(_ctxt));
+        m_ctxt_stack.pop();
+        _ctxt = m_ctxt_stack.top();
     }
+
+    ////////////////////////////////////////////////////////////////
 
     // reset everything
     m_id = "";
@@ -2039,7 +2168,8 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
                 break;
             }
         }
-        if_elif_conds.push_back({IF_COND_TYPE_ELSE, pre_cond_all_zero?1:0});
+        std::string jz_label = std::string("IF_LBL_")+std::to_string(m_parse_pos);
+        if_elif_conds.push_back({m_parse_pos, jz_label, IF_COND_TYPE_ELSE, pre_cond_all_zero?1:0});
 
         if (pre_cond_all_zero == true) {
             m_ctxt_stack.push(STMT_ELSE_BLOCK);
@@ -2219,7 +2349,9 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[m_lcb_count];
 
         int cond = _2num(m_opd_stack.pop()) != 0? 1: 0;
-        if_elif_conds.push_back({IF_COND_TYPE_IF, cond});
+        std::string jz_label = std::string("IF_LBL_")+std::to_string(m_parse_pos);
+
+        if_elif_conds.push_back({m_parse_pos, jz_label, IF_COND_TYPE_IF, cond});
 
         if (cond != 0) {
             m_ctxt_stack.push(STMT_IF_BLOCK);
@@ -2241,6 +2373,9 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         m_state_next_certained = ST_BGN;
         ++m_lcb_count;
+
+        instruct("    %-11s %-10s", "jz", jz_label.c_str());
+
         return true;
 
     } else if (ctxt == STMT_ELIF_COND) {
@@ -2286,7 +2421,8 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         // self condtion
         int elif_cond = _2num(m_opd_stack.pop()) !=0? 1: 0;
-        if_elif_conds.push_back({IF_COND_TYPE_ELIF, elif_cond});
+        std::string jz_label = std::string("IF_LBL_")+std::to_string(m_parse_pos);
+        if_elif_conds.push_back({m_parse_pos, jz_label, IF_COND_TYPE_ELIF, elif_cond});
 
         int cond = (pre_cond_all_zero == true && elif_cond != 0)? 1: 0;
 
@@ -2309,6 +2445,9 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         m_state_next_certained = ST_BGN;
         ++m_lcb_count;
+
+        instruct("    %-11s %-10s", "jz", jz_label.c_str());
+
         return true;
 
     } else {                    // other context
@@ -2326,6 +2465,12 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 }
 
 bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigthCurlyBraceAlong) {
+    // if gen instruct, all code need to be parsed, but not actually execute it.
+
+    if (g_print_log_level & 2048) { // need to generate instruction, but do not execute
+        return true;
+    }
+
     int size = m_arithmetic_expression.size();
     int n_skiped_lcb = 0;
     bool found = false;
@@ -2439,26 +2584,82 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     print("lcb_ctxt: %s", getContextTypeStr(lcb_ctxt));
 
     if (lcb_ctxt == STMT_IF_BLOCK || lcb_ctxt == STMT_ELIF_BLOCK || lcb_ctxt == STMT_ELSE_BLOCK) {
-        int if_cond_key = m_lcb_count - 1;
-        std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[if_cond_key];
-        IfCond last_cond = if_elif_conds[if_elif_conds.size()-1];
-        bool last_cond_is_ending_if_seq = false;
 
-        if (last_cond.type == IF_COND_TYPE_IF || last_cond.type == IF_COND_TYPE_ELIF) {
-            std::string token = getNextToken();
+        int if_cond_key = m_lcb_count - 1;
+        std::vector<IfCond>& if_elif_else_conds = m_stmt_if_cond[if_cond_key];
+        assert(if_elif_else_conds.size()>0);
+
+        int if_elif_else_chain_ukey = if_elif_else_conds[0].ukey;
+        IfCond tailing_cond = if_elif_else_conds[if_elif_else_conds.size()-1];
+
+        bool tailing_cond_followed_with_elif = false;
+        bool tailing_cond_followed_with_else = false;
+
+        if (tailing_cond.type == IF_COND_TYPE_IF || tailing_cond.type == IF_COND_TYPE_ELIF) {
+            std::string token = nextToken();
             print("next token:\"%s\"", token.c_str());
-            last_cond_is_ending_if_seq = !(token == "elif" || token == "else");
-        } else if (last_cond.type == IF_COND_TYPE_ELSE) {
-            last_cond_is_ending_if_seq = true;
+
+            if (token == "elif") {
+                tailing_cond_followed_with_elif = true;
+                tailing_cond_followed_with_else = false;
+            } else if (token == "else") {
+                tailing_cond_followed_with_elif = false;
+                tailing_cond_followed_with_else = true;
+            } else {
+                tailing_cond_followed_with_elif = false;
+                tailing_cond_followed_with_else = false;
+            }
+        } else if (tailing_cond.type == IF_COND_TYPE_ELSE) {
+            tailing_cond_followed_with_elif = false;
+            tailing_cond_followed_with_else = false;
         } else {                // else
-            error("unsupported IfCond.t:%d, should not happen", last_cond.type);
+            error("unsupported IfCond.t:%d, should not happen", tailing_cond.type);
             printErrorLocation();
             exit(E_SHOULD_NOT_HAPPEN);
         }
-        print("last_cond_is_ending_if_seq: %d", last_cond_is_ending_if_seq);
 
-        if (last_cond_is_ending_if_seq) {
+        ////////////////////////////////////////////////////////////////
+        if (lcb_ctxt == STMT_IF_BLOCK) {
+            if (tailing_cond_followed_with_elif) { // if cond {} + elif cond {}
+                instruct("    %-11s %-10s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
+                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+            } else if (tailing_cond_followed_with_else) { // if cond {} + else {}
+                instruct("    %-11s %-10s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need "END:"
+                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+            } else {            // if cond {} as ending
+                // reuse "LXXX:" as "END:", no need jmp, and no need "END:" anymore
+                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+            }
+
+        } else if (lcb_ctxt == STMT_ELIF_BLOCK) {
+            if (tailing_cond_followed_with_elif) { // elif cond {} + elif
+                instruct("    %-11s %-10s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
+                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+            } else if (tailing_cond_followed_with_else) { // elif cond {} + else {}
+                instruct("    %-11s %-10s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need "END:"
+                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+            } else {                                      // elif cond {} as ending
+                // *THE ONLY PLACE WHERE TWO LABELS USED FOR END*, it's ok
+                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+                // why another END? used for previous elif "jmp"
+                instruct("%-15s %-10s", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), "");
+            }
+
+        } else if (lcb_ctxt == STMT_ELSE_BLOCK) {
+            if (tailing_cond_followed_with_elif) { // false
+            } else if (tailing_cond_followed_with_else) { // false
+            } else {
+                instruct("%-15s %-10s", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), ""); // TODO 'end_'+uniq_modifier
+            }
+        }
+
+        ////////////////////////////////////////////////////////////////
+
+        bool tailing_cond_is_ending_if_elif_else_chain = !tailing_cond_followed_with_elif && !tailing_cond_followed_with_else;
+
+        if (tailing_cond_is_ending_if_elif_else_chain) {
             // clean m_stmt_if_cond
+            print("clean m_stmt_if_cond[%d]", if_cond_key);
             m_stmt_if_cond.erase(if_cond_key);
 
             // clean context stack: pop to STMT_IF
@@ -2505,6 +2706,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
             std::string assign_idf = _2idf(m_opd_stack.pop());
             assignValueToIdf(assign_idf, assign_v, false);
+            instruct("    %-11s %-10s", "store", assign_idf.c_str());
 
             goto handleRightCurlyBrace_common;
 
@@ -2520,6 +2722,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
             std::string assign_idf = _2idf(m_opd_stack.pop());
             assignValueToIdf(assign_idf, assign_v, true);
+            instruct("    %-11s %-10s", "store_local", assign_idf.c_str());
 
             goto handleRightCurlyBrace_common;
 
@@ -2637,21 +2840,37 @@ bool ArithmeticExpression::handleDoubleQuote() {
     return true;
 }
 
-void ArithmeticExpression::pushOpdIdf(std::string idf) {
+void ArithmeticExpression::pushOpdIdf(std::string idf, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_IDF, 0, idf });
+    if (gen_instruct) {
+        //instruct("push_idf %s", idf.c_str());
+        instruct("    %-11s %-10s", "push_idf", idf.c_str());
+    }
 }
 
-void ArithmeticExpression::pushOpdIdfValue(const std::string& idf) {
-    pushOpdNum(getIdfValue(idf));
+void ArithmeticExpression::pushOpdIdfValue(const std::string& idf, bool gen_instruct) {
+    pushOpdNum(getIdfValue(idf), false);
+    if (gen_instruct) {
+        //instruct("push_idv %s", idf.c_str());
+        instruct("    %-11s %-10s", "push_idv", idf.c_str());
+    }
 }
 
-void ArithmeticExpression::pushOpdNum(double num) {
+void ArithmeticExpression::pushOpdNum(double num, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_NUM, num, "" });
+    if (gen_instruct) {
+        //instruct("push %g", num);
+        instruct("    %-11s %-10g", "push", num);
+    }
 }
 
-void ArithmeticExpression::pushOpdStr(std::string str) {
+void ArithmeticExpression::pushOpdStr(std::string str, bool gen_instruct) {
     // use std::move to avoid unnecessary string copy
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_STR, 0, std::move(str) });
+    if (gen_instruct) {
+        // instruct("push %s", str.c_str());
+        instruct("    %-11s %-10s", "push_str", str.c_str());
+    }
 }
 
 bool ArithmeticExpression::_isbase(const Opd& item) {
@@ -2691,6 +2910,44 @@ std::string ArithmeticExpression::_2str(const Opd& item) {
 // NOTE: for easier maintainance, only modify m_opd_stack when calculating, *KEEP m_opr_stack STAY*.
 bool ArithmeticExpression::calculate(int opr)
 {
+
+    std::string opr_code="";
+    std::string opr_args="";
+    switch(opr) {
+    case '(': break;
+    case ')': break;
+
+    case '+': opr_code = "add"; break;
+    case '-': opr_code = "sub"; break;
+    case '*': opr_code = "mul"; break;
+    case '/': opr_code = "div"; break;
+    case '^': opr_code = "exp"; break;
+
+    case 'e': opr_code = "eq"; break;
+    case 'a': opr_code = "and"; break;
+    case 'o': opr_code = "or"; break;
+
+    case '>': opr_code = "gt"; break;
+    case '<': opr_code = "lt"; break;
+
+    case 'f': {
+        opr_code = fni2fnn(m_opr_stack.top(-1).v);
+        int fnargscnt = m_fnargscnt_stack.top();
+        opr_args= std::to_string(fnargscnt);
+        break;
+    }
+    default:
+        error("unsupported opr_code: <'%c',%d>", (char)opr, opr);
+        printErrorLocation();
+        exit(E_DEV_ERROR);
+    }
+
+    if (!opr_code.empty()) {
+        instruct("    %-11s %-10s", opr_code.c_str(), opr_args.c_str());
+    }
+
+    ////////////////////////////////////////////////////////////////
+
     print("opr=<'%c',%d>", opr, opr);
 
     if ( '(' == opr || ')' == opr || LOWEST_PRIO_OP == opr ) {
@@ -2702,64 +2959,72 @@ bool ArithmeticExpression::calculate(int opr)
         print("opr is 'f'");
         int fni = m_opr_stack.top(-1).v; // get fni
 
-        int fncmcnt = m_fncmcnt_stack.top();
-        // FunctionMeta fm = m_function_meta[fni];
+        int fnargscnt = m_fnargscnt_stack.top();
+        FunctionMeta fm = m_function_meta[fni];
 
-        // print("fni=%d, fm.args_va=%d fm.args_count=%d fncmcnt=%d", fni, fm.args_va, fm.args_count, fncmcnt);
+        print("fni=%d, fm.args_va=%d fm.args_count=%d fnargscnt=%d", fni, fm.args_va, fm.args_count, fnargscnt);
 
-        // if (fm.args_va) {
-        //     if (fncmcnt < fm.args_count-1) {
-        //         error("function: '%s' expect at least %d arguments, while %d given. (fncmcnt=%d)", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
-        //         printErrorLocation();
-        //         exit(E_GRAMMAR);
-        //     }
-        // } else {
-        //     if (fncmcnt != fm.args_count-1) {
-        //         error("function: '%s' expect %d arguments, while %d given. (fncmcnt=%d)", fm.name, fm.args_count, fncmcnt+1, fncmcnt);
-        //         printErrorLocation();
-        //         exit(E_GRAMMAR);
-        //     }
-        // }
+        if (fm.args_va) {
+            if (fnargscnt < fm.args_count) {
+                error("function: '%s' expect at least %d arguments, while %d given. (fnargscnt=%d)", fm.name, fm.args_count, fnargscnt, fnargscnt);
+                printErrorLocation();
+                exit(E_GRAMMAR);
+            }
+        } else {
+            if (fnargscnt != fm.args_count) {
+                error("function: '%s' expect %d arguments, while %d given. (fnargscnt=%d)", fm.name, fm.args_count, fnargscnt, fnargscnt);
+                printErrorLocation();
+                exit(E_GRAMMAR);
+            }
+        }
 
+        if (!m_execute_at_compile_time) {
+            // get stack proprly set
+            for(int i=0; i<fnargscnt; ++i) m_opd_stack.pop();
+            pushOpdNum(0, false);
+            goto calculate_if_opr_f_end;
+        }
+
+        // execute part
         switch(fni) {
 
         case FABS: {
-            pushOpdNum(fabs(_2num(m_opd_stack.pop())));
+            pushOpdNum(fabs(_2num(m_opd_stack.pop())), false);
             break;
         }
         case FMOD: {
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum(fmod(l_opd, r_opd));
+            pushOpdNum(fmod(l_opd, r_opd), false);
             break;
         }
         case REMAINDER: {
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum(remainder(l_opd, r_opd));
+            pushOpdNum(remainder(l_opd, r_opd), false);
             break;
         }
         case CEIL: {
-            pushOpdNum(ceil(_2num(m_opd_stack.pop())));
+            pushOpdNum(ceil(_2num(m_opd_stack.pop())), false);
             break;
         }
         case FLOOR: {
-            pushOpdNum(floor(_2num(m_opd_stack.pop())));
+            pushOpdNum(floor(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ROUND: {
-            pushOpdNum(round(_2num(m_opd_stack.pop())));
+            pushOpdNum(round(_2num(m_opd_stack.pop())), false);
             break;
         }
         case TRUNC: {
-            pushOpdNum(trunc(_2num(m_opd_stack.pop())));
+            pushOpdNum(trunc(_2num(m_opd_stack.pop())), false);
             break;
         }
 
         case POW: {
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum(pow(l_opd, r_opd));
+            pushOpdNum(pow(l_opd, r_opd), false);
             break;
         }
         case SQRT: {
@@ -2768,155 +3033,155 @@ bool ArithmeticExpression::calculate(int opr)
                 print("sqrt expects unsigned operand, while %f gotten", opd);
                 return false;
             }
-            pushOpdNum(sqrt(opd));
+            pushOpdNum(sqrt(opd), false);
             break;
         }
         case CBRT: {
-            pushOpdNum(cbrt(_2num(m_opd_stack.pop())));
+            pushOpdNum(cbrt(_2num(m_opd_stack.pop())), false);
             break;
         }
         case HYPOT: {
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum(hypot(l_opd, r_opd));
+            pushOpdNum(hypot(l_opd, r_opd), false);
             break;
         }
         case EXP: {
-            pushOpdNum(exp(_2num(m_opd_stack.pop())));
+            pushOpdNum(exp(_2num(m_opd_stack.pop())), false);
             break;
         }
         case EXP2: {
-            pushOpdNum(exp2(_2num(m_opd_stack.pop())));
+            pushOpdNum(exp2(_2num(m_opd_stack.pop())), false);
             break;
         }
         case EXPM1: {
-            pushOpdNum(expm1(_2num(m_opd_stack.pop())));
+            pushOpdNum(expm1(_2num(m_opd_stack.pop())), false);
             break;
         }
         case LOG: {
-            pushOpdNum(log(_2num(m_opd_stack.pop())));
+            pushOpdNum(log(_2num(m_opd_stack.pop())), false);
             break;
         }
         case LOG10: {
-            pushOpdNum(log10(_2num(m_opd_stack.pop())));
+            pushOpdNum(log10(_2num(m_opd_stack.pop())), false);
             break;
         }
         case LOG2: {
-            pushOpdNum(log2(_2num(m_opd_stack.pop())));
+            pushOpdNum(log2(_2num(m_opd_stack.pop())), false);
             break;
         }
         case LOG1P: {
-            pushOpdNum(log1p(_2num(m_opd_stack.pop())));
+            pushOpdNum(log1p(_2num(m_opd_stack.pop())), false);
             break;
         }
 
         case SIN: {
-            pushOpdNum(sin(_2num(m_opd_stack.pop())));
+            pushOpdNum(sin(_2num(m_opd_stack.pop())), false);
             break;
         }
         case COS: {
-            pushOpdNum(cos(_2num(m_opd_stack.pop())));
+            pushOpdNum(cos(_2num(m_opd_stack.pop())), false);
             break;
         }
         case TAN: {
-            pushOpdNum(tan(_2num(m_opd_stack.pop())));
+            pushOpdNum(tan(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ASIN: {
-            pushOpdNum(asin(_2num(m_opd_stack.pop())));
+            pushOpdNum(asin(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ACOS: {
-            pushOpdNum(acos(_2num(m_opd_stack.pop())));
+            pushOpdNum(acos(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ATAN: {
-            pushOpdNum(atan(_2num(m_opd_stack.pop())));
+            pushOpdNum(atan(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ATAN2: {
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum(atan2(l_opd,r_opd));
+            pushOpdNum(atan2(l_opd,r_opd), false);
             break;
         }
 
         case SINH: {
-            pushOpdNum(sinh(_2num(m_opd_stack.pop())));
+            pushOpdNum(sinh(_2num(m_opd_stack.pop())), false);
             break;
         }
         case COSH: {
-            pushOpdNum(cosh(_2num(m_opd_stack.pop())));
+            pushOpdNum(cosh(_2num(m_opd_stack.pop())), false);
             break;
         }
         case TANH: {
-            pushOpdNum(tanh(_2num(m_opd_stack.pop())));
+            pushOpdNum(tanh(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ASINH: {
-            pushOpdNum(asinh(_2num(m_opd_stack.pop())));
+            pushOpdNum(asinh(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ACOSH: {
-            pushOpdNum(acosh(_2num(m_opd_stack.pop())));
+            pushOpdNum(acosh(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ATANH: {
-            pushOpdNum(atanh(_2num(m_opd_stack.pop())));
+            pushOpdNum(atanh(_2num(m_opd_stack.pop())), false);
             break;
         }
 
         case FMIN: {
             double x = _2num(m_opd_stack.pop());
             double y = _2num(m_opd_stack.pop());
-            pushOpdNum(fmin(y,x));
+            pushOpdNum(fmin(y,x), false);
             break;
         }
         case FMAX: {
             double x = _2num(m_opd_stack.pop());
             double y = _2num(m_opd_stack.pop());
-            pushOpdNum(fmax(y,x));
+            pushOpdNum(fmax(y,x), false);
             break;
         }
         case FDIM: {
             double x = _2num(m_opd_stack.pop());
             double y = _2num(m_opd_stack.pop());
-            pushOpdNum(fdim(y,x));
+            pushOpdNum(fdim(y,x), false);
             break;
         }
         case COPYSIGN: {
             double x = _2num(m_opd_stack.pop());
             double y = _2num(m_opd_stack.pop());
-            pushOpdNum(copysign(y,x));
+            pushOpdNum(copysign(y,x), false);
             break;
         }
         case ISFINITE: {
-            pushOpdNum(isfinite(_2num(m_opd_stack.pop())));
+            pushOpdNum(isfinite(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ISINF: {
-            pushOpdNum(isinf(_2num(m_opd_stack.pop())));
+            pushOpdNum(isinf(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ISNAN: {
-            pushOpdNum(isnan(_2num(m_opd_stack.pop())));
+            pushOpdNum(isnan(_2num(m_opd_stack.pop())), false);
             break;
         }
         case ISNORMAL: {
-            pushOpdNum(isnormal(_2num(m_opd_stack.pop())));
+            pushOpdNum(isnormal(_2num(m_opd_stack.pop())), false);
             break;
         }
         case SIGNBIT: {
-            pushOpdNum(signbit(_2num(m_opd_stack.pop())));
+            pushOpdNum(signbit(_2num(m_opd_stack.pop())), false);
             break;
         }
 
         case INT: {
-            pushOpdNum((int)_2num(m_opd_stack.pop()));
+            pushOpdNum((int)_2num(m_opd_stack.pop()), false);
             break;
         }
         case MAX: {
-            int args_count = fncmcnt + 1;
+            int args_count = fnargscnt + 1;
             double v = FLT_MIN;
             int opd;
             while (!m_opd_stack.empty() && args_count--) {
@@ -2930,11 +3195,11 @@ bool ArithmeticExpression::calculate(int opr)
             //     return false;
             // }
 
-            pushOpdNum(v);
+            pushOpdNum(v, false);
             break;
         }
         case MIN: {
-            int args_count = fncmcnt + 1;
+            int args_count = fnargscnt + 1;
             double v = FLT_MAX;
             int opd;
             while (!m_opd_stack.empty() && args_count--) {
@@ -2947,7 +3212,7 @@ bool ArithmeticExpression::calculate(int opr)
             //     return false;
             // }
 
-            pushOpdNum(v);
+            pushOpdNum(v, false);
             break;
         }
         case CMP: {
@@ -2960,11 +3225,13 @@ bool ArithmeticExpression::calculate(int opr)
             double v2 = _2num(m_opd_stack.pop());
             double v1 = _2num(m_opd_stack.pop());
             double v = v1 != 0? v2: v3;
-            pushOpdNum(v);
+            pushOpdNum(v, false);
             break;
         }
 
         case PRINT: {
+            // if (g_print_log_level & 6144) break; // avoid mess up instruct
+
             if (m_opd_stack.empty()) { // "print()"
                 printf("\n");
                 break;
@@ -2983,6 +3250,8 @@ bool ArithmeticExpression::calculate(int opr)
         }
 
         case PRINTF: {
+            // if (g_print_log_level & 6144) break; // avoid mess up instruct
+
             // TODO: to support real printf
             const Opd& opd = m_opd_stack.pop();
             if (_isidf(opd)) {
@@ -3002,9 +3271,9 @@ bool ArithmeticExpression::calculate(int opr)
             return false;
         }
 
-        // NOTE: always pop when fn has successfully been processed
-        // m_fncmcnt_stack.pop();
+    calculate_if_opr_f_end:
         return true;
+
     } else if ('F' == opr) {
         int exec_begin = m_opr_stack.top(-1).v; // function exec_begin
         const std::string& fnn = m_function_declare_exec_begin_name_map[exec_begin];
@@ -3013,73 +3282,90 @@ bool ArithmeticExpression::calculate(int opr)
         scope_name = scope_name+"/"+fnn;
         call(fnn);
         scope_name = scope_name_old;
+
         return true;
+
     } else {
+
+        int opd_cnt = 0;
+
         switch (opr) {
         case '^': {
+            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum( pow(l_opd,r_opd) ); break;
+            pushOpdNum( pow(l_opd,r_opd) , false); break;
         }
         case '+': {
+            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum( l_opd + r_opd ); break;
+            pushOpdNum( l_opd + r_opd , false); break;
         }
         case '-': {
+            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum( l_opd - r_opd ); break;
+            pushOpdNum( l_opd - r_opd , false); break;
         }
         case '*': {
+            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum( l_opd * r_opd ); break;
+            pushOpdNum( l_opd * r_opd , false); break;
         }
         case '/': {
+            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             if ( 0 == r_opd ) {
                 error("divide 0");
-                return false;
+                printErrorLocation();
+                exit(E_RUN);
             }
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum( l_opd / r_opd);
+            pushOpdNum( l_opd / r_opd, false);
             break;
         }
         case '>': {
+            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum(l_opd > r_opd? 1: 0);
+            pushOpdNum(l_opd > r_opd? 1: 0, false);
             break;
         }
         case '<': {
+            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum(l_opd < r_opd? 1: 0);
+            pushOpdNum(l_opd < r_opd? 1: 0, false);
             break;
         }
         case 'e': {             // "=="
+            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             print("e: l_opd=%g r_opd=%g ?=%d", l_opd, r_opd, l_opd == r_opd);
-            pushOpdNum(l_opd == r_opd? 1: 0);
+            pushOpdNum(l_opd == r_opd? 1: 0, false);
             break;
         }
         case 'a': {             // "&&" and
+            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum(l_opd !=0 && r_opd != 0? 1: 0);
+            pushOpdNum(l_opd !=0 && r_opd != 0? 1: 0, false);
             break;
         }
         case 'o': {             // "||" and
+            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
-            pushOpdNum(l_opd !=0 || r_opd != 0? 1: 0);
+            pushOpdNum(l_opd !=0 || r_opd != 0? 1: 0, false);
             break;
         }
         case '!': {
+            if (!m_execute_at_compile_time) { opd_cnt=1; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
-            pushOpdNum(r_opd == 0? 1: 0);
+            pushOpdNum(r_opd == 0? 1: 0, false);
             break;
         }
         default: {
@@ -3088,6 +3374,10 @@ bool ArithmeticExpression::calculate(int opr)
             return false;
         }
         }
+
+    calculate_else_opr_end:
+        for(int i=0; i<opd_cnt; ++i) m_opd_stack.pop();
+
         return true;
     }
 }
@@ -3163,7 +3453,7 @@ bool ArithmeticExpression::call(const std::string function_name) {
         getIdfMap(),        // FIXME: maybe just leak global scope idf to valid idf value pollution
         argm,
         FUNCTION_CALL,
-        g_print_enable
+        g_print_log_level
         );
     fnblock.setMeta(
         getFunctionDeclareMap(),
@@ -3180,7 +3470,7 @@ bool ArithmeticExpression::call(const std::string function_name) {
     Opd *return_value_ptr = fnblock.getReturnValuePtr();
     if (return_value_ptr != NULL) {
         // TODO: now, only support num
-        pushOpdNum(_2num(*return_value_ptr));
+        pushOpdNum(_2num(*return_value_ptr), false);
     }
 
     print("merge fnblock's outer scope reassigned map to caller's m_idf_map");
@@ -3271,12 +3561,49 @@ bool ArithmeticExpression::handleInputAllParsed()
 
     dia("-:handleInputAllParsed");
 
+    // TODO: share the same ctxt logic as handleSemicolon
+
     ContextType ctxt = m_ctxt_stack.top();
 
     if (ctxt == STMT_DECLARE_ASSIGN) {
         error("invalid assign statement. syntax: \"idf = ...;\"");
         printErrorLocation();
         exit(E_GRAMMAR);
+
+    } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
+        // at least two opd need
+        if (m_opd_stack.count() < 3) {
+            error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        } else {
+            m_expect_char_types = {};
+        }
+
+        Opd opdv = m_opd_stack.pop();
+        double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+        std::string assign_idf = _2idf(m_opd_stack.pop());
+        assignValueToIdf(assign_idf, assign_v, false);
+
+        // instruct("store %s", assign_idf.c_str());
+        instruct("    %-11s %-10s", "store", assign_idf.c_str());
+
+    } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
+        if (m_opd_stack.count() < 3) { // base + 2
+            error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        } else {
+            m_expect_char_types = {};
+        }
+
+        Opd opdv = m_opd_stack.pop();
+        double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+        std::string assign_idf = _2idf(m_opd_stack.pop());
+        assignValueToIdf(assign_idf, assign_v, true);
+
+        // instruct("store %s", assign_idf.c_str());
+        instruct("    %-11s %-10s", "store_local", assign_idf.c_str());
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return$'
         m_expect_char_types = {};
@@ -3374,6 +3701,7 @@ bool ArithmeticExpression::handleInputAllParsed()
 
         std::string assign_idf = _2idf(m_opd_stack.pop());
         assignValueToIdf(assign_idf, assign_v, false);
+        instruct("    %-11s %-10s", "store", assign_idf.c_str());
 
     } else if (ctxt == FUNCTION_RETURN_VALUE) { // `return xxxx` in global scope
         if (m_opd_stack.count() >= 2) {

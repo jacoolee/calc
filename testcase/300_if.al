@@ -1,43 +1,89 @@
-a=1;
-b=1;
+if 1 {
+    1;
+}
+2;
 
-x = 0;
+print("");
 
-printf("G: ");
-print(x);
+if 0 {
+    1;
+}
+2;
 
-if a {
-    x = 1;
-    printf("a: ");
-    print(x);
+print("");
 
-    if (b) {
-        x := 2;
-
-        printf("b: ");
-        print(x);
-
-        if 1 {
-            x := 3;
-
-            printf("b:1: ");
-            print(x);
-        }
-
-    } else {
-        x := 4;
-
-        printf("b else: ");
-        print(x);
-    }
-
-    printf("in a: ");
-    print(x);
-
+if 1 {
+    1;
 } else {
-    printf("a else: ");
-    print(x);
+    2;
+}
+2;
+
+print("");
+
+if 0 {
+    1;
+} else {
+    2;
+}
+2;
+
+print("");
+
+if 1 {
+    1;
+} elif 1 {
+    2;
 }
 
-printf("G: ");
-print(x);
+2;
+
+print("");
+
+if 1 {
+    1;
+} elif 1 {
+    2;
+} else {
+    3;
+}
+
+2;
+
+print("");
+
+if 0 {
+    1;
+} elif 1 {
+    2;
+} else {
+    3;
+}
+
+2;
+
+print("");
+
+if 1 {
+    1;
+} elif 1 {
+    2;
+} elif 1 {
+    3;
+}
+
+2;
+
+print("");
+
+if 1 {
+    1;
+} elif 1 {
+    2;
+} elif 1 {
+    3;
+} else {
+    4;
+}
+
+2;

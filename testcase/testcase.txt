@@ -14,18 +14,18 @@
 50  = print( 2 + 3 * 4^2)
 80  = print( (2 + 3) * 4^2)
 
-# fn
+# built-in fn call
 
 6   = print( sqrt(ceil(5.1) + floor(10.2 * 3)) )
 6   = print( fabs(-1 * sqrt(ceil(5.1) + floor(10.2 * 3))) )
 
-# fn args
+# built-in fn call with args
 
 3   = print( fmax(2,3) )
 3   = print( fmax(fmin(5,1), fmax(0,3)) )
 6   = print( fmax(floor(5.1), fmin(ceil(5.1), 7)) )
 
-# fn variable args
+# built-in fn call with variable args
 
 7   = print( max(6,7) )
 7   = print( max(1,2,3,4,5,6,7) )
