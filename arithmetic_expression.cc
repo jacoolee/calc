@@ -2117,7 +2117,6 @@ bool ArithmeticExpression::handleSemicolon() {
         assignValueToIdf(assign_idf, assign_v, false);
         // TODO: clean current ctxt from ctxt stack after consumed
 
-        // instruct("store %s", assign_idf.c_str());
         instruct("    %-11s %-12s", "store", assign_idf.c_str());
 
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
@@ -2135,7 +2134,6 @@ bool ArithmeticExpression::handleSemicolon() {
         assignValueToIdf(assign_idf, assign_v, true);
         // TODO: clean current ctxt from ctxt stack after consumed
 
-        // instruct("store %s", assign_idf.c_str());
         instruct("    %-11s %-12s", "store_local", assign_idf.c_str());
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return;' or 'return ;'
@@ -3185,7 +3183,6 @@ bool ArithmeticExpression::handleDoubleQuote() {
 void ArithmeticExpression::pushOpdIdf(std::string idf, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_IDF, 0, idf });
     if (gen_instruct) {
-        //instruct("push_idf %s", idf.c_str());
         instruct("    %-11s %-12s", "push_idf", idf.c_str());
     }
 }
@@ -3193,7 +3190,6 @@ void ArithmeticExpression::pushOpdIdf(std::string idf, bool gen_instruct) {
 void ArithmeticExpression::pushOpdIdfValue(const std::string& idf, bool gen_instruct) {
     pushOpdNum(getIdfValue(idf), false);
     if (gen_instruct) {
-        //instruct("push_idv %s", idf.c_str());
         instruct("    %-11s %-12s", "push_idv", idf.c_str());
     }
 }
@@ -3201,7 +3197,6 @@ void ArithmeticExpression::pushOpdIdfValue(const std::string& idf, bool gen_inst
 void ArithmeticExpression::pushOpdNum(double num, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_NUM, num, "" });
     if (gen_instruct) {
-        //instruct("push %g", num);
         instruct("    %-11s %-12g", "push", num);
     }
 }
@@ -3210,7 +3205,6 @@ void ArithmeticExpression::pushOpdStr(std::string str, bool gen_instruct) {
     // use std::move to avoid unnecessary string copy
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_STR, 0, std::move(str) });
     if (gen_instruct) {
-        // instruct("push %s", str.c_str());
         instruct("    %-11s %-12s", "push_str", str.c_str());
     }
 }
@@ -3936,7 +3930,6 @@ bool ArithmeticExpression::handleInputAllParsed()
         assignValueToIdf(assign_idf, assign_v, false);
         // TODO: clean current ctxt from ctxt stack after consumed
 
-        // instruct("store %s", assign_idf.c_str());
         instruct("    %-11s %-12s", "store", assign_idf.c_str());
 
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
@@ -3955,7 +3948,6 @@ bool ArithmeticExpression::handleInputAllParsed()
 
         // TODO: clean current ctxt from ctxt stack after consumed
 
-        // instruct("store %s", assign_idf.c_str());
         instruct("    %-11s %-12s", "store_local", assign_idf.c_str());
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return$'
