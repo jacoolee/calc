@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
     ArithmeticExpression ari_exp(str, 0, 0, {}, {}, CTXT_BGN, log_level);
     ari_exp.parse();
 
-    if (!(log_level & 2048)) {
+    if (!(log_level & LLL_GEN_INSTRUCT)) {
         Opd *return_value_ptr = ari_exp.getReturnValuePtr();
         if (return_value_ptr != NULL) {
             fprintf(stderr, "\n%s:%d:1: note: *return_value_ptr=(%d,%d,%s,%g,\"%s\")\n",

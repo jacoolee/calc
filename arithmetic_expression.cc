@@ -17,21 +17,19 @@
 #define E_RUN 89
 #define E_SHOULD_NOT_HAPPEN 99
 
-// 2048: show instruct, to combine other log, use 2048 + log_level (::dia)
+// LLL_GEN_INSTRUCT: show instruct, to combine other log, use LLL_GEN_INSTRUCT + log_level (::dia)
 
-#define instruct(...)                           \
-    do {                                        \
-        if (g_print_log_level & 2048) {            \
-            fprintf(stderr,__VA_ARGS__);        \
-            fprintf(stderr," # %s\n", __func__); \
-        }                                       \
+#define instruct(...)                               \
+    do {                                            \
+        if (g_log_level & LLL_GEN_INSTRUCT) {             \
+            fprintf(stderr,__VA_ARGS__);            \
+            fprintf(stderr," # %s\n", __func__);    \
+        }                                           \
     } while (0)
-
-// 6144 (2048 + 4096): hide non-instruct output, aka. only print instruct
 
 #define print(...)                                                      \
     do {                                                                \
-        if (g_print_log_level > 0 && g_print_log_level < 6144) {                                 \
+        if (g_log_level & 1) {                                 \
             fprintf(stderr,"%s:%04d:%d: note: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                                \
             fprintf(stderr," # %s\n", __func__);                         \
@@ -40,7 +38,7 @@
 
 #define printnoln(...)                                                  \
     do {                                                                \
-        if (g_print_log_level > 0 && g_print_log_level < 6144) {                                 \
+        if (g_log_level & 1) {                                 \
             fprintf(stderr,"%s:%04d:%d: note: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                                \
         }                                                               \
@@ -48,7 +46,7 @@
 
 #define __print(...)                            \
     do {                                        \
-        if (g_print_log_level > 0 && g_print_log_level < 6144) {         \
+        if (g_log_level & 1) {         \
             fprintf(stderr,__VA_ARGS__);        \
         }                                       \
     } while (0)
@@ -73,14 +71,14 @@
 
 #define warn(...)                                                       \
     do {                                                                \
-        if (g_print_log_level > 0 && g_print_log_level < 6144) {                                 \
+        if (g_log_level & 1) {                                 \
             fprintf(stderr,"%s:%04d:%d: warning: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                                \
             fprintf(stderr," # %s\n", __func__);                         \
         }                                                               \
     } while (0)                                                         \
 
-int g_print_log_level = 0;
+int g_log_level = 0;
 int g_depth = 0;
 int g_ln_count = 1;
 std::string scope_name = "global";
@@ -92,7 +90,7 @@ ArithmeticExpression::ArithmeticExpression(
     std::unordered_map<std::string,std::unordered_map<int,double>> idf_map, // FIXME: [2026-10-21] not memory-saving friendly
     std::unordered_map<std::string,double> pre_defined_idf_map,
     ContextType contextType,
-    int print_log_level)
+    int log_level)
     : m_depth(depth),
       m_state_prev(ST_UPPER),
       m_state(ST_BGN),
@@ -139,10 +137,10 @@ ArithmeticExpression::ArithmeticExpression(
     m_idf_pre_defined_scoped_map = pre_defined_idf_map;
     m_idf_outer_scope_reassigned_map = {};
 
-    g_print_log_level = print_log_level;
-    print("g_print_log_level: %d", g_print_log_level);
+    g_log_level = log_level;
+    print("g_log_level: %d", g_log_level);
 
-    m_execute_at_compile_time = false;
+    m_execute_at_compile_time = g_log_level & LLL_EXECUTE_AT_COMPILE_TIME;
 
     dia("ArithmeticExpression:+");
 }
@@ -340,7 +338,7 @@ bool ArithmeticExpression::handleAction(ActionType type, char c)
     return false;
 }
 
-const char* ArithmeticExpression::getCharTypeStr(int ct) const {
+const char* ArithmeticExpression::getCharTypeStr(CharType ct) const {
     const CharTypeInfo& item = m_char_type_info[ct];
     if (item.char_type != ct) {
         error("*DEV ERROR* unmatched chartype in m_char_type_info, ct=%d, item.char_type=%d", ct, item.char_type);
@@ -465,7 +463,7 @@ void ArithmeticExpression::syntax(ContextType t) {
 }
 
 void ArithmeticExpression::dia(const std::string& marker="") {
-    if (g_print_log_level== 0) return;
+    if (g_log_level== 0) return;
 
     const char& c = m_arithmetic_expression[m_parse_pos];
     CharType type = getCharType(c);
@@ -474,7 +472,7 @@ void ArithmeticExpression::dia(const std::string& marker="") {
     printnoln("%s @%d", marker.c_str(), m_parse_pos);
 
     int log_level = 1;
-    if (g_print_log_level & log_level) {   // st
+    if (g_log_level & log_level) {   // st
         __print(" #%d", log_level);
         __print(" [%s:%s + '%c'(CT=%d,AT=%d) => %s]",
                 getStateStr(m_state_prev),
@@ -484,41 +482,41 @@ void ArithmeticExpression::dia(const std::string& marker="") {
                 table_item->action_type,
                 getStateStr(table_item->new_state)
             );
-        if (g_print_log_level < log_level*2) __print(" :dia\n");
+        if (g_log_level < log_level*2) __print(" :dia\n");
     }
 
     log_level = 2;
-    if (g_print_log_level & log_level) {   // opr, opd
+    if (g_log_level & log_level) {   // opr, opd
         __print(" #%d", log_level);
-        __print(" opd_stack="); m_opd_stack.dia(g_print_log_level);
-        __print(" opr_stack="); m_opr_stack.dia(g_print_log_level);
+        __print(" opd_stack="); m_opd_stack.dia(g_log_level);
+        __print(" opr_stack="); m_opr_stack.dia(g_log_level);
 
-        if (g_print_log_level < log_level*2) __print(" :dia\n");
+        if (g_log_level < log_level*2) __print(" :dia\n");
     }
 
     log_level = 4;
-    if (g_print_log_level & log_level) {
+    if (g_log_level & log_level) {
         __print(" #%d", log_level);
-        __print(" cmc_stack="); m_fnargscnt_stack.dia(g_print_log_level);
+        __print(" cmc_stack="); m_fnargscnt_stack.dia(g_log_level);
 
-        if (g_print_log_level < log_level*2) __print(" :dia\n");
+        if (g_log_level < log_level*2) __print(" :dia\n");
     }
 
     log_level = 8;
-    if (g_print_log_level & log_level) {
+    if (g_log_level & log_level) {
         __print(" #%d", log_level);
-        __print(" m_ctxt_stack="); m_ctxt_stack.dia(g_print_log_level);
+        __print(" m_ctxt_stack="); m_ctxt_stack.dia(g_log_level);
         __print(" m_expect_char_types=[");
         for (const auto& item : m_expect_char_types) {
-            __print("'%s,' ", getCharTypeStr(item));
+            __print("'%s', ", getCharTypeStr(item));
         }
         __print("]");
 
-        if (g_print_log_level < log_level*2) __print(" :dia\n");
+        if (g_log_level < log_level*2) __print(" :dia\n");
     }
 
     log_level = 16;
-    if (g_print_log_level & log_level) {  // idf
+    if (g_log_level & log_level) {  // idf
         __print(" #%d", log_level);
         __print(" m_idf_map");
         for (const auto& item : m_idf_map) {
@@ -545,11 +543,11 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         }
         __print("}");
 
-        if (g_print_log_level < log_level*2) __print(" :dia\n");
+        if (g_log_level < log_level*2) __print(" :dia\n");
     }
 
     log_level = 32;
-    if (g_print_log_level & log_level) {  // idf (scope_declared)
+    if (g_log_level & log_level) {  // idf (scope_declared)
         __print(" #%d", log_level);
         __print(" m_idf_scope_declared");
         for (const auto& item : m_idf_scope_declared) {
@@ -565,11 +563,11 @@ void ArithmeticExpression::dia(const std::string& marker="") {
             __print("");
         }
 
-        if (g_print_log_level < log_level*2) __print(" :dia\n");
+        if (g_log_level < log_level*2) __print(" :dia\n");
     }
 
     log_level = 64;
-    if (g_print_log_level & log_level) {  // if
+    if (g_log_level & log_level) {  // if
         __print(" #%d", log_level);
         __print(" m_stmt_if_cond");
         for (const auto& item : m_stmt_if_cond) {
@@ -580,11 +578,20 @@ void ArithmeticExpression::dia(const std::string& marker="") {
             __print("]");
         }
 
-        if (g_print_log_level < log_level*2) __print(" :dia\n");
+        __print(" m_stmt_while_cond");
+        for (const auto& item : m_stmt_while_cond) {
+            __print("[\"%d\"]=[", item.first);
+            for (WhileCond x : item.second) {
+                __print("(%d,%s,%s,%d), ", x.start_pos, x.start_label.c_str(), x.jz_label.c_str(), x.value);
+            }
+            __print("]");
+        }
+
+        if (g_log_level < log_level*2) __print(" :dia\n");
     }
 
     log_level = 128;
-    if (g_print_log_level & log_level) { // fn
+    if (g_log_level & log_level) { // fn
         __print(" #%d", log_level);
         __print(" m_function_declare_cur_name = %s", m_function_declare_cur_name.c_str());
 
@@ -609,11 +616,11 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         }
         __print("]");
 
-        if (g_print_log_level < log_level*2) __print(" :dia\n");
+        if (g_log_level < log_level*2) __print(" :dia\n");
     }
 
     log_level = 256;
-    if (g_print_log_level & log_level) {
+    if (g_log_level & log_level) {
         __print(" #log_level");
         __print(" m_depth = %d", m_depth);
         __print(" m_stmt_count = %d", m_stmt_count);
@@ -627,6 +634,8 @@ void ArithmeticExpression::dia(const std::string& marker="") {
                 getStateStr(m_state_next_certained)
             );
 
+        __print(" m_execute_at_compile_time = %d", m_execute_at_compile_time);
+
         if (m_return_value_ptr != NULL) {
             __print(" *m_return_value_ptr = (%d,%d,%s,%g,\"%s\")",
                     m_return_value_ptr->token_idx,
@@ -639,7 +648,7 @@ void ArithmeticExpression::dia(const std::string& marker="") {
             __print(" m_return_value_ptr = NULL");
         }
 
-        if (g_print_log_level < log_level*2) __print(" :dia\n");
+        if (g_log_level < log_level*2) __print(" :dia\n");
     }
 
     __print("\n");
@@ -798,7 +807,7 @@ bool ArithmeticExpression::handleFlag(char flag)
         return true;
 
     } else {
-        print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         return true;
     }
 
@@ -934,6 +943,12 @@ bool ArithmeticExpression::handleOperator(char opr)
     m_state_next_certained = ST_UPPER;
     // state keep unchange
 
+    print("m_state: %s, opr: %c, m_state_next_certained: %s", getStateStr(m_state), opr, getStateStr(m_state_next_certained));
+    // prev state + '=' -> uncertained state, so refine here.
+    if (opr == 'e') {
+        m_state_next_certained = ST_OPR;
+    }
+
     ++m_token_idx;
 
     char top = m_opr_stack.top().v;
@@ -972,11 +987,15 @@ bool ArithmeticExpression::handleOperator(char opr)
         return true;
 
     } else {
-        print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
 
-        bool is_exp_context = (ctxt == CTXT_EXP || ctxt == STMT_DECLARE_ASSIGN_VALUE || ctxt == STMT_IF_COND);
+        bool is_exp_context = (
+            ctxt == CTXT_EXP
+            || ctxt == STMT_DECLARE_ASSIGN_VALUE
+            || ctxt == STMT_IF_COND
+            || ctxt == STMT_WHILE_COND);
+
         if (!is_exp_context) {
-
             m_ctxt_stack.push(CTXT_EXP);
 
             // // if current context expect speicial exp context, do not push too
@@ -1018,7 +1037,7 @@ void ArithmeticExpression::handleError()
     StateTable* l = m_state_table[m_state];
     for (int i=0; i<CT_UPPER; i++) {
         if (l[i].action_type != AT_ERR) {
-            __error(" '%s',", getCharTypeStr(i));
+            __error(" '%s',", getCharTypeStr((CharType)i));
         }
     }
     __error("\b ], while '%c' gotten\n", m_arithmetic_expression[m_parse_pos]);
@@ -1099,13 +1118,18 @@ bool ArithmeticExpression::handleNum()
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
         return true;
 
+    } else if (ctxt == STMT_WHILE_COND) {
+        // num is sufficient for if cond, so expect '{'
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
+        return true;
+
     } else if (ctxt == FUNCTION_RETURN_VALUE) {
         // num is sufficient for return cond, so expect ';', exclude '{'
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_SPC, CT_SMC, CT_CMA, CT_RCB};
         return true;
 
     } else {
-        print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         return true;
     }
 
@@ -1136,7 +1160,7 @@ bool ArithmeticExpression::handleLeftParenthesis()
         ctxt == FUNCTION_RETURN_VALUE
         ) {
 
-        if (ctxt == STMT_IF_COND || ctxt == STMT_ELIF_COND) {
+        if (ctxt == STMT_IF_COND || ctxt == STMT_ELIF_COND || ctxt == STMT_WHILE_COND) {
             m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
         } else if (ctxt == FUNCTION_RETURN_VALUE) {
             m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC, CT_SMC};
@@ -1243,6 +1267,12 @@ bool ArithmeticExpression::handleLeftParenthesis()
         m_state_next_certained = ST_BGN; // can get any chars to compose exp
         return true;
 
+    } else if (ctxt == STMT_WHILE) { // 'while('
+        m_ctxt_stack.push(STMT_WHILE_COND); // STMT_IF_COND is a special case of CTXT_EXP
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_EXM, CT_SPC}; // 'while(COND'
+        m_state_next_certained = ST_BGN; // can get any chars to compose exp
+        return true;
+
     } else if (ctxt == FUNCTION_DEFINITION) {
         if (m_function_declare_cur_name == "") {
             error("no function name found after keyword \"function\"");
@@ -1260,7 +1290,7 @@ bool ArithmeticExpression::handleLeftParenthesis()
         return true;
 
     } else {
-        print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         return true;
     }
 
@@ -1354,16 +1384,21 @@ bool ArithmeticExpression::handleRightParenthesis()
     return true;
 }
 
-std::string ArithmeticExpression::nextToken() {
-    int i = m_parse_pos;
+std::string ArithmeticExpression::nextToken(int start_pos) {
+    print("start_pos: %d char: '%c'", start_pos, m_arithmetic_expression[start_pos]);
+
+    int i = start_pos < 0? m_parse_pos+1: start_pos;
     int size = m_arithmetic_expression.size();
 
     // skip space(s)
-    while (++i<size) { if (m_arithmetic_expression[i] != ' ') break; }
+    while (i<size) { if (m_arithmetic_expression[i] != ' ') break; ++i;}
 
     if (i==size) {
+        print("all input consumed");
         return "";
     }
+
+    print("after skip whitespace, i: %d, char: '%c'", i, m_arithmetic_expression[i]);
 
     char c = m_arithmetic_expression[i];
     switch(getCharType(c)) {
@@ -1390,7 +1425,7 @@ std::string ArithmeticExpression::nextToken() {
         return "(";
     }
     default:
-        print("TODO to support char type:%s", getCharTypeStr(c));
+        print("TODO to support char type:%s", getCharTypeStr(getCharType(c)));
         return "";
     }
 }
@@ -1421,6 +1456,8 @@ bool ArithmeticExpression::handleAlpha(char _c)
             } else if (ctxt == STMT_IF || ctxt == STMT_IF_COND) { // `if var`
                 break;
             } else if (ctxt == STMT_ELIF || ctxt == STMT_ELIF_COND) { // `elif var`
+                break;
+            } else if (ctxt == STMT_WHILE || ctxt == STMT_WHILE_COND) { // `while var`
                 break;
             } else if (ctxt == FUNCTION_RETURN || ctxt == FUNCTION_RETURN_VALUE) { // `return var`
                 break;
@@ -1478,11 +1515,11 @@ bool ArithmeticExpression::handleAlpha(char _c)
     dia("-:handleAlpha:.h1");
 
     ContextType ctxt = m_ctxt_stack.top();
-    print("ctxt: %s", getContextTypeStr(ctxt));
+    print("ctxt: %s, m_id: \"%s\"", getContextTypeStr(ctxt), m_id.c_str());
 
     if (ctxt == CTXT_BGN) {
         if (m_id == "if") {     // keyword
-            // ensure "if" is start of current statement
+            // ensure is start of current statement
             Opd top_opd = m_opd_stack.top();
             Opr top_opr = m_opr_stack.top();
 
@@ -1499,7 +1536,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
             return true;
 
         } else if (m_id == "elif") { // keyword
-            // ensure "elif" is start of current statement
+            // ensure is start of current statement
             Opd top_opd = m_opd_stack.top();
             Opr top_opr = m_opr_stack.top();
 
@@ -1532,7 +1569,52 @@ bool ArithmeticExpression::handleAlpha(char _c)
             m_ctxt_stack.push(STMT_ELSE);
             m_expect_char_types = {CT_LCB, CT_SPC};
 
-            // instruct("    %-11s %-10s", (std::string("else_")+std::to_string(m_parse_pos)+":").c_str(), "");
+            return true;
+
+        } else if (m_id == "while") { // keyword
+            // ensure is start of current statement
+            Opd top_opd = m_opd_stack.top();
+            Opr top_opr = m_opr_stack.top();
+
+            if ((top_opd.stmt_count == m_stmt_count && top_opd.type != OPD_STACK_BOTTOM_BASE) ||
+                (top_opr.stmt_count == m_stmt_count && top_opr.v != LOWEST_PRIO_OP)) {
+                error("`while` supposed to be at very begin of one statement");
+                printErrorLocation();
+                exit(E_GRAMMAR);
+            }
+
+            m_ctxt_stack.push(STMT_WHILE);
+            m_expect_char_types = {CT_LP, CT_SPC}; // 'while(' or 'while '
+            m_state_next_certained = ST_BGN; // can get any chars to compose exp
+
+            if (m_stmt_while_cond.find(m_lcb_count) == m_stmt_while_cond.end()) {
+                m_stmt_while_cond[m_lcb_count] = {};
+            }
+
+            std::vector<WhileCond>& while_conds = m_stmt_while_cond[m_lcb_count];
+            // pre-one char before 'while', so after handleRightParenthesis of while block, ++m_parse_pos points to w of 'while' correctly
+            // m_parse_pos - 5 <== (m_parse_pos + 1)'e+1' - 5(w) - 1 (w-1)
+            int while_start_pos = m_parse_pos - 5;
+            bool is_same_while = false;
+
+            if (while_conds.size() == 0) {
+                is_same_while = false;
+            } else {
+                WhileCond tailing_cond = while_conds[while_conds.size()-1];
+                is_same_while = tailing_cond.start_pos == while_start_pos;
+            }
+            print("is_same_while:%d", is_same_while);
+
+            // we will go back to while head for next while turn, so it the tailing cond is old
+            // one, do nothing, else, record it
+            if (!is_same_while) {
+                std::string start_label = std::string("WHILE_")+std::to_string(while_start_pos);
+                std::string jz_label = std::string("WHILE_END_")+std::to_string(while_start_pos);
+                while_conds.push_back({while_start_pos, start_label, jz_label, 0});
+                instruct("%-15s %-12s", (start_label+':').c_str(), "");
+            } else {
+                print("while: we are back here: while_start_pos:%d", while_start_pos);
+            }
 
             return true;
 
@@ -1581,7 +1663,8 @@ bool ArithmeticExpression::handleAlpha(char _c)
             return true;
 
         } else { // fnn or var or assign-left-var, undetermined, just push idf for later use
-            std::string tkn = nextToken();
+            std::string tkn = nextToken(m_parse_pos+1);
+            print("tkn: %s", tkn.c_str());
 
             if (tkn == "(") {     // fnn
                 pushOpdIdf(m_id, false);
@@ -1610,6 +1693,8 @@ bool ArithmeticExpression::handleAlpha(char _c)
             exit(E_GRAMMAR);
         }
 
+        // TODO: [2026-11-03] use nextToken for more precise-checking.
+
         if (nextChar() == '(') { // fnn
             pushOpdIdf(m_id, false);
         } else {
@@ -1635,6 +1720,8 @@ bool ArithmeticExpression::handleAlpha(char _c)
         // TODO: m_id here can not be following keywords:
         // if elif else function
 
+        // TODO: [2026-11-03] use nextToken for more precise-checking.
+
         print("'%c'", nextChar());
         if (nextChar() == '(') {
             pushOpdIdf(m_id);
@@ -1646,8 +1733,26 @@ bool ArithmeticExpression::handleAlpha(char _c)
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
         return true;
 
+    } else if (ctxt == STMT_IF_BLOCK) { // STMT_IF_COND is a special case of CTXT_EXP
+        std::string tkn = nextToken(m_parse_pos+1);
+        if (tkn == "(") {     // fnn
+            pushOpdIdf(m_id, false);
+        } else if (tkn == "=") {     // assign
+            // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
+            pushOpdIdf(m_id, false);
+        } else if (tkn == ":") {     // scope assign
+            pushOpdIdf(m_id, false);
+        } else if (tkn == "==") {     // eq, idf must have value, so use value directly
+            pushOpdIdfValue(m_id);
+        } else {                   // var
+            pushOpdIdfValue(m_id);
+        }
+        return true;
+
     } else if (ctxt == STMT_ELIF_COND) { // STMT_ELIF_COND is a special case of CTXT_EXP
         print("'%c'", nextChar());
+
+        // TODO: [2026-11-03] use nextToken for more precise-checking.
         if (nextChar() == '(') {
             pushOpdIdf(m_id);
         } else {
@@ -1655,7 +1760,69 @@ bool ArithmeticExpression::handleAlpha(char _c)
         }
 
         // alpha is sufficient for if cond, so expect '{'
-        m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_CMA, CT_SPC };
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
+        return true;
+
+    } else if (ctxt == STMT_ELIF_BLOCK) { // STMT_IF_COND is a special case of CTXT_EXP
+        std::string tkn = nextToken(m_parse_pos+1);
+        if (tkn == "(") {     // fnn
+            pushOpdIdf(m_id, false);
+        } else if (tkn == "=") {     // assign
+            // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
+            pushOpdIdf(m_id, false);
+        } else if (tkn == ":") {     // scope assign
+            pushOpdIdf(m_id, false);
+        } else if (tkn == "==") {     // eq, idf must have value, so use value directly
+            pushOpdIdfValue(m_id);
+        } else {                   // var
+            pushOpdIdfValue(m_id);
+        }
+        return true;
+
+    } else if (ctxt == STMT_ELSE_BLOCK) { // STMT_IF_COND is a special case of CTXT_EXP
+        std::string tkn = nextToken(m_parse_pos+1);
+        if (tkn == "(") {     // fnn
+            pushOpdIdf(m_id, false);
+        } else if (tkn == "=") {     // assign
+            // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
+            pushOpdIdf(m_id, false);
+        } else if (tkn == ":") {     // scope assign
+            pushOpdIdf(m_id, false);
+        } else if (tkn == "==") {     // eq, idf must have value, so use value directly
+            pushOpdIdfValue(m_id);
+        } else {                   // var
+            pushOpdIdfValue(m_id);
+        }
+        return true;
+
+    } else if (ctxt == STMT_WHILE_COND) { // a special case of CTXT_EXP
+        print("'%c'", nextChar());
+
+        // TODO: [2026-11-03] use nextToken for more precise-checking.
+        if (nextChar() == '(') {
+            pushOpdIdf(m_id);
+        } else {
+            pushOpdIdfValue(m_id);
+        }
+
+        // alpha is sufficient for if cond, so expect '{'
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
+        return true;
+
+    } else if (ctxt == STMT_WHILE_BLOCK) { // exclude '{'
+        std::string tkn = nextToken(m_parse_pos+1);
+        if (tkn == "(") {     // fnn
+            pushOpdIdf(m_id, false);
+        } else if (tkn == "=") {     // assign
+            // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
+            pushOpdIdf(m_id, false);
+        } else if (tkn == ":") {     // scope assign
+            pushOpdIdf(m_id, false);
+        } else if (tkn == "==") {     // eq, idf must have value, so use value directly
+            pushOpdIdfValue(m_id);
+        } else {                   // var
+            pushOpdIdfValue(m_id);
+        }
         return true;
 
     } else if (ctxt == FUNCTION_DEFINITION) { // function FNN
@@ -1696,8 +1863,25 @@ bool ArithmeticExpression::handleAlpha(char _c)
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_SPC, CT_SMC, CT_CMA, CT_RCB};
         return true;
 
+    } else if (ctxt == FUNCTION_BLOCK) { // exclude '{'
+        std::string tkn = nextToken(m_parse_pos+1);
+        if (tkn == "(") {     // fnn
+            pushOpdIdf(m_id, false);
+        } else if (tkn == "=") {     // assign
+            // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
+            pushOpdIdf(m_id, false);
+        } else if (tkn == ":") {     // scope assign
+            pushOpdIdf(m_id, false);
+        } else if (tkn == "==") {     // eq, idf must have value, so use value directly
+            pushOpdIdfValue(m_id);
+        } else {                   // var
+            pushOpdIdfValue(m_id);
+        }
+        return true;
+
     } else {
-        print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+
         return true;
         // PATTERN: context + expects
 
@@ -1763,6 +1947,16 @@ bool ArithmeticExpression::handleSpace() {
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
         goto handleSpace_common;
 
+    } else if (ctxt == STMT_WHILE) {
+        m_ctxt_stack.push(STMT_WHILE_COND); // STMT_WHILE_COND is a special case of CTXT_EXP
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_EXM, CT_SPC}; // 'while COND'
+        m_state_next_certained = ST_BGN; // can get any chars to compose exp
+        goto handleSpace_common;
+
+    } else if (ctxt == STMT_WHILE_COND) {
+        m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
+        goto handleSpace_common;
+
     } else if (ctxt == FUNCTION_RETURN) {
         m_ctxt_stack.push(FUNCTION_RETURN_VALUE); // FUNCTION_RETURN_VALUE is a special case of CTXT_EXP
         // 'return exp' or 'return ;', exclude '{'
@@ -1774,7 +1968,7 @@ bool ArithmeticExpression::handleSpace() {
         goto handleSpace_common;
 
     } else {
-        print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
         goto handleSpace_common;
     }
 
@@ -1845,9 +2039,10 @@ bool ArithmeticExpression::handleSemicolon() {
         exit(E_SYNTAX);
     }
 
-    dia("-:handleSemicolon+1");
+    dia("-:handleSemicolon:+1");
 
     ContextType ctxt = m_ctxt_stack.top();
+    print("ctxt: %s", getContextTypeStr(ctxt));
 
     // we can check very firstly, for cases that should not happend
     switch(ctxt) {
@@ -1858,6 +2053,11 @@ bool ArithmeticExpression::handleSemicolon() {
 
     case STMT_IF_COND:
         error("invalid syntax: \"if exp ;\", should never come here, ';' should not be in m_expect_char_types under context: STMT_IF_COND");
+        printErrorLocation();
+        exit(E_SYNTAX);
+
+    case STMT_WHILE_COND:
+        error("invalid syntax: \"while exp ;\", should never come here, ';' should not be in m_expect_char_types under context: STMT_WHILE_COND");
         printErrorLocation();
         exit(E_SYNTAX);
 
@@ -1901,7 +2101,7 @@ bool ArithmeticExpression::handleSemicolon() {
     } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
         // at least two opd need
         if (m_opd_stack.count() < 3) {
-            error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+            error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count()-1);
             printErrorLocation();
             exit(E_GRAMMAR);
         } else {
@@ -1910,11 +2110,15 @@ bool ArithmeticExpression::handleSemicolon() {
 
         Opd opdv = m_opd_stack.pop();
         double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+
+        dia("jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj");
+
         std::string assign_idf = _2idf(m_opd_stack.pop());
         assignValueToIdf(assign_idf, assign_v, false);
+        // TODO: clean current ctxt from ctxt stack after consumed
 
         // instruct("store %s", assign_idf.c_str());
-        instruct("    %-11s %-10s", "store", assign_idf.c_str());
+        instruct("    %-11s %-12s", "store", assign_idf.c_str());
 
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         if (m_opd_stack.count() < 3) { // base + 2
@@ -1929,9 +2133,10 @@ bool ArithmeticExpression::handleSemicolon() {
         double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
         std::string assign_idf = _2idf(m_opd_stack.pop());
         assignValueToIdf(assign_idf, assign_v, true);
+        // TODO: clean current ctxt from ctxt stack after consumed
 
         // instruct("store %s", assign_idf.c_str());
-        instruct("    %-11s %-10s", "store_local", assign_idf.c_str());
+        instruct("    %-11s %-12s", "store_local", assign_idf.c_str());
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return;' or 'return ;'
         m_parse_pos = m_arithmetic_expression.size();
@@ -1952,7 +2157,7 @@ bool ArithmeticExpression::handleSemicolon() {
         return true;
 
     } else {
-        print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
     }
 
     ////////////////////////////////////////////////////////////////
@@ -2029,7 +2234,7 @@ bool ArithmeticExpression::handleSymbolEqual() {
     } else {
         ContextType ctxt = m_ctxt_stack.top();
 
-        if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK || ctxt == STMT_ELIF_BLOCK) {
+        if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK || ctxt == STMT_ELIF_BLOCK || ctxt == STMT_WHILE_BLOCK) {
             if (m_state == ST_IDF && (m_state_prev == ST_BGN || m_state_prev == ST_IDF)) { // more restrict grammer
                 // treat it as assign statement
                 m_ctxt_stack.push(STMT_DECLARE_ASSIGN);
@@ -2263,7 +2468,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         return true;
 
     } else {
-        print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
     }
 
     print("process '{' self");
@@ -2328,6 +2533,8 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         // never be calculated. esp. for case:
         // `x=1; if x {}`
 
+        // TODO: like "while" put in "if" every first
+
         Opd top = m_opd_stack.top();
         if (_isbase(top)) {
             error("no condition found for context: %s", getContextTypeStr(ctxt));
@@ -2374,7 +2581,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         m_state_next_certained = ST_BGN;
         ++m_lcb_count;
 
-        instruct("    %-11s %-10s", "jz", jz_label.c_str());
+        instruct("    %-11s %-12s # (if)", "jz", jz_label.c_str());
 
         return true;
 
@@ -2446,12 +2653,80 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         m_state_next_certained = ST_BGN;
         ++m_lcb_count;
 
-        instruct("    %-11s %-10s", "jz", jz_label.c_str());
+        instruct("    %-11s %-12s", "jz", jz_label.c_str());
+
+        return true;
+
+    } else if (ctxt == STMT_WHILE_COND) {
+        // condtion
+        // why always process top opd, coz opr stack can be empty, so idf opd will
+        // never be calculated. esp. for case:
+        // `x=1; while x {}`
+
+        Opd top = m_opd_stack.top();
+        if (_isbase(top)) {
+            error("no condition found for context: %s", getContextTypeStr(ctxt));
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        } else if (_isidf(top)) {
+            std::string idf = _2str(m_opd_stack.pop());
+            pushOpdIdfValue(idf);
+        } else if (_isnum(top)) {
+            // ok, do nothing
+        } else if (_isstr(top)) {
+            print("TODO");
+            exit(0);
+        }
+
+        // save condtion value
+        if (m_stmt_while_cond.find(m_lcb_count) == m_stmt_while_cond.end()) {
+            m_stmt_while_cond[m_lcb_count] = {};
+        }
+        std::vector<WhileCond>& while_conds = m_stmt_while_cond[m_lcb_count];
+
+        print("m_opd_stack.top(): %g", _2num(m_opd_stack.top()));
+
+        int cond = _2num(m_opd_stack.pop()) != 0? 1: 0;
+        if (while_conds.size() == 0) {
+            error("no while cond found, should not happend");
+            printErrorLocation();
+            exit(E_DEV_ERROR);
+        }
+
+        WhileCond& tailing_cond = while_conds[while_conds.size()-1]; // must be referred to asign value
+
+        // we will go back to while head for next while turn, so it the tailing cond is old
+        // one, do nothing, else, record it
+        print("set while condition value: %d", cond);
+        tailing_cond.value = cond;
+
+        if (cond != 0) {
+            m_ctxt_stack.push(STMT_WHILE_BLOCK);
+            m_ctxt_stack.push(CTXT_BGN);
+            m_expect_char_types = {}; // clear
+
+        } else {
+            m_ctxt_stack.push(STMT_WHILE_BLOCK);
+            m_expect_char_types = {}; // clear
+
+            print("TODO: to ignore while-block, just skip to balanced '}', no syntax check for skipped content");
+            if (!findBalancedRightCurlyBraceAndSkipToIt()) {
+                error("while: no balanced } found");
+                printErrorLocation();
+                syntax(ctxt);
+                exit(E_GRAMMAR);
+            }
+        }
+
+        m_state_next_certained = ST_BGN;
+        ++m_lcb_count;
+
+        instruct("    %-11s %-12s", "jz", tailing_cond.jz_label.c_str());
 
         return true;
 
     } else {                    // other context
-        print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+        warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
 
         m_state_next_certained = ST_BGN;
         ++m_lcb_count;
@@ -2467,7 +2742,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 bool ArithmeticExpression::findBalancedRightCurlyBraceAndSkipToIt(bool skipRigthCurlyBraceAlong) {
     // if gen instruct, all code need to be parsed, but not actually execute it.
 
-    if (g_print_log_level & 2048) { // need to generate instruction, but do not execute
+    if (g_log_level & LLL_GEN_INSTRUCT) { // need to generate instruction, but do not execute
         return true;
     }
 
@@ -2570,8 +2845,13 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     int step = 0;
     ContextType lcb_ctxt = m_ctxt_stack.top(step);
 
-    // skip CTXT_BGN, CTXT_EXP
-    while (-1*step < m_ctxt_stack.count() && (lcb_ctxt == CTXT_BGN || lcb_ctxt == CTXT_EXP) ) {
+    while (-1*step < m_ctxt_stack.count() && (
+               lcb_ctxt != STMT_IF_BLOCK &&
+               lcb_ctxt != STMT_ELIF_BLOCK &&
+               lcb_ctxt != STMT_ELSE_BLOCK &&
+               lcb_ctxt != STMT_WHILE_BLOCK &&
+               lcb_ctxt != FUNCTION_BLOCK
+               )) {
         --step;
         lcb_ctxt = m_ctxt_stack.top(step);
     }
@@ -2582,6 +2862,8 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
         exit(E_GRAMMAR);
     }
     print("lcb_ctxt: %s", getContextTypeStr(lcb_ctxt));
+
+    int loop_start_pos = -1;
 
     if (lcb_ctxt == STMT_IF_BLOCK || lcb_ctxt == STMT_ELIF_BLOCK || lcb_ctxt == STMT_ELSE_BLOCK) {
 
@@ -2621,35 +2903,35 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
         ////////////////////////////////////////////////////////////////
         if (lcb_ctxt == STMT_IF_BLOCK) {
             if (tailing_cond_followed_with_elif) { // if cond {} + elif cond {}
-                instruct("    %-11s %-10s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
-                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct("    %-11s %-12s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
+                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
             } else if (tailing_cond_followed_with_else) { // if cond {} + else {}
-                instruct("    %-11s %-10s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need "END:"
-                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct("    %-11s %-12s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need "END:"
+                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
             } else {            // if cond {} as ending
                 // reuse "LXXX:" as "END:", no need jmp, and no need "END:" anymore
-                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
             }
 
         } else if (lcb_ctxt == STMT_ELIF_BLOCK) {
             if (tailing_cond_followed_with_elif) { // elif cond {} + elif
-                instruct("    %-11s %-10s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
-                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct("    %-11s %-12s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
+                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
             } else if (tailing_cond_followed_with_else) { // elif cond {} + else {}
-                instruct("    %-11s %-10s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need "END:"
-                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct("    %-11s %-12s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need "END:"
+                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
             } else {                                      // elif cond {} as ending
                 // *THE ONLY PLACE WHERE TWO LABELS USED FOR END*, it's ok
-                instruct("%-15s %-10s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
                 // why another END? used for previous elif "jmp"
-                instruct("%-15s %-10s", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), "");
+                instruct("%-15s %-12s", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), "");
             }
 
         } else if (lcb_ctxt == STMT_ELSE_BLOCK) {
             if (tailing_cond_followed_with_elif) { // false
             } else if (tailing_cond_followed_with_else) { // false
             } else {
-                instruct("%-15s %-10s", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), ""); // TODO 'end_'+uniq_modifier
+                instruct("%-15s %-12s", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), ""); // TODO 'end_'+uniq_modifier
             }
         }
 
@@ -2672,6 +2954,55 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
                 print("pop %s", getContextTypeStr(top));
                 m_ctxt_stack.pop();
             }
+        }
+
+        goto handleRightCurlyBrace_common;
+
+    } else if (lcb_ctxt == STMT_WHILE_BLOCK) { // while cond { } ends
+        // we are in while block, which means lcb have been increased by left curly brace, so:
+        int key = m_lcb_count - 1;
+
+        if (m_stmt_while_cond.find(key) == m_stmt_while_cond.end()) {
+            m_stmt_while_cond[key] = {};
+        }
+        std::vector<WhileCond>& while_conds = m_stmt_while_cond[key];
+        if (while_conds.size() == 0) {
+            error("no while cond found, should not happen, key:%d", key);
+            printErrorLocation();
+            exit(E_SHOULD_NOT_HAPPEN);
+        }
+
+        WhileCond tailing_cond = while_conds[while_conds.size()-1];
+        bool gen_instruct = false; // to ensure only generate once
+
+        if (m_execute_at_compile_time) {
+            if (tailing_cond.value == 0) { gen_instruct = true; }
+        } else {
+            gen_instruct = true;
+        }
+
+        if (gen_instruct) {
+            instruct("    %-11s %-12s", "jmp", tailing_cond.start_label.c_str());
+            instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
+        }
+
+        dia("while");
+
+        if (m_execute_at_compile_time) {
+            if (tailing_cond.value) {
+                loop_start_pos = tailing_cond.start_pos;
+            }
+        }
+
+        // clean context stack: pop to STMT_WHILE
+        ContextType top;
+        while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_WHILE) {
+            print("pop %s", getContextTypeStr(top));
+            m_ctxt_stack.pop();
+        }
+        if ((top = m_ctxt_stack.top()) == STMT_WHILE) {
+            print("pop %s", getContextTypeStr(top));
+            m_ctxt_stack.pop();
         }
 
         goto handleRightCurlyBrace_common;
@@ -2706,7 +3037,9 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
             std::string assign_idf = _2idf(m_opd_stack.pop());
             assignValueToIdf(assign_idf, assign_v, false);
-            instruct("    %-11s %-10s", "store", assign_idf.c_str());
+            // TODO: clean current ctxt from ctxt stack after consumed
+
+            instruct("    %-11s %-12s", "store", assign_idf.c_str());
 
             goto handleRightCurlyBrace_common;
 
@@ -2722,7 +3055,9 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
             std::string assign_idf = _2idf(m_opd_stack.pop());
             assignValueToIdf(assign_idf, assign_v, true);
-            instruct("    %-11s %-10s", "store_local", assign_idf.c_str());
+            // TODO: clean current ctxt from ctxt stack after consumed
+
+            instruct("    %-11s %-12s", "store_local", assign_idf.c_str());
 
             goto handleRightCurlyBrace_common;
 
@@ -2741,7 +3076,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
             goto handleRightCurlyBrace_common;
 
         } else {
-            print("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
+            warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
             goto handleRightCurlyBrace_common;
         }
     }
@@ -2792,8 +3127,15 @@ handleRightCurlyBrace_common:
     }
 
     pushContextBGN();
-
     --m_lcb_count;
+
+    // finally, handle loop
+    if (loop_start_pos != -1) {
+        m_parse_pos = loop_start_pos;
+        dia("loop back to loop_start_pos");
+        m_state_next_certained = ST_BGN;
+    }
+
     return true;
 }
 
@@ -2844,7 +3186,7 @@ void ArithmeticExpression::pushOpdIdf(std::string idf, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_IDF, 0, idf });
     if (gen_instruct) {
         //instruct("push_idf %s", idf.c_str());
-        instruct("    %-11s %-10s", "push_idf", idf.c_str());
+        instruct("    %-11s %-12s", "push_idf", idf.c_str());
     }
 }
 
@@ -2852,7 +3194,7 @@ void ArithmeticExpression::pushOpdIdfValue(const std::string& idf, bool gen_inst
     pushOpdNum(getIdfValue(idf), false);
     if (gen_instruct) {
         //instruct("push_idv %s", idf.c_str());
-        instruct("    %-11s %-10s", "push_idv", idf.c_str());
+        instruct("    %-11s %-12s", "push_idv", idf.c_str());
     }
 }
 
@@ -2860,7 +3202,7 @@ void ArithmeticExpression::pushOpdNum(double num, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_NUM, num, "" });
     if (gen_instruct) {
         //instruct("push %g", num);
-        instruct("    %-11s %-10g", "push", num);
+        instruct("    %-11s %-12g", "push", num);
     }
 }
 
@@ -2869,7 +3211,7 @@ void ArithmeticExpression::pushOpdStr(std::string str, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_STR, 0, std::move(str) });
     if (gen_instruct) {
         // instruct("push %s", str.c_str());
-        instruct("    %-11s %-10s", "push_str", str.c_str());
+        instruct("    %-11s %-12s", "push_str", str.c_str());
     }
 }
 
@@ -2943,7 +3285,7 @@ bool ArithmeticExpression::calculate(int opr)
     }
 
     if (!opr_code.empty()) {
-        instruct("    %-11s %-10s", opr_code.c_str(), opr_args.c_str());
+        instruct("    %-11s %-12s", opr_code.c_str(), opr_args.c_str());
     }
 
     ////////////////////////////////////////////////////////////////
@@ -2981,7 +3323,7 @@ bool ArithmeticExpression::calculate(int opr)
         if (!m_execute_at_compile_time) {
             // get stack proprly set
             for(int i=0; i<fnargscnt; ++i) m_opd_stack.pop();
-            pushOpdNum(0, false);
+            pushOpdNum(0, false); // place-holder
             goto calculate_if_opr_f_end;
         }
 
@@ -3181,7 +3523,7 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
         case MAX: {
-            int args_count = fnargscnt + 1;
+            int args_count = fnargscnt;
             double v = FLT_MIN;
             int opd;
             while (!m_opd_stack.empty() && args_count--) {
@@ -3199,7 +3541,7 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
         case MIN: {
-            int args_count = fnargscnt + 1;
+            int args_count = fnargscnt;
             double v = FLT_MAX;
             int opd;
             while (!m_opd_stack.empty() && args_count--) {
@@ -3230,7 +3572,7 @@ bool ArithmeticExpression::calculate(int opr)
         }
 
         case PRINT: {
-            // if (g_print_log_level & 6144) break; // avoid mess up instruct
+            // if (g_log_level & LLL_GEN_INSTRUCT) break; // avoid mess up instruct
 
             if (m_opd_stack.empty()) { // "print()"
                 printf("\n");
@@ -3250,7 +3592,7 @@ bool ArithmeticExpression::calculate(int opr)
         }
 
         case PRINTF: {
-            // if (g_print_log_level & 6144) break; // avoid mess up instruct
+            // if (g_log_level & LLL_GEN_INSTRUCT) break; // avoid mess up instruct
 
             // TODO: to support real printf
             const Opd& opd = m_opd_stack.pop();
@@ -3376,7 +3718,15 @@ bool ArithmeticExpression::calculate(int opr)
         }
 
     calculate_else_opr_end:
-        for(int i=0; i<opd_cnt; ++i) m_opd_stack.pop();
+        // emulate opr operation
+        if (!m_execute_at_compile_time) {
+            for(int i=0; i<opd_cnt; ++i) {
+                Opd opd = m_opd_stack.top();
+                print("pop opd: (%d,%d,%s,%g,\"%s\"), ", opd.token_idx, opd.stmt_count, getOpdTypeStr(opd.type), opd.num, opd.str.c_str());
+                m_opd_stack.pop();
+            }
+            pushOpdNum(0, false);
+        }
 
         return true;
     }
@@ -3453,7 +3803,7 @@ bool ArithmeticExpression::call(const std::string function_name) {
         getIdfMap(),        // FIXME: maybe just leak global scope idf to valid idf value pollution
         argm,
         FUNCTION_CALL,
-        g_print_log_level
+        g_log_level
         );
     fnblock.setMeta(
         getFunctionDeclareMap(),
@@ -3584,9 +3934,10 @@ bool ArithmeticExpression::handleInputAllParsed()
         double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
         std::string assign_idf = _2idf(m_opd_stack.pop());
         assignValueToIdf(assign_idf, assign_v, false);
+        // TODO: clean current ctxt from ctxt stack after consumed
 
         // instruct("store %s", assign_idf.c_str());
-        instruct("    %-11s %-10s", "store", assign_idf.c_str());
+        instruct("    %-11s %-12s", "store", assign_idf.c_str());
 
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         if (m_opd_stack.count() < 3) { // base + 2
@@ -3602,8 +3953,10 @@ bool ArithmeticExpression::handleInputAllParsed()
         std::string assign_idf = _2idf(m_opd_stack.pop());
         assignValueToIdf(assign_idf, assign_v, true);
 
+        // TODO: clean current ctxt from ctxt stack after consumed
+
         // instruct("store %s", assign_idf.c_str());
-        instruct("    %-11s %-10s", "store_local", assign_idf.c_str());
+        instruct("    %-11s %-12s", "store_local", assign_idf.c_str());
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return$'
         m_expect_char_types = {};
@@ -3701,7 +4054,9 @@ bool ArithmeticExpression::handleInputAllParsed()
 
         std::string assign_idf = _2idf(m_opd_stack.pop());
         assignValueToIdf(assign_idf, assign_v, false);
-        instruct("    %-11s %-10s", "store", assign_idf.c_str());
+        // TODO: clean current ctxt from ctxt stack after consumed
+
+        instruct("    %-11s %-12s", "store", assign_idf.c_str());
 
     } else if (ctxt == FUNCTION_RETURN_VALUE) { // `return xxxx` in global scope
         if (m_opd_stack.count() >= 2) {

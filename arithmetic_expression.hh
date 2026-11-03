@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define LLL_GEN_INSTRUCT 2048
+#define LLL_EXECUTE_AT_COMPILE_TIME 4096
+
 enum OpdType {
     OPD_STACK_BOTTOM_BASE=-1,
     OPD_NUM,
@@ -52,6 +55,10 @@ enum ContextType {
 
     STMT_ELSE,
     STMT_ELSE_BLOCK,
+
+    STMT_WHILE,                    // keyword
+    STMT_WHILE_COND,
+    STMT_WHILE_BLOCK,
 
     FUNCTION_DEFINITION,
     FUNCTION_ARGS,
@@ -98,6 +105,10 @@ inline const char* getContextTypeStr(ContextType t)
 
     case STMT_ELSE: return "STMT_ELSE";
     case STMT_ELSE_BLOCK: return "STMT_ELSE_BLOCK";
+
+    case STMT_WHILE: return "STMT_WHILE";
+    case STMT_WHILE_COND: return "STMT_WHILE_COND";
+    case STMT_WHILE_BLOCK: return "STMT_WHILE_BLOCK";
 
     case FUNCTION_DEFINITION: return "FUNCTION_DEFINITION";
     case FUNCTION_ARGS: return "FUNCTION_ARGS";
@@ -389,6 +400,13 @@ typedef struct {
     int value;                      // 0,1
 } IfCond;
 
+typedef struct {
+    int start_pos;
+    std::string start_label;
+    std::string jz_label;
+    int value;                      // 0,1
+} WhileCond;
+
 class ArithmeticExpression
 {
 public:
@@ -470,13 +488,13 @@ private:
     CharType getCharType(int c);
 
     const char* getStateStr(State) const;
-    const char* getCharTypeStr(int) const;
+    const char* getCharTypeStr(CharType) const;
 
     bool findBalancedRightCurlyBraceAndSkipToIt(bool skipRigthCurlyBraceAlong=false);
     void printErrorLocation();
 
     char nextChar(bool skipWhitespace=true);
-    std::string nextToken();
+    std::string nextToken(int start_pos=-1);
 
     void pushOpr(int);
 
@@ -598,6 +616,7 @@ private:
 
     // {lcb_count: [if_cond_value, elif_cond_value, ...]}
     std::unordered_map<int,std::vector<IfCond>> m_stmt_if_cond;
+    std::unordered_map<int,std::vector<WhileCond>> m_stmt_while_cond;
 
     bool m_execute_at_compile_time;
 

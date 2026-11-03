@@ -1,0 +1,218 @@
+
+calc '(1+2)*3;' 2048
+1    35       # PUSH_OPR #
+1    40       # PUSH_OPR (
+6    1        # PUSH_NUM 1.000000
+13   43       # HNDL_OPR + :handleOperator
+6    2        # PUSH_NUM 2.000000
+12            # CALC_RP
+13   42       # HNDL_OPR * :handleOperator
+6    3        # PUSH_NUM 3.000000
+10            # CALC_ALL :handleSemicolon
+7             # POP_OPD
+10            # CALC_ALL :handleInputAllParsed
+
+
+
+////////////////////////////////////////////////////////////////
+
+
+calc '(1+2)*3;' 2048
+1    35       # PUSH_OPR #
+1    40       # PUSH_OPR (
+6    1        # PUSH_NUM 1.000000
+13   43       # HNDL_OPR + :handleOperator
+6    2        # PUSH_NUM 2.000000
+12            # CALC_RP
+
+
+# like rpn: "1 2 +"
+push 1
+push 2
+add
+
+
+13   42       # HNDL_OPR * :handleOperator
+6    3        # PUSH_NUM 3.000000
+10            # CALC_ALL :handleSemicolon
+7             # POP_OPD
+10            # CALC_ALL :handleInputAllParsed
+
+# rpn: "... 3 *"
+
+push 3
+mul
+
+
+////////////////////////////////////////////////////////////////
+
+a = (1 + 2) * 3
+
+PUSH 1
+PUSH 2
+ADD
+PUSH 3
+MUL
+STORE a
+
+////////////////////////////////////////////////////////////////
+
+ChatGPT
+
+Q: stack based vm
+
+
+A: A stack-based virtual machine (Stack-based VM) is a virtual machine that uses a stack as its primary mechanism for storing operands and passing values between instructions.
+
+Instead of explicitly specifying registers, instructions operate on the top elements of the stack.
+
+1. Example: 1 + 2 * 3
+
+A compiler first converts the expression into Reverse Polish Notation (RPN):
+
+1 2 3 * +
+
+The VM executes the instructions sequentially.
+
+Instruction	Stack (bottom → top)
+PUSH 1	[1]
+PUSH 2	[1, 2]
+PUSH 3	[1, 2, 3]
+MUL	[1, 6]
+ADD	[7]
+
+Final result: 7.
+
+2. Instruction set
+
+A minimal stack-based VM might support:
+
+Instruction	Operation
+PUSH n	Push number onto stack
+POP	Remove top element
+DUP	Duplicate top element
+ADD	Pop two values, push their sum
+SUB	Pop two values, push their difference
+MUL	Pop two values, push their product
+DIV	Pop two values, push their quotient
+JMP addr	Unconditional jump
+JZ addr	Jump if top value is zero
+HALT	Stop execution
+
+For example:
+
+PUSH 10
+PUSH 20
+ADD
+PUSH 2
+MUL
+HALT
+
+Result: 60.
+
+3. Basic C++ implementation
+
+A simple VM can be implemented using std::vector as its operand stack.
+
+#include <iostream>
+#include <vector>
+enum OpCode {
+    PUSH,
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    HALT
+};
+struct Instruction {
+    OpCode op;
+    double value = 0;
+};
+class VM {
+public:
+    std::vector<double> stack;
+    void execute(const std::vector<Instruction>& code) {
+        for (int pc = 0; pc < code.size(); pc++) {
+            auto ins = code[pc];
+            switch (ins.op) {
+                case PUSH:
+                    stack.push_back(ins.value);
+                    break;
+                case ADD: {
+                    double b = pop();
+                    double a = pop();
+                    stack.push_back(a + b);
+                    break;
+                }
+                case SUB: {
+                    double b = pop();
+                    double a = pop();
+                    stack.push_back(a - b);
+                    break;
+                }
+                case MUL: {
+                    double b = pop();
+                    double a = pop();
+                    stack.push_back(a * b);
+                    break;
+                }
+                case DIV: {
+                    double b = pop();
+                    double a = pop();
+                    stack.push_back(a / b);
+                    break;
+                }
+                case HALT:
+                    return;
+            }
+        }
+    }
+private:
+    double pop() {
+        double v = stack.back();
+        stack.pop_back();
+        return v;
+    }
+};
+
+4. Stack-based VM vs Register-based VM
+
+Consider:
+
+a = (1 + 2) * 3
+
+Stack-based VM:
+
+PUSH 1
+PUSH 2
+ADD
+PUSH 3
+MUL
+STORE a
+
+Register-based VM:
+
+LOAD R1, 1
+LOAD R2, 2
+ADD  R3, R1, R2
+MUL  R4, R3, 3
+STORE a, R4
+
+Feature	Stack-based	Register-based
+Operand storage	Stack	Registers
+Instruction size	Usually smaller	Usually larger
+Instruction count	Often higher	Often lower
+Instruction design	Simpler	More explicit
+Compiler implementation	Relatively simple	More complex
+
+5. Real-world examples
+
+* Java Virtual Machine (JVM)
+* WebAssembly (Wasm)
+* Python Virtual Machine (CPython)
+
+One interesting point: a stack-based VM is particularly suitable for implementing an expression evaluator or programming language interpreter.
+
+Since you’re working with arithmetic expressions and RPN, you already have the foundation of a stack-based VM. The next natural step is to introduce bytecode instructions, a program counter (PC), and control-flow instructions (JMP, JZ, etc.).
+
+////////////////////////////////////////////////////////////////
