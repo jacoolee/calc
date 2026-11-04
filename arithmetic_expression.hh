@@ -12,6 +12,7 @@
 
 #define LLL_GEN_INSTRUCT 2048
 #define LLL_EXECUTE_AT_COMPILE_TIME 4096
+#define LLL_GEN_INSTRUCT_DIA 8192
 
 enum OpdType {
     OPD_STACK_BOTTOM_BASE=-1,
@@ -417,8 +418,8 @@ public:
         std::unordered_map<std::string,std::unordered_map<int,double>>, // copy
         std::unordered_map<std::string,double> pre_defined_idf_map, // copy
         ContextType contextType,
-        int print_log_level
-        );
+        int print_log_level,
+        const char* filename=NULL);
     ~ArithmeticExpression() {}
 
     bool parse(int begin_pos=0, int end_pos=-1);

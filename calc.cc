@@ -44,6 +44,7 @@ char *read_file(const char *filename)
 }
 
 char *file_str = NULL;
+const char *filename = NULL;
 
 void cleanup(void) {
     free(file_str);
@@ -64,13 +65,14 @@ int main(int argc, char *argv[])
 
     char *str = NULL;
     if (ends_with(arg1, ".al")) {
-        file_str = read_file(arg1);
+        filename = arg1;
+        file_str = read_file(filename);
         str = file_str;
     } else {
         str = arg1;
     }
 
-    ArithmeticExpression ari_exp(str, 0, 0, {}, {}, CTXT_BGN, log_level);
+    ArithmeticExpression ari_exp(str, 0, 0, {}, {}, CTXT_BGN, log_level, filename);
     ari_exp.parse();
 
     if (!(log_level & LLL_GEN_INSTRUCT)) {

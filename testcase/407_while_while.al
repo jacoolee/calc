@@ -1,4 +1,5 @@
 n=10;
+
 while n > 0 {
     n = n - 1;
     printf("n=");
@@ -10,6 +11,8 @@ while n > 0 {
             printf("   i=");
             print(i);
         }
+    } elif 1 {
+        print("elif here");
     } else {
         print(100);
     }

@@ -19,12 +19,14 @@
 
 // LLL_GEN_INSTRUCT: show instruct, to combine other log, use LLL_GEN_INSTRUCT + log_level (::dia)
 
-#define instruct(...)                               \
-    do {                                            \
-        if (g_log_level & LLL_GEN_INSTRUCT) {             \
-            fprintf(stderr,__VA_ARGS__);            \
-            fprintf(stderr," # %s\n", __func__);    \
-        }                                           \
+#define instruct(...)                                                   \
+    do {                                                                \
+        if (g_log_level & LLL_GEN_INSTRUCT) {                           \
+            if (g_log_level & LLL_GEN_INSTRUCT_DIA) fprintf(stderr,"%s:%03d:%02d: %*s", g_filename, g_ln_count, g_lcb_count*4+1, g_lcb_count*4, ""); \
+            fprintf(stderr,__VA_ARGS__);                                \
+            if (g_log_level & LLL_GEN_INSTRUCT_DIA) fprintf(stderr," # %04d %s\n", __LINE__, __func__); \
+            else fprintf(stderr,"\n");                                  \
+        }                                                               \
     } while (0)
 
 #define print(...)                                                      \
@@ -81,7 +83,11 @@
 int g_log_level = 0;
 int g_depth = 0;
 int g_ln_count = 1;
+int g_lcb_count = 0;
+
 std::string scope_name = "global";
+
+const char *g_filename = NULL;
 
 ArithmeticExpression::ArithmeticExpression(
     const std::string& infix_expression,
@@ -90,7 +96,9 @@ ArithmeticExpression::ArithmeticExpression(
     std::unordered_map<std::string,std::unordered_map<int,double>> idf_map, // FIXME: [2026-10-21] not memory-saving friendly
     std::unordered_map<std::string,double> pre_defined_idf_map,
     ContextType contextType,
-    int log_level)
+    int log_level,
+    const char* filename
+    )
     : m_depth(depth),
       m_state_prev(ST_UPPER),
       m_state(ST_BGN),
@@ -139,6 +147,8 @@ ArithmeticExpression::ArithmeticExpression(
 
     g_log_level = log_level;
     print("g_log_level: %d", g_log_level);
+
+    g_filename = filename != NULL? filename: "";
 
     m_execute_at_compile_time = g_log_level & LLL_EXECUTE_AT_COMPILE_TIME;
 
@@ -1611,7 +1621,7 @@ bool ArithmeticExpression::handleAlpha(char _c)
                 std::string start_label = std::string("WHILE_")+std::to_string(while_start_pos);
                 std::string jz_label = std::string("WHILE_END_")+std::to_string(while_start_pos);
                 while_conds.push_back({while_start_pos, start_label, jz_label, 0});
-                instruct("%-15s %-12s", (start_label+':').c_str(), "");
+                instruct("%-15s %-12s # (while)", (start_label+':').c_str(), "");
             } else {
                 print("while: we are back here: while_start_pos:%d", while_start_pos);
             }
@@ -2371,7 +2381,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
                 break;
             }
         }
-        std::string jz_label = std::string("IF_LBL_")+std::to_string(m_parse_pos);
+        std::string jz_label = std::string("IF_")+std::to_string(m_parse_pos);
         if_elif_conds.push_back({m_parse_pos, jz_label, IF_COND_TYPE_ELSE, pre_cond_all_zero?1:0});
 
         if (pre_cond_all_zero == true) {
@@ -2394,7 +2404,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         }
 
         m_state_next_certained = ST_BGN;
-        ++m_lcb_count;
+        ++m_lcb_count; g_lcb_count = m_lcb_count;
         return true;
 
     } else if (ctxt == FUNCTION_CALL) {
@@ -2419,7 +2429,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         // count beginning '{', and now, with m_dpeth and m_lcb_count properly set, we are in right
         // scope so assignValueToIdf works as expected.
-        ++m_lcb_count;
+        ++m_lcb_count; g_lcb_count = m_lcb_count;
 
         for (const auto& item : m_idf_pre_defined_scoped_map) {
             assignValueToIdf(item.first, item.second, true); // :=
@@ -2462,7 +2472,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         pushContextBGN();
         m_state_next_certained = ST_BGN;
-        ++m_lcb_count;
+        ++m_lcb_count; g_lcb_count = m_lcb_count;
         return true;
 
     } else {
@@ -2521,7 +2531,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
     ctxt = m_ctxt_stack.top();
 
     if (ctxt == CTXT_BGN) {
-        ++m_lcb_count;
+        ++m_lcb_count; g_lcb_count = m_lcb_count;
         m_state_next_certained = ST_BGN;
         return true;
 
@@ -2554,7 +2564,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         std::vector<IfCond>& if_elif_conds = m_stmt_if_cond[m_lcb_count];
 
         int cond = _2num(m_opd_stack.pop()) != 0? 1: 0;
-        std::string jz_label = std::string("IF_LBL_")+std::to_string(m_parse_pos);
+        std::string jz_label = std::string("IF_")+std::to_string(m_parse_pos);
 
         if_elif_conds.push_back({m_parse_pos, jz_label, IF_COND_TYPE_IF, cond});
 
@@ -2577,7 +2587,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         }
 
         m_state_next_certained = ST_BGN;
-        ++m_lcb_count;
+        ++m_lcb_count; g_lcb_count = m_lcb_count;
 
         instruct("    %-11s %-12s # (if)", "jz", jz_label.c_str());
 
@@ -2626,7 +2636,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         // self condtion
         int elif_cond = _2num(m_opd_stack.pop()) !=0? 1: 0;
-        std::string jz_label = std::string("IF_LBL_")+std::to_string(m_parse_pos);
+        std::string jz_label = std::string("IF_")+std::to_string(m_parse_pos);
         if_elif_conds.push_back({m_parse_pos, jz_label, IF_COND_TYPE_ELIF, elif_cond});
 
         int cond = (pre_cond_all_zero == true && elif_cond != 0)? 1: 0;
@@ -2649,9 +2659,9 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         }
 
         m_state_next_certained = ST_BGN;
-        ++m_lcb_count;
+        ++m_lcb_count; g_lcb_count = m_lcb_count;
 
-        instruct("    %-11s %-12s", "jz", jz_label.c_str());
+        instruct("    %-11s %-12s # (elif)", "jz", jz_label.c_str());
 
         return true;
 
@@ -2717,7 +2727,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         }
 
         m_state_next_certained = ST_BGN;
-        ++m_lcb_count;
+        ++m_lcb_count; g_lcb_count = m_lcb_count;
 
         instruct("    %-11s %-12s", "jz", tailing_cond.jz_label.c_str());
 
@@ -2727,7 +2737,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
         warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
 
         m_state_next_certained = ST_BGN;
-        ++m_lcb_count;
+        ++m_lcb_count; g_lcb_count = m_lcb_count;
         return true;
     }
 
@@ -3125,7 +3135,7 @@ handleRightCurlyBrace_common:
     }
 
     pushContextBGN();
-    --m_lcb_count;
+    --m_lcb_count; g_lcb_count = m_lcb_count;
 
     // finally, handle loop
     if (loop_start_pos != -1) {
@@ -3265,6 +3275,7 @@ bool ArithmeticExpression::calculate(int opr)
 
     case '>': opr_code = "gt"; break;
     case '<': opr_code = "lt"; break;
+    case '!': opr_code = "not"; break;
 
     case 'f': {
         opr_code = fni2fnn(m_opr_stack.top(-1).v);
