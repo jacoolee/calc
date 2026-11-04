@@ -1618,8 +1618,9 @@ bool ArithmeticExpression::handleAlpha(char _c)
             // we will go back to while head for next while turn, so it the tailing cond is old
             // one, do nothing, else, record it
             if (!is_same_while) {
-                std::string start_label = std::string("WHILE_")+std::to_string(while_start_pos);
-                std::string jz_label = std::string("WHILE_END_")+std::to_string(while_start_pos);
+                int start_label_no = while_start_pos>0?while_start_pos: 0;
+                std::string start_label = std::string("WHILE_")+std::to_string(start_label_no);
+                std::string jz_label = std::string("WHILE_END_")+std::to_string(start_label_no);
                 while_conds.push_back({while_start_pos, start_label, jz_label, 0});
                 instruct("%-15s %-12s # (while)", (start_label+':').c_str(), "");
             } else {
@@ -2871,7 +2872,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
     }
     print("lcb_ctxt: %s", getContextTypeStr(lcb_ctxt));
 
-    int loop_start_pos = -1;
+    int loop_start_pos = -2;
 
     if (lcb_ctxt == STMT_IF_BLOCK || lcb_ctxt == STMT_ELIF_BLOCK || lcb_ctxt == STMT_ELSE_BLOCK) {
 
@@ -3138,7 +3139,7 @@ handleRightCurlyBrace_common:
     --m_lcb_count; g_lcb_count = m_lcb_count;
 
     // finally, handle loop
-    if (loop_start_pos != -1) {
+    if (loop_start_pos != -2) {
         m_parse_pos = loop_start_pos;
         dia("loop back to loop_start_pos");
         m_state_next_certained = ST_BGN;
