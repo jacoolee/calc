@@ -2251,7 +2251,7 @@ bool ArithmeticExpression::handleSemicolon() {
 
     } else if (ctxt == LOOP_BREAK) { // 'break;' or 'break ;'
         int key = m_lcb_count;
-        while((m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
+        while(key >= 0 && (m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
         std::vector<WhileCond>& while_conds = m_stmt_while_cond[key];
         if (while_conds.size() == 0) {
             print("no while cond found, should not happen, key: %d", key);
@@ -2744,6 +2744,7 @@ bool ArithmeticExpression::handleLeftCurlyBrace() {
 
         } else {
             m_ctxt_stack.push(STMT_IF_BLOCK);
+            m_ctxt_stack.push(CTXT_BGN);
             m_expect_char_types = {}; // clear
 
             print("TODO: to ignore if-block, just skip to balanced '}', no syntax check for skipped content");
@@ -3031,7 +3032,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
     if (ctxt == LOOP_BREAK) {   // 'break }'
         int key = m_lcb_count;
-        while((m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
+        while(key >= 0 && (m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
         std::vector<WhileCond>& while_conds = m_stmt_while_cond[key];
         if (while_conds.size() == 0) {
             print("no while cond found, should not happen, key: %d", key);
@@ -3102,6 +3103,8 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
         m_stmt_loop_break_ed = true;
 
         // NOTE: we must return here, so next parse turn will properly handle STMT_WHILE_BLOCK
+        --m_lcb_count; g_lcb_count = m_lcb_count;
+
         return true;
     }
 
@@ -3222,10 +3225,12 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
         goto handleRightCurlyBrace_common;
 
-    } else if (lcb_ctxt == STMT_WHILE_BLOCK) { // while cond { } ends
-        // we are in while block, which means lcb have been increased by left curly brace, so:
-        int key = m_lcb_count - 1;
-        while((m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
+    } else if (lcb_ctxt == STMT_WHILE_BLOCK) {
+        // `break }` with '}' as last char of input, will come here
+        // due to all input been parsed, we should not in any block
+        // so use m_lcb_count as key directly.
+        int key = m_lcb_count;
+        while(key >= 0 && (m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
         std::vector<WhileCond>& while_conds = m_stmt_while_cond[key];
         if (while_conds.size() == 0) {
             error("no while cond found, should not happen, key:%d", key);
@@ -4242,7 +4247,8 @@ bool ArithmeticExpression::handleInputAllParsed()
 
         // we are in while block, which means lcb have been increased by left curly brace, so:
         int key = m_lcb_count - 1;
-        while((m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
+        while(key >= 0 && (m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
+
         std::vector<WhileCond>& while_conds = m_stmt_while_cond[key];
         if (while_conds.size() == 0) {
             error("no while cond found, should not happen, key:%d", key);
