@@ -17,3 +17,7 @@ while n > 0 {
         print(100);
     }
 }
+
+while 0 {
+    print("in 0");
+}

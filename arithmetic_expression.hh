@@ -61,6 +61,8 @@ enum ContextType {
     STMT_WHILE_COND,
     STMT_WHILE_BLOCK,
 
+    LOOP_BREAK,
+
     FUNCTION_DEFINITION,
     FUNCTION_ARGS,
     FUNCTION_BLOCK,
@@ -110,6 +112,8 @@ inline const char* getContextTypeStr(ContextType t)
     case STMT_WHILE: return "STMT_WHILE";
     case STMT_WHILE_COND: return "STMT_WHILE_COND";
     case STMT_WHILE_BLOCK: return "STMT_WHILE_BLOCK";
+
+    case LOOP_BREAK: return "LOOP_BREAK";
 
     case FUNCTION_DEFINITION: return "FUNCTION_DEFINITION";
     case FUNCTION_ARGS: return "FUNCTION_ARGS";
@@ -491,7 +495,7 @@ private:
     const char* getStateStr(State) const;
     const char* getCharTypeStr(CharType) const;
 
-    bool findBalancedRightCurlyBraceAndSkipToIt(bool skipRigthCurlyBraceAlong=false);
+    bool findBalancedRightCurlyBraceAndSkipToIt(int extra_lcb_count_to_skip=0);
     void printErrorLocation();
 
     char nextChar(bool skipWhitespace=true);
@@ -606,7 +610,7 @@ private:
     // mainly used for function call
     std::unordered_map<std::string,double> m_idf_outer_scope_reassigned_map;
 
-    bool m_return_stmt_exists = true;
+    bool m_return_stmt_exists = false;
     Opd *m_return_value_ptr = NULL;
 
     // FIXME: [2026-10-22] m_ctxt should be a stack for nested contexts,
@@ -617,7 +621,13 @@ private:
 
     // {lcb_count: [if_cond_value, elif_cond_value, ...]}
     std::unordered_map<int,std::vector<IfCond>> m_stmt_if_cond;
+
+    // while
     std::unordered_map<int,std::vector<WhileCond>> m_stmt_while_cond;
+    // program lop blocks are quiting from deep depth to upper depth, so
+    // one break-used-marker is sufficient.
+    bool m_stmt_loop_break_ed = false;
+    int m_stmt_loop_break_wrapped_depth = 0;
 
     bool m_execute_at_compile_time;
 

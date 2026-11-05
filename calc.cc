@@ -17,8 +17,9 @@ char *read_file(const char *filename)
 {
     FILE *fp = fopen(filename, "rb");
     if (!fp) {
-        perror("fopen");
-        return NULL;
+        // perror("fopen");
+        fprintf(stderr, "no such file: %s\n", filename);
+        exit(-1);
     }
 
     fseek(fp, 0, SEEK_END);
@@ -60,7 +61,7 @@ int main(int argc, char *argv[])
     atexit(cleanup);
 
     char* arg1 = argv[1];
-    int log_level = argc>2? (int)strtol(argv[2], NULL, 10): 0;
+    int log_level = argc>2? (int)strtol(argv[2], NULL, 10): 4096;
     // fprintf(stderr, "log_level = %d\n", log_level);
 
     char *str = NULL;
@@ -78,7 +79,7 @@ int main(int argc, char *argv[])
     if (!(log_level & LLL_GEN_INSTRUCT)) {
         Opd *return_value_ptr = ari_exp.getReturnValuePtr();
         if (return_value_ptr != NULL) {
-            fprintf(stderr, "\n%s:%d:1: note: *return_value_ptr=(%d,%d,%s,%g,\"%s\")\n",
+            fprintf(stderr, "%s:%d:1: note: *return_value_ptr=(%d,%d,%s,%g,\"%s\")\n",
                     __FILE__,
                     __LINE__,
                     return_value_ptr->token_idx,
@@ -87,11 +88,11 @@ int main(int argc, char *argv[])
                     return_value_ptr->num,
                     return_value_ptr->str.c_str()
                 );
-        } else {
-            fprintf(stderr, "\n%s:%d:1: note: no return value\n",
-                    __FILE__,
-                    __LINE__
-                );
+        // } else {
+        //     fprintf(stderr, "%s:%d:1: note: no return value\n",
+        //             __FILE__,
+        //             __LINE__
+        //         );
         }
     }
 
