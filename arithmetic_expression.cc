@@ -450,6 +450,14 @@ void ArithmeticExpression::syntax(ContextType t) {
         errornoln("\tspace between `else` and `{` is optional\n");
         break;
     }
+
+    case STMT_WHILE:
+    case STMT_WHILE_COND:
+    case STMT_WHILE_BLOCK: {
+        errornoln("\t`while condition {}`\n");
+        errornoln("\u200B\n");
+        break;
+    }
     case FUNCTION_DEFINITION:
     case FUNCTION_ARGS:
     case FUNCTION_BLOCK: {
@@ -1446,7 +1454,7 @@ char ArithmeticExpression::nextChar(bool skipWhitespace) {
     int i = m_parse_pos;
     while(++i < m_arithmetic_expression.size()) {
         if (!skipWhitespace) return m_arithmetic_expression[i];
-        if (m_arithmetic_expression[i] != ' ')
+        if (getCharType(m_arithmetic_expression[i]) != CT_SPC)
             return m_arithmetic_expression[i];
     }
     return '\0';
@@ -2073,6 +2081,8 @@ bool ArithmeticExpression::handleSemicolon() {
         error("invalid syntax: \"while exp ;\", should never come here, ';' should not be in m_expect_char_types under context: STMT_WHILE_COND");
         printErrorLocation();
         exit(E_SYNTAX);
+
+        // more
 
     default:
         print("ignore first-checking context type: %s", getContextTypeStr(ctxt));
@@ -2844,9 +2854,10 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
     // NOTE: block exists in following cases:
     //
-    // 1) `{}`                  : pure empty block
-    // 2) `if/elif/else {}`     : if control flow block
-    // 3) `function fn(...) {}` : function block
+    // - `{}`                  : pure empty block
+    // - `if/elif/else {}`     : if control flow block
+    // - `while {}`            : while block
+    // - `function fn(...) {}` : function block
     // ...
     // check one by one
 
