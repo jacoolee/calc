@@ -31,16 +31,16 @@
 
 #define print(...)                                                      \
     do {                                                                \
-        if (g_log_level & 1) {                                 \
+        if (g_log_level & 1) {                                          \
             fprintf(stderr,"%s:%04d:%d: note: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                                \
-            fprintf(stderr," # %s\n", __func__);                         \
+            fprintf(stderr," # %s\n", __func__);                        \
         }                                                               \
     } while (0)
 
 #define printnoln(...)                                                  \
     do {                                                                \
-        if (g_log_level & 1) {                                 \
+        if (g_log_level & 1) {                                          \
             fprintf(stderr,"%s:%04d:%d: note: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                                \
         }                                                               \
@@ -48,7 +48,7 @@
 
 #define __print(...)                            \
     do {                                        \
-        if (g_log_level & 1) {         \
+        if (g_log_level & 1) {                  \
             fprintf(stderr,__VA_ARGS__);        \
         }                                       \
     } while (0)
@@ -57,7 +57,7 @@
     do {                                                                \
         fprintf(stderr,"%s:%04d:%d: error: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
         fprintf(stderr,__VA_ARGS__);                                    \
-        fprintf(stderr," # %s\n", __func__);                             \
+        fprintf(stderr," # %s\n", __func__);                            \
     } while (0)
 
 #define errornoln(...)                                                  \
@@ -73,10 +73,10 @@
 
 #define warn(...)                                                       \
     do {                                                                \
-        if (g_log_level & 1) {                                 \
+        if (g_log_level & 1) {                                          \
             fprintf(stderr,"%s:%04d:%d: warning: %d:%s:%d ", __FILE__, __LINE__, 1, g_depth, scope_name.c_str(), g_ln_count); \
             fprintf(stderr,__VA_ARGS__);                                \
-            fprintf(stderr," # %s\n", __func__);                         \
+            fprintf(stderr," # %s\n", __func__);                        \
         }                                                               \
     } while (0)                                                         \
 
@@ -423,7 +423,7 @@ std::string ArithmeticExpression::fni2fnn(const int fni) {
 }
 
 void ArithmeticExpression::syntax(ContextType t) {
-    error("syntax:");
+    errornoln("syntax:\n");
     switch(t) {
     case STMT_IF:
     case STMT_IF_COND:
@@ -561,7 +561,7 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         __print(" #%d", log_level);
         __print(" m_idf_scope_declared");
         for (const auto& item : m_idf_scope_declared) {
-            __print("[\"%d\"]={", item.first);
+            __print("[%d]={", item.first);
             for (const auto& item : item.second) {
                 __print("%s:%d,", item.first.c_str(), item.second);
             }
@@ -581,7 +581,7 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         __print(" #%d", log_level);
         __print(" m_stmt_if_cond");
         for (const auto& item : m_stmt_if_cond) {
-            __print("[\"%d\"]=[", item.first);
+            __print("[%d]=[", item.first);
             for (IfCond x : item.second) {
                 __print("(%d,%s,%d,%d), ", x.ukey, x.jz_label.c_str(), x.type,x.value);
             }
@@ -590,12 +590,13 @@ void ArithmeticExpression::dia(const std::string& marker="") {
 
         __print(" m_stmt_while_cond");
         for (const auto& item : m_stmt_while_cond) {
-            __print("[\"%d\"]=[", item.first);
+            __print("[%d]=[", item.first);
             for (WhileCond x : item.second) {
                 __print("(%d,%s,%s,%d), ", x.start_pos, x.start_label.c_str(), x.jz_label.c_str(), x.value);
             }
             __print("]");
         }
+
 
         if (g_log_level < log_level*2) __print(" :dia\n");
     }
@@ -636,11 +637,12 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         __print(" m_stmt_count = %d", m_stmt_count);
         __print(" m_token_idx = %d", m_token_idx);
 
-        __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d m_state_next_certained = %s",
+        __print(" m_id = \"%s\" m_id_spc_occurred = %s m_lp_count = %d m_lcb_count = %d (init:%d) m_state_next_certained = %s",
                 m_id.c_str(),
                 m_id_spc_occurred?"true":"false",
                 m_lp_count,
                 m_lcb_count,
+                m_lcb_count_init,
                 getStateStr(m_state_next_certained)
             );
 
@@ -1033,7 +1035,7 @@ void ArithmeticExpression::printErrorLocation() {
 void ArithmeticExpression::handleError()
 {
     dia("-:handleError");
-    error("invalid syntax: pos=\"%d\", c='%c', raw=\"%s\"",
+    error("invalid syntax: pos=%d, c='%c', raw=\"%s\"",
           m_parse_pos,
           m_arithmetic_expression[m_parse_pos],
           m_arithmetic_expression.c_str());
@@ -2122,8 +2124,6 @@ bool ArithmeticExpression::handleSemicolon() {
         Opd opdv = m_opd_stack.pop();
         double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
 
-        dia("jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj");
-
         std::string assign_idf = _2idf(m_opd_stack.pop());
         assignValueToIdf(assign_idf, assign_v, false);
         // TODO: clean current ctxt from ctxt stack after consumed
@@ -2132,7 +2132,7 @@ bool ArithmeticExpression::handleSemicolon() {
 
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         if (m_opd_stack.count() < 3) { // base + 2
-            error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+            error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count());
             printErrorLocation();
             exit(E_GRAMMAR);
         } else {
@@ -3036,7 +3036,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
         if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
             if (m_opd_stack.count() < 3) { // base + 2
-                error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+                error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count());
                 printErrorLocation();
                 exit(E_GRAMMAR);
             }
@@ -3054,7 +3054,7 @@ bool ArithmeticExpression::handleRightCurlyBrace() {
 
         } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
             if (m_opd_stack.count() < 3) { // base + 2
-                error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+                error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count());
                 printErrorLocation();
                 exit(E_GRAMMAR);
             }
@@ -3854,8 +3854,8 @@ void ArithmeticExpression::setMeta(
 // @end_pos is exclusive
 bool ArithmeticExpression::parse(int begin_pos, int end_pos)
 {
+    int size = m_arithmetic_expression.size();
     if (end_pos == -1) {
-        int size = m_arithmetic_expression.size();
         if ( size == 0 ) {
             print("empty arithmetic expression");
             return true;
@@ -3884,7 +3884,7 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
         // FIXME: [2026-10-28]  buggy
         print("> \"%.*s\"", (int)(end - start), start);
 
-        print("c = '%c', m_parse_pos = %d", c, m_parse_pos);
+        print("c = '%c', m_parse_pos = %d, size: %d", c, m_parse_pos, size);
 
         if ( ! handle(c) ) {
             error("failed to handle, "
@@ -3929,7 +3929,7 @@ bool ArithmeticExpression::handleInputAllParsed()
     } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
         // at least two opd need
         if (m_opd_stack.count() < 3) {
-            error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+            error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count());
             printErrorLocation();
             exit(E_GRAMMAR);
         } else {
@@ -3946,7 +3946,7 @@ bool ArithmeticExpression::handleInputAllParsed()
 
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         if (m_opd_stack.count() < 3) { // base + 2
-            error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+            error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count());
             printErrorLocation();
             exit(E_GRAMMAR);
         } else {
@@ -3969,7 +3969,7 @@ bool ArithmeticExpression::handleInputAllParsed()
         m_expect_char_types = {};
 
     } else {
-        print("ignore context type: %s", getContextTypeStr(ctxt));
+        warn("ignore context type: %s", getContextTypeStr(ctxt));
     }
 
     if (!m_expect_char_types.empty()) {
@@ -4009,7 +4009,7 @@ bool ArithmeticExpression::handleInputAllParsed()
 
     // check whether parenthesis matches
     if ( 0 != m_lp_count ) {
-        error("open left parenthesis exists, count=\"%d\"", m_lp_count);
+        error("open left parenthesis exists, count=%d", m_lp_count);
         syntax(ctxt);
         return false;
     }
@@ -4017,7 +4017,9 @@ bool ArithmeticExpression::handleInputAllParsed()
     // check whether parenthesis matches
     if ( m_lcb_count_init != m_lcb_count ) {
         if (m_return_stmt_exists) {/*ok*/} else {
-            error("open left curly brace exists, count=\"%d\"", m_lcb_count);
+            error("%d open left curly brace(s) still exist, should be 0", m_lcb_count);
+            printErrorLocation();
+            syntax(ctxt);
             return false;
         }
     }
@@ -4048,7 +4050,7 @@ bool ArithmeticExpression::handleInputAllParsed()
 
     if (ctxt == STMT_DECLARE_ASSIGN_VALUE) { // `a = xxxx` but without ';' as ending char
         if (m_opd_stack.count() < 3) { // base + 2
-            error("two opds need to form a assign statement, while \"%d\" gotten", m_opd_stack.count());
+            error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count());
             printErrorLocation();
             exit(E_GRAMMAR);
         }
