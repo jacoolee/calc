@@ -3048,6 +3048,7 @@ bool ArithmeticExpression::handleRCB() {
             exit(E_GRAMMAR);
         }
 
+        // instruct
         WhileCond tailing_cond = while_conds[while_conds.size()-1];
         bool gen_instruct = false; // to ensure only generate once
         if (m_execute_at_compile_time) {
@@ -3059,29 +3060,7 @@ bool ArithmeticExpression::handleRCB() {
             instruct("    %-11s %-12s # break}", "jmp", tailing_cond.jz_label.c_str());
         }
 
-        if (m_stmt_loop_break_wrapped_depth == 0) {
-            // now, 'break' in *right* in while block, *and* we are already at '}', so no need
-            // to skip, when we return parse will go on to next char, which is out of while block
-        } else {
-            // here, 'break' been wrapped, so, skip to the right while block closing '}', why we use
-            // `m_stmt_loop_break_wrapped_depth-1`, because findBalancedRightCurlyBraceAndSkipToIt
-            // process from next char (++m_parse_pos), which will miss-counting current '}', and
-            // findBalancedRightCurlyBraceAndSkipToIt's found logic relay on count of '}', so we
-            // take account of current '}' before call findBalancedRightCurlyBraceAndSkipToIt.
-            // and with this charactar of findBalancedRightCurlyBraceAndSkipToIt, call handleRightCurlyBrace
-            // in any place of handleRightCurlyBrace, should use this same process.
-            if (!findBalancedRightCurlyBraceAndSkipToIt(m_stmt_loop_break_wrapped_depth-1)) {
-                error("while: no balanced } found");
-                printErrorLocation();
-                syntax(ctxt);
-                exit(E_GRAMMAR);
-            }
-            print("m_parse_pos:%d, rest input: \"%s\"", m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
-            if (m_execute_at_compile_time) {
-                assert(nextChar(true) == '}'); // should be loop block closing curly brace
-            }
-        }
-
+        // set member properties properly
         // clean context stack: pop to STMT_WHILE_BLOCK
         ContextType top;
         while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_WHILE_BLOCK) {
@@ -3094,30 +3073,63 @@ bool ArithmeticExpression::handleRCB() {
             syntax(ctxt);
             exit(E_GRAMMAR);
         }
-        print("keep STMT_WHILE_BLOCK at ctxt top, handleInputAllParsed will process it properly");
-
-        // current:
-        // after findBalancedRightCurlyBraceAndSkipToIt:
-        // m_parse_pos: 1 char before while block's right curly brace
-        // state: ST_IDF: 'break }'
-        // ctxt: STMT_WHILE_BLOCK
-        // next char: input[m_parse_pos+1] == '}'
-        // so handleRightCurlyBrace will process on 'STMT_WHILE_BLOCK'
+        print("keep STMT_WHILE_BLOCK at ctxt top, handleEnd will process it properly");
         assert(m_ctxt_stack.top() == STMT_WHILE_BLOCK);
 
         m_state_next_certained = ST_BGN;
         m_expect_char_types = {};
         m_stmt_loop_break_ed = true;
 
-        // NOTE: we must return here, so next parse turn will properly handle STMT_WHILE_BLOCK
-        --m_lcb_count; g_lcb_count = m_lcb_count;
+        // set mext char properly
+        if (m_stmt_loop_break_wrapped_depth == 0) { // `while {... break}`
+            // now, 'break' in *right* in while block and followed exactly by block ending curly brack
+            // *and* are now already at that '}', so no need to skip to loop block ending rcb
 
-        return true;
+            // current:
+            // m_parse_pos: '}' (loop block rcb)
+            // state: ST_IDF
+            // ctxt: STMT_WHILE_BLOCK
+            // so we will not return here, will re-use '}' to process ctxt STMT_WHILE_BLOCK
+            dia("handleRCB: go on to process STMT_WHILE_BLOCK");
+
+        } else {
+            // here, 'break' been wrapped, so, need to skip to the while block closing '}', why we use
+            // `m_stmt_loop_break_wrapped_depth-1`, because skipToBalancedRCB
+            // process from next char (++m_parse_pos), which will miss-counting current '}', and
+            // skipToBalancedRCB's found logic rely on count of '}', so we
+            // take account of current '}' before call skipToBalancedRCB.
+            // and also, update the m_lcb_count cause '}' been met here.
+            // and with this charactar of skipToBalancedRCB, call handleRCB
+            // in any place of handleRCB, should use this same process.
+
+            --m_lcb_count; g_lcb_count = m_lcb_count;
+
+            if (!skipToBalancedRCB(m_stmt_loop_break_wrapped_depth-1)) {
+                error("while: no balanced } found");
+                printErrorLocation();
+                syntax(ctxt);
+                exit(E_GRAMMAR);
+            }
+            print("m_parse_pos:%d, rest input: \"%s\"", m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
+            if (m_execute_at_compile_time) {
+                assert(nextChar(true) == '}'); // should be loop block closing curly brace
+            }
+
+            // current:
+            // m_parse_pos: 1 left char before '}' (loop block rcb)
+            // state: ST_IDF: inherit from idf/keyword 'break'
+            // ctxt: STMT_WHILE_BLOCK
+            // next char: input[m_parse_pos+1] == '}'
+            // so we will return here to use next *parse+handle* turn which will call
+            // handleRCB to process ctxt 'STMT_WHILE_BLOCK'
+            dia("handleRCB: return to use next *parse+handle* turn to process STMT_WHILE_BLOCK");
+            return true;
+        }
     }
 
     // NOTE: find context type to which current block's openning '{' belongs
     int step = 0;
-    ContextType lcb_ctxt = m_ctxt_stack.top(step);
+    ContextType lcb_ctxt = m_ctxt_stack.top(step); // lcb_ctxt => block_ctxt
 
     while (-1*step < m_ctxt_stack.count() && (
                lcb_ctxt != STMT_IF_BLOCK &&
@@ -4263,58 +4275,6 @@ bool ArithmeticExpression::handleEnd()
         printErrorLocation();
         syntax(ctxt);
         exit(E_GRAMMAR);
-
-    } else if (ctxt == STMT_WHILE_BLOCK) {
-        // purpole: for generate instruct for following special case:
-        // maybe we should force all statement ends with ';'
-        // `while 1 { break }`
-
-        // TODO: this most same as that in handleRightCurlyBrace, maybe we should make it a function
-
-        // we are in while block, which means lcb have been increased by left curly brace, so:
-        int key = m_lcb_count - 1;
-        while(key >= 0 && (m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
-
-        std::vector<WhileCond>& while_conds = m_stmt_while_cond[key];
-        if (while_conds.size() == 0) {
-            error("no while cond found, should not happen, key:%d", key);
-            printErrorLocation();
-            exit(E_SHOULD_NOT_HAPPEN);
-        }
-
-        WhileCond tailing_cond = while_conds[while_conds.size()-1];
-        bool gen_instruct = false; // to ensure only generate once
-
-        if (m_execute_at_compile_time) {
-            if (tailing_cond.value == 0) { gen_instruct = true; }
-        } else {
-            gen_instruct = true;
-        }
-
-        if (gen_instruct) {
-            instruct("    %-11s %-12s", "jmp", tailing_cond.start_label.c_str());
-            instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
-        }
-
-        dia("-:while");
-
-        // clean context stack: pop to STMT_WHILE
-        ContextType top;
-        while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_WHILE) {
-            print("pop %s", getContextTypeStr(top));
-            m_ctxt_stack.pop();
-        }
-        if ((top = m_ctxt_stack.top()) == STMT_WHILE) {
-            print("pop %s", getContextTypeStr(top));
-            m_ctxt_stack.pop();
-        }
-
-        print("clean m_stmt_while_cond");
-        m_stmt_while_cond.erase(key);
-
-        m_stmt_loop_break_ed = false; // always reset after loop been consumed
-        m_stmt_loop_break_wrapped_depth = 0; // always reset after loop been consumed
-        dia("while:+");
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return$'
         m_expect_char_types = {};
