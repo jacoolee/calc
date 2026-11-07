@@ -1674,7 +1674,7 @@ bool ArithmeticExpression::handleALP(char _c)
             m_stmt_loop_break_wrapped_depth = 0;
 
             int step = 0;
-            ContextType& _t = m_ctxt_stack.top();
+            ContextType _t = m_ctxt_stack.top();
             while (-1*step < m_ctxt_stack.count() && ( _t != STMT_WHILE_BLOCK )) {
                 print("checking loop ctxt: %s", getContextTypeStr(_t));
                 if (_t == CTXT_STACK_BOTTOM_BASE) {
@@ -1724,6 +1724,8 @@ bool ArithmeticExpression::handleALP(char _c)
                 printErrorLocation();
                 exit(E_GRAMMAR);
             }
+
+            print("loop block found: %s", getContextTypeStr(_t));
 
             // rule met, ok
             m_stmt_loop_break_ed = false; // always reset before loop been consumed
@@ -2199,7 +2201,7 @@ bool ArithmeticExpression::handleSMC() {
 
     // clean extra CTXT_EXP if exits
     while (!m_ctxt_stack.empty()) {
-        ContextType& _t = m_ctxt_stack.top();
+        ContextType _t = m_ctxt_stack.top();
         if (_t == CTXT_EXP) {
             m_ctxt_stack.pop();
         } else {
@@ -3048,37 +3050,41 @@ bool ArithmeticExpression::handleRCB() {
             exit(E_GRAMMAR);
         }
 
-        // instruct
-        WhileCond tailing_cond = while_conds[while_conds.size()-1];
-        bool gen_instruct = false; // to ensure only generate once
-        if (m_execute_at_compile_time) {
-            if (tailing_cond.value == 0) { gen_instruct = true; }
-        } else {
-            gen_instruct = true;
-        }
-        if (gen_instruct) {
+        if (g__log__level & LLL_GEN_INSTRUCT) {
+            WhileCond tailing_cond = while_conds[while_conds.size()-1];
             instruct("    %-11s %-12s # break}", "jmp", tailing_cond.jz_label.c_str());
         }
 
         // set member properties properly
         // clean context stack: pop to STMT_WHILE_BLOCK
-        ContextType top;
-        while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_WHILE_BLOCK) {
-            print("pop %s", getContextTypeStr(top));
-            m_ctxt_stack.pop();
-        }
-        if (m_ctxt_stack.top() != STMT_WHILE_BLOCK) {
-            print("not in STMT_WHILE_BLOCK, should not happen, key: %d", key);
-            printErrorLocation();
-            syntax(ctxt);
-            exit(E_GRAMMAR);
-        }
-        print("keep STMT_WHILE_BLOCK at ctxt top, handleEnd will process it properly");
-        assert(m_ctxt_stack.top() == STMT_WHILE_BLOCK);
+        if (m_execute_at_compile_time) {
+            ContextType top;
+            while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_WHILE_BLOCK) {
+                print("pop %s", getContextTypeStr(top));
+                m_ctxt_stack.pop();
+            }
+            if (m_ctxt_stack.top() != STMT_WHILE_BLOCK) {
+                print("not in STMT_WHILE_BLOCK, should not happen, key: %d", key);
+                printErrorLocation();
+                syntax(ctxt);
+                exit(E_GRAMMAR);
+            }
+            print("keep STMT_WHILE_BLOCK at ctxt top, handleEnd will process it properly");
+            assert(m_ctxt_stack.top() == STMT_WHILE_BLOCK);
 
-        m_state_next_certained = ST_BGN;
-        m_expect_char_types = {};
-        m_stmt_loop_break_ed = true;
+            m_state_next_certained = ST_BGN;
+            m_expect_char_types = {};
+            m_stmt_loop_break_ed = true;
+        }
+
+        // NOTE: so, do not gen instruct while executing, other wise stack will mess up
+        if (g__log__level & LLL_GEN_INSTRUCT) {
+            m_ctxt_stack.pop(); // pop LOOP_BREAK
+
+            m_state_next_certained = ST_BGN;
+            m_expect_char_types = {};
+            m_stmt_loop_break_ed = true;
+        }
 
         // set mext char properly
         if (m_stmt_loop_break_wrapped_depth == 0) { // `while {... break}`
@@ -3090,7 +3096,10 @@ bool ArithmeticExpression::handleRCB() {
             // state: ST_IDF
             // ctxt: STMT_WHILE_BLOCK
             // so we will not return here, will re-use '}' to process ctxt STMT_WHILE_BLOCK
-            dia("handleRCB: go on to process STMT_WHILE_BLOCK");
+
+            if (m_execute_at_compile_time) {
+                dia("handleRCB: go on to process STMT_WHILE_BLOCK");
+            }
 
         } else {
             // here, 'break' been wrapped, so, need to skip to the while block closing '}', why we use
@@ -3102,7 +3111,9 @@ bool ArithmeticExpression::handleRCB() {
             // and with this charactar of skipToBalancedRCB, call handleRCB
             // in any place of handleRCB, should use this same process.
 
-            --m_lcb_count; g_lcb_count = m_lcb_count;
+            if (m_execute_at_compile_time) {
+                --m_lcb_count; g_lcb_count = m_lcb_count;
+            }
 
             if (!skipToBalancedRCB(m_stmt_loop_break_wrapped_depth-1)) {
                 error("while: no balanced } found");
@@ -3111,19 +3122,23 @@ bool ArithmeticExpression::handleRCB() {
                 exit(E_GRAMMAR);
             }
             print("m_parse_pos:%d, rest input: \"%s\"", m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
+
             if (m_execute_at_compile_time) {
                 assert(nextChar(true) == '}'); // should be loop block closing curly brace
             }
 
-            // current:
-            // m_parse_pos: 1 left char before '}' (loop block rcb)
-            // state: ST_IDF: inherit from idf/keyword 'break'
-            // ctxt: STMT_WHILE_BLOCK
-            // next char: input[m_parse_pos+1] == '}'
-            // so we will return here to use next *parse+handle* turn which will call
-            // handleRCB to process ctxt 'STMT_WHILE_BLOCK'
-            dia("handleRCB: return to use next *parse+handle* turn to process STMT_WHILE_BLOCK");
-            return true;
+            if (m_execute_at_compile_time) {
+                // current:
+                // m_parse_pos: 1 left char before '}' (loop block rcb)
+                // state: ST_IDF: inherit from idf/keyword 'break'
+                // ctxt: STMT_WHILE_BLOCK
+                // next char: input[m_parse_pos+1] == '}'
+                // so we will return here to use next *parse+handle* turn which will call
+                // handleRCB to process ctxt 'STMT_WHILE_BLOCK'
+
+                dia("handleRCB: return to use next *parse+handle* turn to process STMT_WHILE_BLOCK");
+                return true;
+            }
         }
     }
 
