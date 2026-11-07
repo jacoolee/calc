@@ -133,16 +133,20 @@ ArithmeticExpression::ArithmeticExpression(
     m_token_idx = 0;
 
     m_opr_stack.setName("m_opr_stack");
+    m_opr_stack.setLogLevel(log_level);
     pushOpr(LOWEST_PRIO_OP);
 
     m_opd_stack.setName("m_opd_stack");
+    m_opd_stack.setLogLevel(log_level);
     m_opd_stack.push({m_token_idx, -9, OPD_STACK_BOTTOM_BASE, 0, ""}); // to ensure top() always have stuff to avoid break
 
     m_ctxt_stack.setName("m_ctxt_stack");
+    m_ctxt_stack.setLogLevel(log_level);
     m_ctxt_stack.push(CTXT_STACK_BOTTOM_BASE); // to ensure top() always have stuff to avoid break
     m_ctxt_stack.push(contextType);
 
     m_fnargscnt_stack.setName("m_fnargscnt_stack");
+    m_fnargscnt_stack.setLogLevel(log_level);
 
     // FIXME: [2026-10-27] idf store should be global, so nested code can re-assign value to global var
     // one way it to can use setMeta to use referer, or use global var directly.

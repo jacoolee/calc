@@ -131,20 +131,20 @@ inline const char* getContextTypeStr(ContextType t)
 }
 
 inline void printStackItem(const Opd& item) {
-    fprintf(stderr, "(%d,%d,%s,%g,\"%s\"), ", item.token_idx, item.stmt_count, getOpdTypeStr(item.type), item.num, item.str.c_str());
+    fprintf(stderr, "(%d,%d,%s,%g,\"%s\")", item.token_idx, item.stmt_count, getOpdTypeStr(item.type), item.num, item.str.c_str());
 }
 
 inline void printStackItem(const Opr& item) {
     int v = item.v;
-    fprintf(stderr, "(%d,v:%f,%d,'%c'), ", item.token_idx, (float)v,(int)v,(char)v);
+    fprintf(stderr, "(%d,v:%f,%d,'%c')", item.token_idx, (float)v,(int)v,(char)v);
 }
 
 inline void printStackItem(const int& item) {
-    fprintf(stderr, "(%f,%d,'%c'), ", (float)item,(int)item,(char)item);
+    fprintf(stderr, "(%f,%d,'%c')", (float)item,(int)item,(char)item);
 }
 
 inline void printStackItem(const ContextType& item) {
-    fprintf(stderr, "%s, ", getContextTypeStr(item));
+    fprintf(stderr, "%s", getContextTypeStr(item));
 }
 
 #define STACK_SP_INIT -1
@@ -156,22 +156,37 @@ public:
 
     T& top(int step=0) {
         if (empty()) {
-            fprintf(stderr, "*** %s.top: no top item found, because current stack is empty", m_name.c_str());
+            fprintf(stderr, ">>> %s.top: no top item found, because current stack is empty", m_name.c_str());
             exit(-1);
         };
-
+        if (m_log_enabled) {
+            fprintf(stderr, ">>> %s.top(%d) ", m_name.c_str(), step);
+            printStackItem(m_tunk[m_sp+step]);
+            fprintf(stderr, "\n");
+        }
         return m_tunk.at(m_sp+step);
     }
-    const T& top(int step=0) const { return m_tunk.at(m_sp+step); }
+    const T& top(int step=0) const {
+        if (empty()) {
+            fprintf(stderr, ">>> %s.top: no top item found, because current stack is empty", m_name.c_str());
+            exit(-1);
+        };
+        if (m_log_enabled) {
+            fprintf(stderr, ">>> %s.top(%d) ", m_name.c_str(), step);
+            printStackItem(m_tunk[m_sp+step]);
+            fprintf(stderr, "\n");
+        }
+        return m_tunk.at(m_sp+step);
+    }
     void push(T val);
     T pop() {
         if (empty()) {
-            fprintf(stderr, "*** %s.pop: failed because current stack is already empty\n", m_name.c_str());
+            fprintf(stderr, ">>> %s.pop: failed because current stack is already empty\n", m_name.c_str());
             exit(-1);
         }
 
-        if (m_print_log_level & 1024) {
-            fprintf(stderr, "*** %s.pop ...", m_name.c_str());
+        if (m_log_enabled) {
+            fprintf(stderr, ">>> %s.pop ", m_name.c_str());
             printStackItem(m_tunk[m_sp]);
             fprintf(stderr, "\n");
         }
@@ -187,16 +202,17 @@ public:
         for (int i=0; i< m_sp+1; i++) {
             T& x = m_tunk[i];
             printStackItem(x);
+            fprintf(stderr, ", ");
         }
-        fprintf(stderr, m_sp>=0? "]": "]");
+        fprintf(stderr, m_sp>=0? "\b\b]": "]");
     }
 
     void setName(std::string name) {
         m_name = name;
     }
 
-    void setPrintEnable(int log_level) {
-        m_print_log_level = log_level;
+    void setLogLevel(int log_level) {
+        m_log_enabled = log_level & 1024;
     }
 
 protected:
@@ -210,7 +226,7 @@ private:
     std::vector<T> m_tunk;
     int m_sp;
     std::string m_name="";
-    int m_print_log_level = 0;
+    bool m_log_enabled = false;
 };
 
 template<class T>
@@ -223,7 +239,11 @@ void Stack<T>::init(int size)
 template<class T>
 void Stack<T>::push(T val)
 {
-    //fprintf(stderr, "Stack %s, m_sp:%d\n", stack_storage_full()?"full":"not full", m_sp);
+    if (m_log_enabled) {
+        fprintf(stderr, ">>> %s.push ", m_name.c_str());
+        printStackItem(val);
+        fprintf(stderr, " full? %s, (before push) m_sp: %d", stack_storage_full()?"full":"not full", m_sp);
+    }
     if ( stack_storage_full() ) {
         m_tunk.push_back(val);
         ++m_sp;
