@@ -61,6 +61,8 @@ enum ContextType {
     STMT_WHILE_COND,
     STMT_WHILE_BLOCK,
 
+    PURE_BLOCK,
+
     LOOP_BREAK,
 
     FUNCTION_DEFINITION,
@@ -112,6 +114,8 @@ inline const char* getContextTypeStr(ContextType t)
     case STMT_WHILE: return "STMT_WHILE";
     case STMT_WHILE_COND: return "STMT_WHILE_COND";
     case STMT_WHILE_BLOCK: return "STMT_WHILE_BLOCK";
+
+    case PURE_BLOCK: return "PURE_BLOCK";
 
     case LOOP_BREAK: return "LOOP_BREAK";
 
@@ -529,6 +533,8 @@ private:
     void pushOpdIdfValue(const std::string& idf, bool gen_instruct=true);
     void pushOpdNum(double num, bool gen_instruct=true);
     void pushOpdStr(std::string str, bool gen_instruct=true);
+
+    void popCtxtStackTill(ContextType t, bool popTargetCtxtAlong=true);
 
     // TODO: marked following funs as inline
     bool _isbase(const Opd& item);

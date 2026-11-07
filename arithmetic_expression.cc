@@ -1718,7 +1718,7 @@ bool ArithmeticExpression::handleALP(char _c)
                 // for a more deep example:
                 // `while 1 { if 0 { } elif 1 { if 1 { break; } } else {} }`
                 // there are two `if`, so depth is 2.
-                if (_t == STMT_IF) {
+                if (_t == STMT_IF || _t == PURE_BLOCK) {
                     ++m_stmt_loop_break_wrapped_depth;
                 }
                 _t = m_ctxt_stack.top(--step);
@@ -2209,13 +2209,9 @@ bool ArithmeticExpression::handleSMC() {
     }
 
     // clean extra CTXT_EXP if exits
-    while (!m_ctxt_stack.empty()) {
-        ContextType _t = m_ctxt_stack.top();
-        if (_t == CTXT_EXP) {
-            m_ctxt_stack.pop();
-        } else {
-            break;
-        }
+    ContextType _t = m_ctxt_stack.top();
+    while (_t != CTXT_STACK_BOTTOM_BASE && _t == CTXT_EXP) {
+        _t = m_ctxt_stack.pop();
     }
 
     assert(m_ctxt_stack.top() != CTXT_EXP);
@@ -2300,20 +2296,7 @@ bool ArithmeticExpression::handleSMC() {
             assert(nextChar(true) == '}'); // should be loop block closing curly brace
         }
 
-        // TODO: make pop to ctxt a function
-        // pop to STMT_WHILE
-        // clean context stack: pop to STMT_WHILE_BLOCK
-        ContextType top;
-        while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_WHILE_BLOCK) {
-            print("pop %s", getContextTypeStr(top));
-            m_ctxt_stack.pop();
-        }
-        if (m_ctxt_stack.top() != STMT_WHILE_BLOCK) {
-            print("not in STMT_WHILE_BLOCK, should not happen, key: %d", key);
-            printErrorLocation();
-            syntax(ctxt);
-            exit(E_GRAMMAR);
-        }
+        popCtxtStackTill(STMT_WHILE_BLOCK, false);
 
         // current:
         // after skipToBalancedRCB:
@@ -2353,19 +2336,11 @@ bool ArithmeticExpression::handleSMC() {
         warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
     }
 
-    ////////////////////////////////////////////////////////////////
-    // print("clean context stack ...");
-    // while(!m_ctxt_stack.empty() && (ctxt = m_ctxt_stack.pop()) != CTXT_BGN) {
-    //     print("m_ctxt_stack.pop %s", getContextTypeStr(ctxt));
-    // }
-
-    // buggy? why clean all, you are semicolon, should just clean what belong to you.
-    // aka. CTXT_BGN, CTXT_EXP.
+    // clean CTXT_BGN, CTXT_EXP.
     ContextType _ctxt = m_ctxt_stack.top();
-    while(!m_ctxt_stack.empty() && (_ctxt == CTXT_BGN || _ctxt == CTXT_EXP)) {
+    while(_ctxt != CTXT_STACK_BOTTOM_BASE && (_ctxt == CTXT_BGN || _ctxt == CTXT_EXP)) {
         print("m_ctxt_stack.pop %s", getContextTypeStr(_ctxt));
-        m_ctxt_stack.pop();
-        _ctxt = m_ctxt_stack.top();
+        _ctxt = m_ctxt_stack.pop();
     }
 
     ////////////////////////////////////////////////////////////////
@@ -2393,7 +2368,7 @@ bool ArithmeticExpression::handleSMC() {
 }
 
 void ArithmeticExpression::pushContextBGN() {
-    print("pushing ...");
+    print("pushing CTXT_BGN if top not CTXT_BGN ...");
     bool top_already_ctxt_bgn = !m_ctxt_stack.empty() && m_ctxt_stack.top() == CTXT_BGN;
     if (!top_already_ctxt_bgn) {
         m_ctxt_stack.push(CTXT_BGN);
@@ -2717,6 +2692,10 @@ bool ArithmeticExpression::handleLCB() {
 
     if (ctxt == CTXT_BGN) {
         ++m_lcb_count; g_lcb_count = m_lcb_count;
+
+        // must record it, for counting lcb count when loop `break` track back the ctxt stack
+        m_ctxt_stack.push(PURE_BLOCK);
+        m_ctxt_stack.push(CTXT_BGN);
         m_state_next_certained = ST_BGN;
         return true;
 
@@ -2991,6 +2970,26 @@ bool ArithmeticExpression::skipToBalancedRCB(int extra_lcb_count_to_skip) {
     return found;
 }
 
+void ArithmeticExpression::popCtxtStackTill(ContextType t, bool popTargetCtxtAlong) {
+    // clean context stack: pop to @t, pop @t too if popTargetCtxtAlong is true
+    ContextType top = m_ctxt_stack.top();
+    while (top != CTXT_STACK_BOTTOM_BASE && top != t) {
+        print("pop %s", getContextTypeStr(top));
+        top = m_ctxt_stack.pop();
+    }
+    if (top == CTXT_STACK_BOTTOM_BASE) {
+        error("%s not found from m_ctxt_stack. should not happen", getContextTypeStr(t));
+        printErrorLocation();
+        syntax(t);
+        exit(E_GRAMMAR);
+    }
+    assert(top == t);
+    if (popTargetCtxtAlong) {
+        print("pop %s", getContextTypeStr(top));
+        m_ctxt_stack.pop();
+    }
+}
+
 bool ArithmeticExpression::handleRCB() {
     dia("-:handleRCB");
 
@@ -3067,17 +3066,7 @@ bool ArithmeticExpression::handleRCB() {
         // set member properties properly
         // clean context stack: pop to STMT_WHILE_BLOCK
         if (m_execute_at_compile_time) {
-            ContextType top;
-            while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_WHILE_BLOCK) {
-                print("pop %s", getContextTypeStr(top));
-                m_ctxt_stack.pop();
-            }
-            if (m_ctxt_stack.top() != STMT_WHILE_BLOCK) {
-                print("not in STMT_WHILE_BLOCK, should not happen, key: %d", key);
-                printErrorLocation();
-                syntax(ctxt);
-                exit(E_GRAMMAR);
-            }
+            popCtxtStackTill(STMT_WHILE_BLOCK, false);
             print("keep STMT_WHILE_BLOCK at ctxt top, handleEnd will process it properly");
             assert(m_ctxt_stack.top() == STMT_WHILE_BLOCK);
 
@@ -3160,6 +3149,7 @@ bool ArithmeticExpression::handleRCB() {
                lcb_ctxt != STMT_ELIF_BLOCK &&
                lcb_ctxt != STMT_ELSE_BLOCK &&
                lcb_ctxt != STMT_WHILE_BLOCK &&
+               lcb_ctxt != PURE_BLOCK &&
                lcb_ctxt != FUNCTION_BLOCK
                )) {
         --step;
@@ -3253,17 +3243,7 @@ bool ArithmeticExpression::handleRCB() {
             // clean m_stmt_if_cond
             print("clean m_stmt_if_cond[%d]", if_cond_key);
             m_stmt_if_cond.erase(if_cond_key);
-
-            // clean context stack: pop to STMT_IF
-            ContextType top;
-            while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_IF) {
-                print("pop %s", getContextTypeStr(top));
-                m_ctxt_stack.pop();
-            }
-            if ((top = m_ctxt_stack.top()) == STMT_IF) {
-                print("pop %s", getContextTypeStr(top));
-                m_ctxt_stack.pop();
-            }
+            popCtxtStackTill(STMT_IF);
         }
 
         goto handleRCB_common;
@@ -3305,16 +3285,7 @@ bool ArithmeticExpression::handleRCB() {
             loop_start_pos = tailing_cond.start_pos;
         }
 
-        // clean context stack: pop to STMT_WHILE
-        ContextType top;
-        while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != STMT_WHILE) {
-            print("pop %s", getContextTypeStr(top));
-            m_ctxt_stack.pop();
-        }
-        if ((top = m_ctxt_stack.top()) == STMT_WHILE) {
-            print("pop %s", getContextTypeStr(top));
-            m_ctxt_stack.pop();
-        }
+        popCtxtStackTill(STMT_WHILE);
 
         print("clean m_stmt_while_cond");
         m_stmt_while_cond.erase(key);
@@ -3325,18 +3296,12 @@ bool ArithmeticExpression::handleRCB() {
 
         goto handleRCB_common;
 
-    } else if (lcb_ctxt == FUNCTION_BLOCK) {
-        // clean context stack: pop to FUNCTION_DEFINITION
-        ContextType top;
-        while (!m_ctxt_stack.empty() && (top = m_ctxt_stack.top()) != FUNCTION_DEFINITION) {
-            print("pop %s", getContextTypeStr(top));
-            m_ctxt_stack.pop();
-        }
-        if ((top = m_ctxt_stack.top()) == FUNCTION_DEFINITION) {
-            print("pop %s", getContextTypeStr(top));
-            m_ctxt_stack.pop();
-        }
+    } else if (lcb_ctxt == PURE_BLOCK) {
+        popCtxtStackTill(PURE_BLOCK);
+        goto handleRCB_common;
 
+    } else if (lcb_ctxt == FUNCTION_BLOCK) {
+        popCtxtStackTill(FUNCTION_DEFINITION);
         goto handleRCB_common;
 
     } else {
