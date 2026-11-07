@@ -932,7 +932,7 @@ void ArithmeticExpression::assignValueToIdf(const std::string& idf, double value
                 if (m_idf_pre_defined_scoped_map.find(idf) != m_idf_pre_defined_scoped_map.end()) {
                     bool is_in_function_call = false;
                     int step = 0;
-                    while (-1*step < m_ctxt_stack.count()) {
+                    while (-1*step < m_ctxt_stack.count()-1) {
                         ContextType t = m_ctxt_stack.top(step);
                         if (t == FUNCTION_CALL) {
                             is_in_function_call = true;
@@ -1679,7 +1679,7 @@ bool ArithmeticExpression::handleALP(char _c)
 
             int step = 0;
             ContextType _t = m_ctxt_stack.top();
-            while (-1*step < m_ctxt_stack.count() && ( _t != STMT_WHILE_BLOCK )) {
+            while (-1*step < m_ctxt_stack.count()-1 && ( _t != STMT_WHILE_BLOCK )) {
                 print("checking loop ctxt: %s", getContextTypeStr(_t));
                 if (_t == CTXT_STACK_BOTTOM_BASE) {
                     error("`break` can only be *right* or *deep* in loop block, while no loop block found");
@@ -1723,7 +1723,7 @@ bool ArithmeticExpression::handleALP(char _c)
                 }
                 _t = m_ctxt_stack.top(--step);
             }
-            if (-1*step == m_ctxt_stack.count()) {
+            if (-1*step == m_ctxt_stack.count()-1) {
                 error("`break` can only be *right* or *deep* in loop block, while no loop ctxt found");
                 printErrorLocation();
                 exit(E_GRAMMAR);
@@ -2177,6 +2177,11 @@ bool ArithmeticExpression::handleSMC() {
 
     case STMT_IF_COND:
         error("invalid syntax: \"if exp ;\", should never come here, ';' should not be in m_expect_char_types under context: STMT_IF_COND");
+        printErrorLocation();
+        exit(E_SYNTAX);
+
+    case STMT_ELIF_COND:
+        error("invalid syntax: \"elif exp ;\", should never come here, ';' should not be in m_expect_char_types under context: STMT_ELIF_COND");
         printErrorLocation();
         exit(E_SYNTAX);
 
@@ -3150,7 +3155,7 @@ bool ArithmeticExpression::handleRCB() {
     int step = 0;
     ContextType lcb_ctxt = m_ctxt_stack.top(step); // lcb_ctxt => block_ctxt
 
-    while (-1*step < m_ctxt_stack.count() && (
+    while (-1*step < m_ctxt_stack.count()-1 && (
                lcb_ctxt != STMT_IF_BLOCK &&
                lcb_ctxt != STMT_ELIF_BLOCK &&
                lcb_ctxt != STMT_ELSE_BLOCK &&
@@ -3161,7 +3166,7 @@ bool ArithmeticExpression::handleRCB() {
         lcb_ctxt = m_ctxt_stack.top(step);
     }
 
-    if (-1*step == m_ctxt_stack.count()) {
+    if (-1*step == m_ctxt_stack.count()-1) {
         error("no context type found for current balanced '{' belongs");
         printErrorLocation();
         exit(E_GRAMMAR);
