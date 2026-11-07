@@ -446,29 +446,31 @@ public:
 
 private:
     bool handle(char c);
-    bool handleNone();
-    bool handleFlag(char flag);
-    void handleError();
+
     void handleComment();
-    bool handleOperator(char opr);
-    bool handleNum();
-    bool handleLeftParenthesis();
-    bool handleRightParenthesis();
-    bool handleAlpha(char c);
-    bool handleSpace();
-    bool handleComma();
-    bool handleSemicolon();
-    bool handleSymbolEqual();
-    bool handleSymbolAmpersand();
-    bool handleSymbolVbar();
-    bool handleExclamation();
-    bool handleLeftCurlyBrace();
-    bool handleRightCurlyBrace();
-    bool handleColon();
-    bool handleDoubleQuote();
+
+    bool handleNON();
+    bool handleFLG(char flag);
+    bool handleOPR(char opr);
+    bool handleNUM();
+    bool handleLPS();
+    bool handleRPS();
+    bool handleALP(char c);
+    bool handleSPC();
+    bool handleCMA();
+    bool handleSMC();
+    bool handleSEQ();
+    bool handleAMP();
+    bool handleVBR();
+    bool handleEXM();
+    bool handleLCB();
+    bool handleRCB();
+    bool handleCLN();
+    bool handleDBQ();
+    void handleERR();
 
     bool handleAction(ActionType type, char c);
-    bool handleInputAllParsed();
+    bool handleEnd();
 
     bool calculate(int opr);
     bool call_old(const std::string);
@@ -495,7 +497,7 @@ private:
     const char* getStateStr(State) const;
     const char* getCharTypeStr(CharType) const;
 
-    bool findBalancedRightCurlyBraceAndSkipToIt(int extra_lcb_count_to_skip=0);
+    bool skipToBalancedRCB(int extra_lcb_count_to_skip=0);
     void printErrorLocation();
 
     char nextChar(bool skipWhitespace=true);
