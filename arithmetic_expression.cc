@@ -1195,7 +1195,11 @@ bool ArithmeticExpression::handleLPS()
         ctxt == CTXT_EXP ||
         ctxt == STMT_DECLARE_ASSIGN_VALUE ||
         ctxt == STMT_IF_COND ||
+        ctxt == STMT_IF_BLOCK ||
         ctxt == STMT_ELIF_COND ||
+        ctxt == STMT_ELIF_BLOCK ||
+        ctxt == STMT_ELSE_BLOCK ||
+        ctxt == PURE_BLOCK ||
         ctxt == FUNCTION_RETURN_VALUE
         ) {
 
@@ -1230,10 +1234,11 @@ bool ArithmeticExpression::handleLPS()
 
         } else if (_isidf(opd)) { // 'idf?('
 
-            bool is_fnc_olp = (opd.token_idx == m_token_idx-1); // prev-token
-            print("is_fnc_olp = %d", is_fnc_olp);
+            // function call left/opening-ps
+            bool is_fnc_lps = (opd.token_idx == m_token_idx-1); // prev-token
+            print("is_fnc_lps = %d", is_fnc_lps);
 
-            if (is_fnc_olp) { // 'idf(' => treat as 'fnn('
+            if (is_fnc_lps) { // 'idf(' => treat as 'fnn('
                 std::string idf = opd.str;
 
                 if (m_function_declare_map.find(idf) != m_function_declare_map.end()) {
@@ -1556,7 +1561,7 @@ bool ArithmeticExpression::handleALP(char _c)
     ContextType ctxt = m_ctxt_stack.top();
     print("ctxt: %s, m_id: \"%s\"", getContextTypeStr(ctxt), m_id.c_str());
 
-    if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK || ctxt == STMT_ELIF_BLOCK || ctxt == STMT_ELSE_BLOCK || ctxt == STMT_WHILE_BLOCK) {
+    if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK || ctxt == STMT_ELIF_BLOCK || ctxt == STMT_ELSE_BLOCK || ctxt == STMT_WHILE_BLOCK || ctxt == PURE_BLOCK) {
         if (m_id == "if") {     // keyword
             // ensure is start of current statement
             Opd top_opd = m_opd_stack.top();
@@ -2385,7 +2390,7 @@ bool ArithmeticExpression::handleSEQ() {
     } else {
         ContextType ctxt = m_ctxt_stack.top();
 
-        if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK || ctxt == STMT_ELIF_BLOCK || ctxt == STMT_WHILE_BLOCK) {
+        if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK || ctxt == STMT_ELIF_BLOCK || ctxt == STMT_ELSE_BLOCK || ctxt == STMT_WHILE_BLOCK || ctxt == PURE_BLOCK) {
             if (m_state == ST_IDF && (m_state_prev == ST_BGN || m_state_prev == ST_IDF)) { // more restrict grammer
                 // treat it as assign statement
                 m_ctxt_stack.push(STMT_DECLARE_ASSIGN);
@@ -2690,12 +2695,11 @@ bool ArithmeticExpression::handleLCB() {
 
     ctxt = m_ctxt_stack.top();
 
-    if (ctxt == CTXT_BGN) {
+    if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK || ctxt == STMT_ELIF_BLOCK || ctxt == STMT_ELSE_BLOCK || ctxt == STMT_WHILE_BLOCK || ctxt == PURE_BLOCK) {
         ++m_lcb_count; g_lcb_count = m_lcb_count;
 
         // must record it, for counting lcb count when loop `break` track back the ctxt stack
         m_ctxt_stack.push(PURE_BLOCK);
-        m_ctxt_stack.push(CTXT_BGN);
         m_expect_char_types = {};
         m_state_next_certained = ST_BGN;
         return true;
