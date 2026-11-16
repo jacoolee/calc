@@ -1679,14 +1679,8 @@ bool ArithmeticExpression::handleALP(char _c)
 
             int step = 0;
             ContextType _t = m_ctxt_stack.top();
-            while (-1*step < m_ctxt_stack.count()-1 && ( _t != STMT_WHILE_BLOCK )) {
-                print("checking loop ctxt: %s", getContextTypeStr(_t));
-                if (_t == CTXT_STACK_BOTTOM_BASE) {
-                    error("`break` can only be *right* or *deep* in loop block, while no loop block found");
-                    printErrorLocation();
-                    syntax(LOOP_BREAK);
-                    exit(E_GRAMMAR);
-                }
+            while (_t != CTXT_STACK_BOTTOM_BASE && ( _t != STMT_WHILE_BLOCK )) {
+                print("checking loop ctxt: %s @top(%d)", getContextTypeStr(_t), step);
 
                 if (_t == FUNCTION_BLOCK) {
                     error("`break` can only be *right* or *deep* in loop block, while used in function block without wrapped with loop");
@@ -1723,9 +1717,11 @@ bool ArithmeticExpression::handleALP(char _c)
                 }
                 _t = m_ctxt_stack.top(--step);
             }
-            if (-1*step == m_ctxt_stack.count()-1) {
-                error("`break` can only be *right* or *deep* in loop block, while no loop ctxt found");
+
+            if (_t == CTXT_STACK_BOTTOM_BASE) {
+                error("`break` can only be *right* or *deep* in loop block, while no loop block found");
                 printErrorLocation();
+                syntax(LOOP_BREAK);
                 exit(E_GRAMMAR);
             }
 
@@ -2211,7 +2207,8 @@ bool ArithmeticExpression::handleSMC() {
     // clean extra CTXT_EXP if exits
     ContextType _t = m_ctxt_stack.top();
     while (_t != CTXT_STACK_BOTTOM_BASE && _t == CTXT_EXP) {
-        _t = m_ctxt_stack.pop();
+        m_ctxt_stack.pop();
+        _t = m_ctxt_stack.top();
     }
 
     assert(m_ctxt_stack.top() != CTXT_EXP);
@@ -2340,7 +2337,8 @@ bool ArithmeticExpression::handleSMC() {
     ContextType _ctxt = m_ctxt_stack.top();
     while(_ctxt != CTXT_STACK_BOTTOM_BASE && (_ctxt == CTXT_BGN || _ctxt == CTXT_EXP)) {
         print("m_ctxt_stack.pop %s", getContextTypeStr(_ctxt));
-        _ctxt = m_ctxt_stack.pop();
+        m_ctxt_stack.pop();
+        _ctxt = m_ctxt_stack.top();
     }
 
     ////////////////////////////////////////////////////////////////
@@ -2976,8 +2974,9 @@ void ArithmeticExpression::popCtxtStackTill(ContextType t, bool popTargetCtxtAlo
 
     ContextType top = m_ctxt_stack.top();
     while (top != CTXT_STACK_BOTTOM_BASE && top != t) {
+        m_ctxt_stack.pop();
+        top = m_ctxt_stack.top();
         print("pop %s", getContextTypeStr(top));
-        top = m_ctxt_stack.pop();
     }
     if (top == CTXT_STACK_BOTTOM_BASE) {
         error("%s not found from m_ctxt_stack. should not happen", getContextTypeStr(t));
