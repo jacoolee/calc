@@ -2512,7 +2512,26 @@ bool ArithmeticExpression::handleLCB() {
     ContextType ctxt = m_ctxt_stack.top();
     print("ctxt=%d", ctxt);
 
-    if (ctxt == STMT_ELSE) {
+    if (ctxt == CTXT_EXP) {     // only allow `XXX_CONDTION {`
+        int step = 0;
+        ContextType _t = m_ctxt_stack.top();
+        while (_t != CTXT_STACK_BOTTOM_BASE && (_t == CTXT_EXP)) {
+            _t = m_ctxt_stack.top(--step);
+        }
+
+        if (_t == CTXT_STACK_BOTTOM_BASE) {
+            error("ctxt stack contains no XXX_CONDTION");
+            printErrorLocation();
+            exit(E_SYNTAX);
+        }
+
+        if (_t != STMT_IF_COND && _t != STMT_ELIF_COND && _t != STMT_WHILE_COND) {
+            error("no XXX_CONDTION found, invalid `non-XXX_CONDTION {`");
+            printErrorLocation();
+            exit(E_SYNTAX);
+        }
+
+    } else if (ctxt == STMT_ELSE) {
         // NOTE: no exp before this context pos needed to evaluate, so process immediately
 
         const int if_cond_key = m_lcb_count;
