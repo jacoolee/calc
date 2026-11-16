@@ -2713,6 +2713,7 @@ bool ArithmeticExpression::handleLCB() {
         // must record it, for counting lcb count when loop `break` track back the ctxt stack
         m_ctxt_stack.push(PURE_BLOCK);
         m_ctxt_stack.push(CTXT_BGN);
+        m_expect_char_types = {};
         m_state_next_certained = ST_BGN;
         return true;
 
