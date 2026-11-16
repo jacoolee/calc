@@ -61,8 +61,17 @@ int main(int argc, char *argv[])
     atexit(cleanup);
 
     char* arg1 = argv[1];
-    int log_level = argc>2? (int)strtol(argv[2], NULL, 10): 4096;
+    int log_level = argc>2? (int)strtol(argv[2], NULL, 10): 0;
     // fprintf(stderr, "log_level = %d\n", log_level);
+
+    // currently, these two modes can be together when there are no loop structures in the input
+    bool in_compile_mode = (log_level & LLL_GEN_INSTRUCT);
+    bool in_execute_mode = (log_level & LLL_EXECUTE_AT_COMPILE_TIME);
+
+    if (!in_compile_mode && !in_execute_mode) {
+        // fprintf(stderr, "no run-mode (gen instruction mode:%d, execute mode:%d) set, we will use execute mode", LLL_GEN_INSTRUCT, LLL_EXECUTE_AT_COMPILE_TIME);
+        log_level += LLL_EXECUTE_AT_COMPILE_TIME;
+    }
 
     char *str = NULL;
     if (ends_with(arg1, ".al")) {
