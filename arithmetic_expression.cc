@@ -1556,7 +1556,7 @@ bool ArithmeticExpression::handleALP(char _c)
     ContextType ctxt = m_ctxt_stack.top();
     print("ctxt: %s, m_id: \"%s\"", getContextTypeStr(ctxt), m_id.c_str());
 
-    if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK || ctxt == STMT_ELIF_BLOCK) {
+    if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK || ctxt == STMT_ELIF_BLOCK || ctxt == STMT_ELSE_BLOCK) {
         if (m_id == "if") {     // keyword
             // ensure is start of current statement
             Opd top_opd = m_opd_stack.top();
@@ -2548,12 +2548,10 @@ bool ArithmeticExpression::handleLCB() {
 
         if (pre_cond_all_zero == true) {
             m_ctxt_stack.push(STMT_ELSE_BLOCK);
-            m_ctxt_stack.push(CTXT_BGN);
             m_expect_char_types = {};
 
         } else {
             m_ctxt_stack.push(STMT_ELSE_BLOCK);
-            m_ctxt_stack.push(CTXT_BGN);
             m_expect_char_types = {};
 
             print("TODO: to ignore else-block, just skip to balanced '}'");
