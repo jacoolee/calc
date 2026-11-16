@@ -8,3 +8,4 @@
 = 261024214618 get basic opd (num), basic opr working @priority:high
 = 261024224601 "if (m_state" => "if top_opd or if context"
 = 261028185819 eval #proposal
+= 261116150012 treat XXX_BLOCK contexts as special cases of CTXT_BGN

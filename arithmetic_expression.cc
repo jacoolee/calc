@@ -1556,7 +1556,7 @@ bool ArithmeticExpression::handleALP(char _c)
     ContextType ctxt = m_ctxt_stack.top();
     print("ctxt: %s, m_id: \"%s\"", getContextTypeStr(ctxt), m_id.c_str());
 
-    if (ctxt == CTXT_BGN) {
+    if (ctxt == CTXT_BGN || ctxt == STMT_IF_BLOCK) {
         if (m_id == "if") {     // keyword
             // ensure is start of current statement
             Opd top_opd = m_opd_stack.top();
@@ -1848,22 +1848,6 @@ bool ArithmeticExpression::handleALP(char _c)
 
         // alpha is sufficient for if cond, so expect '{'
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
-        return true;
-
-    } else if (ctxt == STMT_IF_BLOCK) { // STMT_IF_COND is a special case of CTXT_EXP
-        std::string tkn = nextToken(m_parse_pos+1);
-        if (tkn == "(") {     // fnn
-            pushOpdIdf(m_id, false);
-        } else if (tkn == "=") {     // assign
-            // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
-            pushOpdIdf(m_id, false);
-        } else if (tkn == ":") {     // scope assign
-            pushOpdIdf(m_id, false);
-        } else if (tkn == "==") {     // eq, idf must have value, so use value directly
-            pushOpdIdfValue(m_id);
-        } else {                   // var
-            pushOpdIdfValue(m_id);
-        }
         return true;
 
     } else if (ctxt == STMT_ELIF_COND) { // STMT_ELIF_COND is a special case of CTXT_EXP
@@ -2510,7 +2494,7 @@ bool ArithmeticExpression::handleLCB() {
     }
 
     ContextType ctxt = m_ctxt_stack.top();
-    print("ctxt=%d", ctxt);
+    print("ctxt=%s", getContextTypeStr(ctxt));
 
     if (ctxt == CTXT_EXP) {     // only allow `XXX_CONDTION {`
         int step = 0;
@@ -2752,12 +2736,10 @@ bool ArithmeticExpression::handleLCB() {
 
         if (cond != 0) {
             m_ctxt_stack.push(STMT_IF_BLOCK);
-            m_ctxt_stack.push(CTXT_BGN);
             m_expect_char_types = {}; // clear
 
         } else {
             m_ctxt_stack.push(STMT_IF_BLOCK);
-            m_ctxt_stack.push(CTXT_BGN);
             m_expect_char_types = {}; // clear
 
             print("TODO: to ignore if-block, just skip to balanced '}', no syntax check for skipped content");
