@@ -21,7 +21,7 @@
 
 #define instruct(...)                                                   \
     do {                                                                \
-        if (g__log__level & LLL_GEN_INSTRUCT) {                           \
+        if (g__log__level & LLL_GEN_INSTRUCT) {                         \
             if (g__log__level & LLL_GEN_INSTRUCT_DIA) fprintf(stderr,"%s:%03d:%02d: %*s", g_filename, g_ln_count, g_lcb_count*4+1, g_lcb_count*4, ""); \
             fprintf(stderr,__VA_ARGS__);                                \
             if (g__log__level & LLL_GEN_INSTRUCT_DIA) fprintf(stderr," # %04d %s\n", __LINE__, __func__); \
@@ -31,7 +31,7 @@
 
 #define print(...)                                                      \
     do {                                                                \
-        if (g__log__level & 1) {                                          \
+        if (g__log__level & 1) {                                        \
             fprintf(stderr,"%s:%04d: info %9s | %s:%d %s:%d | ", __FILE__, __LINE__, __func__, g_filename, g_ln_count, g_scope_name.c_str(), g_depth); \
             fprintf(stderr,__VA_ARGS__);                                \
             fprintf(stderr,"\n");                                       \
@@ -40,7 +40,7 @@
 
 #define printnoln(...)                                                  \
     do {                                                                \
-        if (g__log__level & 1) {                                          \
+        if (g__log__level & 1) {                                        \
             fprintf(stderr,"%s:%04d: info %9s | %s:%d %s:%d | ", __FILE__, __LINE__, __func__, g_filename, g_ln_count, g_scope_name.c_str(), g_depth); \
             fprintf(stderr,__VA_ARGS__);                                \
         }                                                               \
@@ -48,7 +48,7 @@
 
 #define __print(...)                            \
     do {                                        \
-        if (g__log__level & 1) {                  \
+        if (g__log__level & 1) {                \
             fprintf(stderr,__VA_ARGS__);        \
         }                                       \
     } while (0)
@@ -73,7 +73,7 @@
 
 #define warn(...)                                                       \
     do {                                                                \
-        if (g__log__level & 1) {                                          \
+        if (g__log__level & 1) {                                        \
             fprintf(stderr,"%s:%04d: warning %9s | %s:%d %s:%d | ", __FILE__, __LINE__, __func__, g_filename, g_ln_count, g_scope_name.c_str(), g_depth); \
             fprintf(stderr,__VA_ARGS__);                                \
             fprintf(stderr,"\n");                                       \
@@ -541,7 +541,7 @@ void ArithmeticExpression::dia(const std::string& marker="") {
     if (g__log__level & log_level) {
         __print(" #%d", log_level);
         __print(" m_ctxt_stack="); m_ctxt_stack.dia(g__log__level);
-        __print(" m_expect_char_types=[");
+        __print(" m_expect_char_types = [");
         for (const auto& item : m_expect_char_types) {
             __print("'%s', ", getCharTypeStr(item));
         }
@@ -606,7 +606,7 @@ void ArithmeticExpression::dia(const std::string& marker="") {
         __print(" #%d", log_level);
         __print(" m_stmt_if_cond");
         for (const auto& item : m_stmt_if_cond) {
-            __print("[%d]=[", item.first);
+            __print("[%d] = [", item.first);
             for (IfCond x : item.second) {
                 __print("(%d,%s,%d,%d), ", x.ukey, x.jz_label.c_str(), x.type,x.value);
             }
@@ -615,7 +615,7 @@ void ArithmeticExpression::dia(const std::string& marker="") {
 
         __print(" m_stmt_while_cond");
         for (const auto& item : m_stmt_while_cond) {
-            __print("[%d]=[", item.first);
+            __print("[%d] = [", item.first);
             for (WhileCond x : item.second) {
                 __print("(%d,%s,%s,%d), ", x.start_pos, x.start_label.c_str(), x.jz_label.c_str(), x.value);
             }
@@ -648,7 +648,7 @@ void ArithmeticExpression::dia(const std::string& marker="") {
             __print("[%d]=%s ", item.first, item.second.c_str());
         }
 
-        __print(" m_function_declare_cur_argidfs=[");
+        __print(" m_function_declare_cur_argidfs = [");
         for (const auto& item : m_function_declare_cur_argidfs) {
             __print("\"%s\",", item.c_str());
         }
@@ -2971,7 +2971,9 @@ bool ArithmeticExpression::skipToBalancedRCB(int extra_lcb_count_to_skip) {
 }
 
 void ArithmeticExpression::popCtxtStackTill(ContextType t, bool popTargetCtxtAlong) {
-    // clean context stack: pop to @t, pop @t too if popTargetCtxtAlong is true
+    // pop ctxt stack till @t, and pop @t too if popTargetCtxtAlong is true
+    print("popCtxtStackTill t = %s, popTargetCtxtAlong: %d", getContextTypeStr(t), popTargetCtxtAlong);
+
     ContextType top = m_ctxt_stack.top();
     while (top != CTXT_STACK_BOTTOM_BASE && top != t) {
         print("pop %s", getContextTypeStr(top));
@@ -2985,7 +2987,7 @@ void ArithmeticExpression::popCtxtStackTill(ContextType t, bool popTargetCtxtAlo
     }
     assert(top == t);
     if (popTargetCtxtAlong) {
-        print("pop %s", getContextTypeStr(top));
+        print("pop %s - popTargetCtxtAlong", getContextTypeStr(top));
         m_ctxt_stack.pop();
     }
 }
@@ -3157,7 +3159,7 @@ bool ArithmeticExpression::handleRCB() {
     }
 
     if (-1*step == m_ctxt_stack.count()-1) {
-        error("no context type found for current balanced '{' belongs");
+        error("no lcb context type found for current balanced '{' belongs");
         printErrorLocation();
         exit(E_GRAMMAR);
     }
