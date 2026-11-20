@@ -1,0 +1,108 @@
+digraph G {
+    rankdir=LR;
+    {
+        start [shape=circle,peripheries=2,style=filled,label="start"]
+        CTXT_BGN [shape=circle,peripheries=2,style=filled,label="CTXT_\nBGN"]
+
+        STMT_IF [shape=circle,style=filled,label="STMT_\nIF"]
+        STMT_IF_COND [shape=circle,style=filled,label="STMT_\nIF_\nCOND"]
+        STMT_IF_BLOCK [shape=circle,style=filled,label="STMT_\nIF_\nBLOCK"]
+
+        STMT_ELIF [shape=circle,style=filled,label="STMT_\nELIF"]
+        STMT_ELIF_COND [shape=circle,style=filled,label="STMT_\nELIF_\nCOND"]
+        STMT_ELIF_BLOCK [shape=circle,style=filled,label="STMT_\nELIF_\nBLOCK"]
+
+        STMT_ELSE [shape=circle,style=filled,label="STMT_\nELSE"]
+        STMT_ELSE_BLOCK [shape=circle,style=filled,label="STMT_\nELSE_\nBLOCK"]
+
+        STMT_WHILE [shape=circle,style=filled,label="STMT_\nWHILE"]
+        STMT_WHILE_COND [shape=circle,style=filled,label="STMT_\nWHILE_\nCOND"]
+        STMT_WHILE_BLOCK [shape=circle,style=filled,label="STMT_\nWHILE_\nBLOCK"]
+
+        LOOP_BREAK [shape=circle,style=filled,label="LOOP_\nBREAK"]
+        LOOP_CONTINUE [shape=circle,style=filled,label="LOOP_\nCONTI-\nNUE"]
+
+        PURE_BLOCK [shape=circle,style=filled,label="PURE_\nBLOCK"]
+
+        STMT_DECLARE_ASSIGN[shape=circle,style=filled,label="STMT_\nDECLARE_\nASSIGN"]
+        STMT_DECLARE_ASSIGN_VALUE[shape=circle,style=filled,label="STMT_\nDECLARE_\nASSIGN_\nVALUE"]
+
+        STMT_SCOPE_DECLARE_ASSIGN[shape=circle,style=filled,label="STMT_\nSCOPE_\nDECLARE_\nASSIGN"]
+        STMT_SCOPE_DECLARE_ASSIGN_VALUE[shape=circle,style=filled,label="STMT_\nSCOPE_\nDECLARE_\nASSIGN_\nVALUE"]
+
+        EXP [shape=circle,style=filled,label="EXP"]
+
+        BLOCK_END [shape=circle,peripheries=2,style=filled,label="block\nend"]
+
+        STMT_END [shape=circle,peripheries=2,style=filled,label="stmt\nend"]
+        end [shape=circle,peripheries=2,style=filled,label="end"]
+    }
+
+    start -> CTXT_BGN;
+
+    // stmt
+
+    CTXT_BGN -> STMT_DECLARE_ASSIGN[label="idf (followed by '=')"];
+    STMT_DECLARE_ASSIGN -> STMT_DECLARE_ASSIGN_VALUE[label="'='"];
+    STMT_DECLARE_ASSIGN_VALUE -> STMT_DECLARE_ASSIGN_VALUE[label="exp"];
+    STMT_DECLARE_ASSIGN_VALUE -> STMT_END[label="';'"];
+    STMT_DECLARE_ASSIGN_VALUE -> end[label="'\\0'"];
+
+    CTXT_BGN -> STMT_SCOPE_DECLARE_ASSIGN[label="idf (followed by ':=')"];
+    STMT_SCOPE_DECLARE_ASSIGN -> STMT_SCOPE_DECLARE_ASSIGN_VALUE[label="':='"];
+    STMT_SCOPE_DECLARE_ASSIGN_VALUE -> STMT_SCOPE_DECLARE_ASSIGN_VALUE[label="exp"];
+    STMT_SCOPE_DECLARE_ASSIGN_VALUE -> STMT_END[label="';'"];
+    STMT_SCOPE_DECLARE_ASSIGN_VALUE -> end[label="'\\0'"];
+
+    CTXT_BGN -> EXP[label="other chars"];
+    EXP -> EXP[label="exp"];
+    EXP -> STMT_END[label="';'"];
+    EXP -> end[label="'\\0'"];
+
+    STMT_END -> CTXT_BGN[label="treated as",color="#999",fontcolor="#999"];
+    STMT_END -> end[label="'\\0'"];
+
+    // block
+
+    CTXT_BGN -> STMT_IF[label="\"if\""];
+    STMT_IF -> STMT_IF_COND[label="'(' or 'SPC'"];
+    STMT_IF_COND -> STMT_IF_COND[label="exp"];
+    STMT_IF_COND -> STMT_IF_BLOCK[label="'{'"];
+    STMT_IF_BLOCK -> BLOCK_END[label="'}'"];
+    STMT_IF_BLOCK -> CTXT_BGN[label="treated as",color="#999",fontcolor="#999"];
+
+    CTXT_BGN -> STMT_ELIF[label="\"elif\" follows \"if\" or \"elif\""];
+    STMT_ELIF -> STMT_ELIF_COND[label="'(' or 'SPC'"];
+    STMT_ELIF_COND -> STMT_ELIF_COND[label="exp"];
+    STMT_ELIF_COND -> STMT_ELIF_BLOCK[label="'{'"];
+    STMT_ELIF_BLOCK -> BLOCK_END[label="'}'"];
+    STMT_ELIF_BLOCK -> CTXT_BGN[label="treated as",color="#999",fontcolor="#999"];
+
+    CTXT_BGN -> STMT_ELSE[label="\"else\" follows \"if\" or \"elif\""];
+    STMT_ELSE -> STMT_ELSE_BLOCK[label="'{'"];
+    STMT_ELSE_BLOCK -> BLOCK_END[label="'}'"];
+    STMT_ELSE_BLOCK -> CTXT_BGN[label="treated as",color="#999",fontcolor="#999"];
+
+    CTXT_BGN -> STMT_WHILE[label="\"while\""];
+    STMT_WHILE -> STMT_WHILE_COND[label="'(' or 'SPC'"];
+    STMT_WHILE_COND -> STMT_WHILE_COND[label="exp"];
+    STMT_WHILE_COND -> STMT_WHILE_BLOCK[label="'{'"];
+    STMT_WHILE_BLOCK -> BLOCK_END[label="'}'"];
+    STMT_WHILE_BLOCK -> CTXT_BGN[label="treated as",color="#999",fontcolor="#999"];
+
+    CTXT_BGN -> LOOP_BREAK[label="\"break\" (in loop, eg. while)"];
+    LOOP_BREAK -> BLOCK_END[label="';' or '}'"]
+
+    CTXT_BGN -> LOOP_CONTINUE[label="\"continue\" (in loop, eg. while)"];
+    LOOP_CONTINUE -> BLOCK_END[label="';' or '}'"]
+
+    CTXT_BGN -> PURE_BLOCK[label="'{'"];
+    PURE_BLOCK -> BLOCK_END[label="'}'"];
+    PURE_BLOCK -> CTXT_BGN[label="treated as",color="#999",fontcolor="#999"];
+
+    BLOCK_END -> CTXT_BGN[label="treated as",color="#999",fontcolor="#999"];
+
+    BLOCK_END -> end[label="'\\0'"];
+
+}
+}
