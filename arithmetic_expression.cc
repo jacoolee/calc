@@ -475,6 +475,13 @@ void ArithmeticExpression::syntax(ContextType t) {
         break;
     }
 
+    case LOOP_CONTINUE: {
+        errornoln("\t`continue`\n");
+        errornoln("\u200B\n");
+        errornoln("\tcontinue can only used in a loop (eg. `while cond { ... }`) and it will jump to beginning of the loop\n");
+        break;
+    }
+
     case FUNCTION_DEFINITION:
     case FUNCTION_ARGS:
     case FUNCTION_BLOCK: {
@@ -491,7 +498,7 @@ void ArithmeticExpression::syntax(ContextType t) {
         break;
     }
     default: {
-        // warn("TODO add synatx for contextType: %s", getContextTypeStr(t));
+        warn("TODO add synatx for contextType: %s", getContextTypeStr(t));
         break;
     }
     }
@@ -1081,6 +1088,13 @@ void ArithmeticExpression::handleERR()
     }
     __error("\b ], while '%c' gotten\n", m_arithmetic_expression[m_parse_pos]);
 
+    int step = 0;
+    ContextType ctxt = m_ctxt_stack.top(step);
+    while (ctxt == CTXT_EXP || ctxt == CTXT_BGN) {
+        ctxt = m_ctxt_stack.top(--step);
+    }
+    syntax(ctxt);
+
     exit(E_SYNTAX);
 }
 
@@ -1637,7 +1651,8 @@ bool ArithmeticExpression::handleALP(char _c)
             }
 
             std::vector<WhileCond>& while_conds = m_stmt_while_cond[m_lcb_count];
-            // pre-one char before 'while', so after handleRPS of while block, ++m_parse_pos points to w of 'while' correctly
+            // pre-one char before 'while', so for future, continue/break of while block,
+            // ++m_parse_pos would points to w of 'while' correctly.
             // m_parse_pos - 5 <== (m_parse_pos + 1)'e+1' - 5(w) - 1 (w-1)
             int while_start_pos = m_parse_pos - 5;
             bool is_same_while = false;
@@ -1667,7 +1682,7 @@ bool ArithmeticExpression::handleALP(char _c)
         } else if (m_id == "break") { // keyword
             // break rule:
             // - can only be *right* or *deep* in loop block
-            // - can only be wrapped by if/elif/else block
+            // - can only be wrapped by if/elif/else/pure block
 
             Opd top_opd = m_opd_stack.top();
             Opr top_opr = m_opr_stack.top();
@@ -1737,6 +1752,59 @@ bool ArithmeticExpression::handleALP(char _c)
             m_stmt_loop_break_ed = false; // always reset before loop been consumed
             m_ctxt_stack.push(LOOP_BREAK);
             m_expect_char_types = {CT_SPC, CT_SMC, CT_RCB}; // 'break ', 'break;', 'break}'
+            m_state_next_certained = ST_IDF; // need nothing
+
+            return true;
+
+        } else if (m_id == "continue") { // keyword
+            // continue rule:
+            // - can only be *right* or *deep* in loop block
+            // - can only be wrapped by if/elif/else/pure block
+
+            Opd top_opd = m_opd_stack.top();
+            Opr top_opr = m_opr_stack.top();
+
+            if ((top_opd.stmt_count == m_stmt_count && top_opd.type != OPD_STACK_BOTTOM_BASE) ||
+                (top_opr.stmt_count == m_stmt_count && top_opr.v != LOWEST_PRIO_OP)) {
+                error("`continue` supposed to be at very begin of one statement");
+                printErrorLocation();
+                syntax(LOOP_BREAK);
+                exit(E_GRAMMAR);
+            }
+
+            // check continue rule
+            m_stmt_loop_continue_wrapped_depth = 0;
+
+            int step = 0;
+            ContextType _t = m_ctxt_stack.top();
+            while (_t != CTXT_STACK_BOTTOM_BASE && ( _t != STMT_WHILE_BLOCK )) {
+                print("checking loop ctxt: %s @top(%d)", getContextTypeStr(_t), step);
+
+                if (_t == FUNCTION_BLOCK) {
+                    error("`continue` can only be *right* or *deep* in loop block, while used in function block without wrapped with loop");
+                    printErrorLocation();
+                    syntax(LOOP_BREAK);
+                    exit(E_GRAMMAR);
+                }
+                if (_t == STMT_IF || _t == PURE_BLOCK) {
+                    ++m_stmt_loop_continue_wrapped_depth;
+                }
+                _t = m_ctxt_stack.top(--step);
+            }
+
+            if (_t == CTXT_STACK_BOTTOM_BASE) {
+                error("`continue` can only be *right* or *deep* in loop block, while no loop block found");
+                printErrorLocation();
+                syntax(LOOP_BREAK);
+                exit(E_GRAMMAR);
+            }
+
+            print("loop block found: %s", getContextTypeStr(_t));
+
+            // rule met, ok
+            m_stmt_loop_continue_ed = false; // always reset before loop been consumed
+            m_ctxt_stack.push(LOOP_CONTINUE);
+            m_expect_char_types = {CT_SPC, CT_SMC, CT_RCB}; // 'continue ', 'continue;', 'continue}'
             m_state_next_certained = ST_IDF; // need nothing
 
             return true;
@@ -2067,6 +2135,9 @@ bool ArithmeticExpression::handleSPC() {
     } else if (ctxt == LOOP_BREAK) {
         goto handleSPC_common;
 
+    } else if (ctxt == LOOP_CONTINUE) {
+        goto handleSPC_common;
+
     } else if (ctxt == FUNCTION_RETURN) {
         m_ctxt_stack.push(FUNCTION_RETURN_VALUE); // FUNCTION_RETURN_VALUE is a special case of CTXT_EXP
         // 'return exp' or 'return ;', exclude '{'
@@ -2207,6 +2278,7 @@ bool ArithmeticExpression::handleSMC() {
 
     ctxt = m_ctxt_stack.top();
 
+    // TODO: remove check here, already done at beginning
     if (ctxt == STMT_DECLARE_ASSIGN) {
         error("STMT_DECLARE_ASSIGN can not be terminal context type for a statement (marked';')");
         printErrorLocation();
@@ -2299,6 +2371,76 @@ bool ArithmeticExpression::handleSMC() {
         m_state_next_certained = ST_BGN;
         m_expect_char_types = {};
         m_stmt_loop_break_ed = true;
+        return true;
+
+    } else if (ctxt == LOOP_CONTINUE) { // 'continue;' or 'continue ;'
+        int key = m_lcb_count;
+        while(key >= 0 && (m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
+        std::vector<WhileCond>& while_conds = m_stmt_while_cond[key];
+        if (while_conds.size() == 0) {
+            print("no while cond found, should not happen, key: %d", key);
+            printErrorLocation();
+            syntax(ctxt);
+            exit(E_GRAMMAR);
+        }
+
+        WhileCond tailing_cond = while_conds[while_conds.size()-1];
+        // bool gen_instruct_once = false; // to ensure generate instruct only once
+        // if (m_execute_at_compile_time) {
+        //     if (tailing_cond.value == 0) { gen_instruct_once = true; }
+        // } else {
+        //     gen_instruct_once = true;
+        // }
+        // if (gen_instruct_once) {
+        //     instruct("    %-11s %-12s # break;", "jmp", tailing_cond.jz_label.c_str());
+        // }
+
+        ////////////////////////////////////////////////////////////////
+
+        // print("TODO: to ignore while-block, just skip to balanced '}', no syntax check for skipped content");
+        // if (!skipToBalancedRCB(m_stmt_loop_break_wrapped_depth)) {
+        //     error("while: no balanced } found");
+        //     printErrorLocation();
+        //     syntax(ctxt);
+        //     exit(E_GRAMMAR);
+        // }
+
+        // print("m_parse_pos:%d, rest input: \"%s\"", m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
+        // if (m_execute_at_compile_time) {
+        //     assert(nextChar(true) == '}'); // should be loop block closing curly brace
+        // }
+
+        // popCtxtStackTill(STMT_WHILE_BLOCK, false);
+
+        // current:
+        // after skipToBalancedRCB:
+        // m_parse_pos: 1 char before while block's right curly brace
+        // state: ST_IDF: 'break;'
+        // ctxt: STMT_WHILE_BLOCK
+        // next char: input[m_parse_pos+1] == '}'
+        // so handleRCB will process on 'STMT_WHILE_BLOCK'
+
+        // assert(m_ctxt_stack.top() == STMT_WHILE_BLOCK);
+        // print("keep STMT_WHILE_BLOCK at ctxt top, handleRCB will process it properly, mainly for cleaning");
+
+        ////////////////////////////////////////////////////////////////
+        m_stmt_loop_continue_ed = true;
+        print("continue-ed");
+
+        popCtxtStackTill(STMT_WHILE, true);
+
+        // NOTE: we do not clear tailing_cond for `continue`, so handleALP can treat this
+        // loop block as same block. useful for generating instruction.
+
+        int loop_start_pos = tailing_cond.start_pos;
+        m_parse_pos = loop_start_pos;
+        dia("handleSMC: (continue) loop back to loop_start_pos");
+
+        m_lcb_count -= (1+m_stmt_loop_continue_wrapped_depth); // while lps + lps of wrapped blocks
+        m_state_next_certained = ST_BGN;
+        m_expect_char_types = {};
+
+        g__log__parse_pos_changed = true;
         return true;
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return;' or 'return ;'
@@ -2976,9 +3118,9 @@ void ArithmeticExpression::popCtxtStackTill(ContextType t, bool popTargetCtxtAlo
 
     ContextType top = m_ctxt_stack.top();
     while (top != CTXT_STACK_BOTTOM_BASE && top != t) {
+        print("pop-ing %s", getContextTypeStr(top));
         m_ctxt_stack.pop();
         top = m_ctxt_stack.top();
-        print("pop %s", getContextTypeStr(top));
     }
     if (top == CTXT_STACK_BOTTOM_BASE) {
         error("%s not found from m_ctxt_stack. should not happen", getContextTypeStr(t));
@@ -3418,7 +3560,7 @@ handleRCB_common:
     // finally, handle loop
     if (loop_start_pos != -2) {
         m_parse_pos = loop_start_pos;
-        dia("handleRCB: loop back to loop_start_pos");
+        dia("handleRCB: (break) loop back to loop_start_pos");
         m_state_next_certained = ST_BGN;
 
         g__log__parse_pos_changed = true;

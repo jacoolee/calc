@@ -64,6 +64,7 @@ enum ContextType {
     PURE_BLOCK,
 
     LOOP_BREAK,
+    LOOP_CONTINUE,
 
     FUNCTION_DEFINITION,
     FUNCTION_ARGS,
@@ -118,6 +119,7 @@ inline const char* getContextTypeStr(ContextType t)
     case PURE_BLOCK: return "PURE_BLOCK";
 
     case LOOP_BREAK: return "LOOP_BREAK";
+    case LOOP_CONTINUE: return "LOOP_CONTINUE";
 
     case FUNCTION_DEFINITION: return "FUNCTION_DEFINITION";
     case FUNCTION_ARGS: return "FUNCTION_ARGS";
@@ -656,6 +658,9 @@ private:
     // one break-used-marker is sufficient.
     bool m_stmt_loop_break_ed = false;
     int m_stmt_loop_break_wrapped_depth = 0;
+
+    bool m_stmt_loop_continue_ed = false;
+    int m_stmt_loop_continue_wrapped_depth = 0;
 
     bool m_execute_at_compile_time;
 
