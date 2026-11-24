@@ -2373,7 +2373,7 @@ bool ArithmeticExpression::handleSMC() {
         m_stmt_loop_break_ed = true;
         return true;
 
-    } else if (ctxt == LOOP_CONTINUE) { // 'continue}' or 'continue }'
+    } else if (ctxt == LOOP_CONTINUE) { // 'continue;' or 'continue ;'
         int key = m_lcb_count;
         while(key >= 0 && (m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
         std::vector<WhileCond>& while_conds = m_stmt_while_cond[key];
@@ -2386,27 +2386,41 @@ bool ArithmeticExpression::handleSMC() {
 
         WhileCond tailing_cond = while_conds[while_conds.size()-1];
 
-        m_stmt_loop_continue_ed = true;
         print("continue-ed");
 
-        popCtxtStackTill(STMT_WHILE, true);
+        if (m_mode_execute) {
+            popCtxtStackTill(STMT_WHILE, true);
 
-        // NOTE: we do not clear tailing_cond for `continue`, so handleALP can treat this
-        // loop block as same block. useful for generating instruction.
+            // NOTE: we do not clear tailing_cond for `continue`, so handleALP can treat this
+            // loop block as same block. useful for generating instruction.
 
-        m_parse_pos = tailing_cond.start_pos;
-        dia("handleSMC: (`continue;`) jump back to while head");
+            m_parse_pos = tailing_cond.start_pos;
+            dia("handleSMC: (`continue;`) jump back to while head");
 
-        m_lcb_count -= (1+m_stmt_loop_continue_wrapped_depth); // while lps + lps of wrapped blocks
-        m_state_next_certained = ST_BGN;
-        m_expect_char_types = {};
+            m_lcb_count -= (1+m_stmt_loop_continue_wrapped_depth); // while lps + lps of wrapped blocks
+            m_state_next_certained = ST_BGN;
+            m_expect_char_types = {};
 
-        g__log__parse_pos_changed = true;
+            g__log__parse_pos_changed = true;
 
-        // just jump back is enough, the tailing clean work is done by next loop turn,
-        // even condition of next loop turn is false.
+            // just jump back is enough, the tailing clean work is done by next loop turn,
+            // even condition of next loop turn is false.
 
-        return true;
+            return true;
+        }
+
+        if (m_mode_instruct) {
+            if (m_gen_instruct_once_map.find(m_parse_pos) == m_gen_instruct_once_map.end()) {
+                m_gen_instruct_once_map[m_parse_pos] = 1;
+                instruct("    %-11s %-12s # continue;", "jmp", tailing_cond.start_label.c_str());
+
+                m_ctxt_stack.pop();
+                m_state_next_certained = ST_BGN;
+                m_expect_char_types = {};
+            }
+
+            return true;
+        }
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return;' or 'return ;'
         m_parse_pos = m_arithmetic_expression.size();
@@ -3259,28 +3273,41 @@ bool ArithmeticExpression::handleRCB() {
             syntax(ctxt);
             exit(E_GRAMMAR);
         }
-
         WhileCond tailing_cond = while_conds[while_conds.size()-1];
-        m_stmt_loop_continue_ed = true;
         print("continue-ed");
 
-        popCtxtStackTill(STMT_WHILE, true);
+        if (m_mode_execute) {
+            popCtxtStackTill(STMT_WHILE, true);
 
-        // NOTE: we do not clear tailing_cond for `continue`, so handleALP can treat this
-        // loop block as same block. useful for generating instruction.
+            // NOTE: we do not clear tailing_cond for `continue`, so handleALP can treat this
+            // loop block as same block. useful for generating instruction.
 
-        m_parse_pos = tailing_cond.start_pos;
-        dia("handleRCB: (`continue}`) jump back to while head");
+            m_parse_pos = tailing_cond.start_pos;
+            dia("handleRCB: (`continue}`) jump back to while head");
 
-        m_lcb_count -= (1+m_stmt_loop_continue_wrapped_depth); // while lps + lps of wrapped blocks
-        m_state_next_certained = ST_BGN;
-        m_expect_char_types = {};
+            m_lcb_count -= (1+m_stmt_loop_continue_wrapped_depth); // while lps + lps of wrapped blocks
+            m_state_next_certained = ST_BGN;
+            m_expect_char_types = {};
 
-        g__log__parse_pos_changed = true;
+            g__log__parse_pos_changed = true;
 
-        // just jump back is enough, the tailing clean work is done by next loop turn,
-        // even condition of next loop turn is false.
-        return true;
+            // just jump back is enough, the tailing clean work is done by next loop turn,
+            // even condition of next loop turn is false.
+            return true;
+        }
+
+        if (m_mode_instruct) {
+            if (m_gen_instruct_once_map.find(m_parse_pos) == m_gen_instruct_once_map.end()) {
+                m_gen_instruct_once_map[m_parse_pos] = 1;
+                instruct("    %-11s %-12s # continue}", "jmp", tailing_cond.start_label.c_str());
+
+            }
+
+            // delegate to following STMT_WHILE_BLOCK, do not return here
+            m_state_next_certained = ST_BGN;
+            m_expect_char_types = {};
+            m_ctxt_stack.pop();
+        }
     }
 
     // NOTE: find context type to which current block's openning '{' belongs

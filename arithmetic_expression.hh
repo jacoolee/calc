@@ -663,6 +663,7 @@ private:
     int m_stmt_loop_continue_wrapped_depth = 0;
 
     bool m_execute_at_compile_time;
+    std::unordered_map<int,int> m_gen_instruct_once_map;
 
     std::string m_rpn_expression;
 
