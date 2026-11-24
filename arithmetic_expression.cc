@@ -3287,30 +3287,28 @@ bool ArithmeticExpression::handleRCB() {
 
     // NOTE: find context type to which current block's openning '{' belongs
     int step = 0;
-    ContextType lcb_ctxt = m_ctxt_stack.top(step); // lcb_ctxt => block_ctxt
-
+    ContextType block_ctxt = m_ctxt_stack.top(step);
     while (-1*step < m_ctxt_stack.count()-1 && (
-               lcb_ctxt != STMT_IF_BLOCK &&
-               lcb_ctxt != STMT_ELIF_BLOCK &&
-               lcb_ctxt != STMT_ELSE_BLOCK &&
-               lcb_ctxt != STMT_WHILE_BLOCK &&
-               lcb_ctxt != PURE_BLOCK &&
-               lcb_ctxt != FUNCTION_BLOCK
+               block_ctxt != STMT_IF_BLOCK &&
+               block_ctxt != STMT_ELIF_BLOCK &&
+               block_ctxt != STMT_ELSE_BLOCK &&
+               block_ctxt != STMT_WHILE_BLOCK &&
+               block_ctxt != PURE_BLOCK &&
+               block_ctxt != FUNCTION_BLOCK
                )) {
         --step;
-        lcb_ctxt = m_ctxt_stack.top(step);
+        block_ctxt = m_ctxt_stack.top(step);
     }
-
     if (-1*step == m_ctxt_stack.count()-1) {
         error("no lcb context type found for current balanced '{' belongs");
         printErrorLocation();
         exit(E_GRAMMAR);
     }
-    print("lcb_ctxt: %s", getContextTypeStr(lcb_ctxt));
+    print("block_ctxt: %s", getContextTypeStr(block_ctxt));
 
     int loop_start_pos = -2;
 
-    if (lcb_ctxt == STMT_IF_BLOCK || lcb_ctxt == STMT_ELIF_BLOCK || lcb_ctxt == STMT_ELSE_BLOCK) {
+    if (block_ctxt == STMT_IF_BLOCK || block_ctxt == STMT_ELIF_BLOCK || block_ctxt == STMT_ELSE_BLOCK) {
 
         int if_cond_key = m_lcb_count - 1;
         std::vector<IfCond>& if_elif_else_conds = m_stmt_if_cond[if_cond_key];
@@ -3346,7 +3344,7 @@ bool ArithmeticExpression::handleRCB() {
         }
 
         ////////////////////////////////////////////////////////////////
-        if (lcb_ctxt == STMT_IF_BLOCK) {
+        if (block_ctxt == STMT_IF_BLOCK) {
             if (tailing_cond_followed_with_elif) { // if cond {} + elif cond {}
                 instruct("    %-11s %-12s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
                 instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
@@ -3358,7 +3356,7 @@ bool ArithmeticExpression::handleRCB() {
                 instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
             }
 
-        } else if (lcb_ctxt == STMT_ELIF_BLOCK) {
+        } else if (block_ctxt == STMT_ELIF_BLOCK) {
             if (tailing_cond_followed_with_elif) { // elif cond {} + elif
                 instruct("    %-11s %-12s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
                 instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
@@ -3372,7 +3370,7 @@ bool ArithmeticExpression::handleRCB() {
                 instruct("%-15s %-12s", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), "");
             }
 
-        } else if (lcb_ctxt == STMT_ELSE_BLOCK) {
+        } else if (block_ctxt == STMT_ELSE_BLOCK) {
             if (tailing_cond_followed_with_elif) { // false
             } else if (tailing_cond_followed_with_else) { // false
             } else {
@@ -3393,7 +3391,7 @@ bool ArithmeticExpression::handleRCB() {
 
         goto handleRCB_common;
 
-    } else if (lcb_ctxt == STMT_WHILE_BLOCK) {
+    } else if (block_ctxt == STMT_WHILE_BLOCK) {
         // `break }` with '}' as last char of input, will come here
         // due to all input been parsed, we should not in any block
         // so use m_lcb_count as key directly.
@@ -3441,11 +3439,11 @@ bool ArithmeticExpression::handleRCB() {
 
         goto handleRCB_common;
 
-    } else if (lcb_ctxt == PURE_BLOCK) {
+    } else if (block_ctxt == PURE_BLOCK) {
         popCtxtStackTill(PURE_BLOCK);
         goto handleRCB_common;
 
-    } else if (lcb_ctxt == FUNCTION_BLOCK) {
+    } else if (block_ctxt == FUNCTION_BLOCK) {
         popCtxtStackTill(FUNCTION_DEFINITION);
         goto handleRCB_common;
 
