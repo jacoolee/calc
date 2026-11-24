@@ -445,7 +445,7 @@ void ArithmeticExpression::syntax(ContextType t) {
     case STMT_ELIF:
     case STMT_ELIF_COND:
     case STMT_ELIF_BLOCK: {
-        errornoln("\t`if condition {} elif condtion {}`\n");
+        errornoln("\t`if condition {} elif condition {}`\n");
         errornoln("\t`if condition {} elif condition {} else {}`\n");
         errornoln("\u200B\n");
         errornoln("\tif `condition` of `elif` starts with '(', the space after `elif` is optional\n");
@@ -2609,7 +2609,7 @@ bool ArithmeticExpression::handleLCB() {
     ContextType ctxt = m_ctxt_stack.top();
     print("ctxt=%s", getContextTypeStr(ctxt));
 
-    if (ctxt == CTXT_EXP) {     // only allow `XXX_CONDTION {`
+    if (ctxt == CTXT_EXP) {     // only allow `XXX_CONDITION {`
         int step = 0;
         ContextType _t = m_ctxt_stack.top();
         while (_t != CTXT_STACK_BOTTOM_BASE && (_t == CTXT_EXP)) {
@@ -2617,13 +2617,13 @@ bool ArithmeticExpression::handleLCB() {
         }
 
         if (_t == CTXT_STACK_BOTTOM_BASE) {
-            error("ctxt stack contains no XXX_CONDTION");
+            error("ctxt stack contains no XXX_CONDITION");
             printErrorLocation();
             exit(E_SYNTAX);
         }
 
         if (_t != STMT_IF_COND && _t != STMT_ELIF_COND && _t != STMT_WHILE_COND) {
-            error("no XXX_CONDTION found, invalid `non-XXX_CONDTION {`");
+            error("no XXX_CONDITION found, invalid `non-XXX_CONDITION {`");
             printErrorLocation();
             exit(E_SYNTAX);
         }
@@ -2760,7 +2760,7 @@ bool ArithmeticExpression::handleLCB() {
     // // get opd stack well-prepared before calculate with opr stack.
     // if (m_id == "if" || m_id == "elif") {
     //     if (m_opd_stack.empty()) {
-    //         error("no condtion found for \"%s\"", m_id.c_str());
+    //         error("no condition found for \"%s\"", m_id.c_str());
     //         printErrorLocation();
     //         exit(E_GRAMMAR);
     //     }
@@ -2812,7 +2812,7 @@ bool ArithmeticExpression::handleLCB() {
         return true;
 
     } else if (ctxt == STMT_IF_COND) {
-        // condtion
+        // condition
         // why always process top opd, coz opr stack can be empty, so idf opd will
         // never be calculated. esp. for case:
         // `x=1; if x {}`
@@ -2869,7 +2869,7 @@ bool ArithmeticExpression::handleLCB() {
         return true;
 
     } else if (ctxt == STMT_ELIF_COND) {
-        // condtion
+        // condition
         // why always process top opd, coz opr stack can be empty, so idf opd will
         // never be calculated. esp. for case:
         // `x=1; if x {}`
@@ -2900,7 +2900,7 @@ bool ArithmeticExpression::handleLCB() {
             exit(E_GRAMMAR);
         }
 
-        // pre if/elif condtions
+        // pre if/elif conditions
         bool pre_cond_all_zero = true;
         for (int i = 0; i < if_elif_conds.size(); i++) {
             if (if_elif_conds[i].value != 0) {
@@ -2909,7 +2909,7 @@ bool ArithmeticExpression::handleLCB() {
             }
         }
 
-        // self condtion
+        // self condition
         int elif_cond = _2num(m_opd_stack.pop()) !=0? 1: 0;
         std::string jz_label = std::string("IF_")+std::to_string(m_parse_pos);
         if_elif_conds.push_back({m_parse_pos, jz_label, IF_COND_TYPE_ELIF, elif_cond});
@@ -2940,7 +2940,7 @@ bool ArithmeticExpression::handleLCB() {
         return true;
 
     } else if (ctxt == STMT_WHILE_COND) {
-        // condtion
+        // condition
         // why always process top opd, coz opr stack can be empty, so idf opd will
         // never be calculated. esp. for case:
         // `x=1; while x {}`
@@ -2960,7 +2960,7 @@ bool ArithmeticExpression::handleLCB() {
             exit(0);
         }
 
-        // save condtion value
+        // save condition value
         if (m_stmt_while_cond.find(m_lcb_count) == m_stmt_while_cond.end()) {
             m_stmt_while_cond[m_lcb_count] = {};
         }
@@ -3020,6 +3020,7 @@ bool ArithmeticExpression::handleLCB() {
     return false;
 }
 
+// return bool to give back control to caller, eg. print more precise error log
 bool ArithmeticExpression::skipToBalancedRCB(int extra_lcb_count_to_skip) {
     int size = m_arithmetic_expression.size();
     print("-: m_parse_pos: %d, input size: %d, char: '%c', m_lcb_count: %d, extra_lcb_count_to_skip: %d", m_parse_pos, size, m_arithmetic_expression[m_parse_pos], m_lcb_count, extra_lcb_count_to_skip);
@@ -3059,7 +3060,7 @@ bool ArithmeticExpression::skipToBalancedRCB(int extra_lcb_count_to_skip) {
         error("skipToBalancedRCB: balanced '}' not found");
         dia("skipToBalancedRCB:");
         printErrorLocation();
-        exit(E_INPUT_ERROR);
+        return false;
     }
 
     if (extra_lcb_count_to_skip) { m_lcb_count -= extra_lcb_count_to_skip; }
@@ -3073,8 +3074,7 @@ bool ArithmeticExpression::skipToBalancedRCB(int extra_lcb_count_to_skip) {
     }
 
     g__log__parse_pos_changed = true;
-
-    return found;
+    return true;
 }
 
 void ArithmeticExpression::popCtxtStackTill(ContextType t, bool popTargetCtxtAlong) {
