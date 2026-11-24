@@ -65,10 +65,10 @@ int main(int argc, char *argv[])
     // fprintf(stderr, "log_level = %d\n", log_level);
 
     // currently, these two modes can be together when there are no loop structures in the input
-    bool in_compile_mode = (log_level & LLL_GEN_INSTRUCT);
-    bool in_execute_mode = (log_level & LLL_EXECUTE_AT_COMPILE_TIME);
+    bool in_mode_instruct = (log_level & LLL_GEN_INSTRUCT);
+    bool in_mode_execute = (log_level & LLL_EXECUTE_AT_COMPILE_TIME);
 
-    if (!in_compile_mode && !in_execute_mode) {
+    if (!in_mode_instruct && !in_mode_execute) {
         // fprintf(stderr, "no run-mode (gen instruction mode:%d, execute mode:%d) set, we will use execute mode", LLL_GEN_INSTRUCT, LLL_EXECUTE_AT_COMPILE_TIME);
         log_level += LLL_EXECUTE_AT_COMPILE_TIME;
     }

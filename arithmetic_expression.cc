@@ -21,10 +21,10 @@
 
 #define instruct(...)                                                   \
     do {                                                                \
-        if (g__log__level & LLL_GEN_INSTRUCT) {                         \
-            if (g__log__level & LLL_GEN_INSTRUCT_DIA) fprintf(stderr,"%s:%03d:%02d: %*s", g_filename, g_ln_count, g_lcb_count*4+1, g_lcb_count*4, ""); \
+        if (g__log__mode_instruct) {                         \
+            if (g__log__mode_instruct_dia) fprintf(stderr,"%s:%03d:%02d: %*s", g_filename, g_ln_count, g_lcb_count*4+1, g_lcb_count*4, ""); \
             fprintf(stderr,__VA_ARGS__);                                \
-            if (g__log__level & LLL_GEN_INSTRUCT_DIA) fprintf(stderr," # %04d %s\n", __LINE__, __func__); \
+            if (g__log__mode_instruct_dia) fprintf(stderr," # %04d %s\n", __LINE__, __func__); \
             else fprintf(stderr,"\n");                                  \
         }                                                               \
     } while (0)
@@ -81,6 +81,8 @@
     } while (0)                                                         \
 
 int g__log__level = 0;
+bool g__log__mode_instruct = false;
+bool g__log__mode_instruct_dia = false;
 int g_depth = 0;
 int g_ln_count = 1;             // FIXME: should be re-set too loop start ln when loop back
 int g_lcb_count = 0;
@@ -159,7 +161,10 @@ ArithmeticExpression::ArithmeticExpression(
 
     g_filename = filename != NULL? filename: "";
 
-    m_execute_at_compile_time = g__log__level & LLL_EXECUTE_AT_COMPILE_TIME;
+    m_mode_execute = g__log__level & LLL_EXECUTE_AT_COMPILE_TIME;
+    m_mode_instruct = g__log__level & LLL_GEN_INSTRUCT;
+    g__log__mode_instruct = m_mode_instruct;
+    g__log__mode_instruct_dia = g__log__level & LLL_GEN_INSTRUCT_DIA;
 
     dia("ArithmeticExpression:+");
 }
@@ -680,7 +685,8 @@ void ArithmeticExpression::dia(const std::string& marker="") {
                 getStateStr(m_state_next_certained)
             );
 
-        __print(" m_execute_at_compile_time = %d", m_execute_at_compile_time);
+        __print(" m_mode_execute = %d", m_mode_execute);
+        __print(" m_mode_instruct = %d", m_mode_instruct);
 
         if (m_return_value_ptr != NULL) {
             __print(" *m_return_value_ptr = (%d,%d,%s,%g,\"%s\")",
@@ -1672,7 +1678,7 @@ bool ArithmeticExpression::handleALP(char _c)
                 std::string start_label = std::string("WHILE_")+std::to_string(start_label_no);
                 std::string jz_label = std::string("WHILE_END_")+std::to_string(start_label_no);
                 while_conds.push_back({while_start_pos, start_label, jz_label, 0});
-                instruct("%-15s %-12s # (while)", (start_label+':').c_str(), "");
+                instruct("%-15s %-12s # while", (start_label+':').c_str(), "");
             } else {
                 print("while: we are back here: while_start_pos:%d", while_start_pos);
             }
@@ -1802,7 +1808,6 @@ bool ArithmeticExpression::handleALP(char _c)
             print("loop block found: %s", getContextTypeStr(_t));
 
             // rule met, ok
-            m_stmt_loop_continue_ed = false; // always reset before loop been consumed
             m_ctxt_stack.push(LOOP_CONTINUE);
             m_expect_char_types = {CT_SPC, CT_SMC, CT_RCB}; // 'continue ', 'continue;', 'continue}'
             m_state_next_certained = ST_IDF; // need nothing
@@ -2331,9 +2336,10 @@ bool ArithmeticExpression::handleSMC() {
             exit(E_GRAMMAR);
         }
 
+        // ??? no need to check ???
         WhileCond tailing_cond = while_conds[while_conds.size()-1];
         bool gen_instruct_once = false; // to ensure generate instruct only once
-        if (m_execute_at_compile_time) {
+        if (m_mode_execute) {
             if (tailing_cond.value == 0) { gen_instruct_once = true; }
         } else {
             gen_instruct_once = true;
@@ -2351,7 +2357,7 @@ bool ArithmeticExpression::handleSMC() {
         }
 
         print("m_parse_pos:%d, rest input: \"%s\"", m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
-        if (m_execute_at_compile_time) {
+        if (m_mode_execute) {
             assert(nextChar(true) == '}'); // should be loop block closing curly brace
         }
 
@@ -2878,7 +2884,7 @@ bool ArithmeticExpression::handleLCB() {
         m_state_next_certained = ST_BGN;
         ++m_lcb_count; g_lcb_count = m_lcb_count;
 
-        instruct("    %-11s %-12s # (if)", "jz", jz_label.c_str());
+        instruct("    %-11s %-12s # if", "jz", jz_label.c_str());
 
         return true;
 
@@ -2949,7 +2955,7 @@ bool ArithmeticExpression::handleLCB() {
         m_state_next_certained = ST_BGN;
         ++m_lcb_count; g_lcb_count = m_lcb_count;
 
-        instruct("    %-11s %-12s # (elif)", "jz", jz_label.c_str());
+        instruct("    %-11s %-12s # elif", "jz", jz_label.c_str());
 
         return true;
 
@@ -3040,7 +3046,7 @@ bool ArithmeticExpression::skipToBalancedRCB(int extra_lcb_count_to_skip) {
     print("-: m_parse_pos: %d, input size: %d, char: '%c', m_lcb_count: %d, extra_lcb_count_to_skip: %d", m_parse_pos, size, m_arithmetic_expression[m_parse_pos], m_lcb_count, extra_lcb_count_to_skip);
 
     // if gen instruct, all code need to be parsed, but not actually execute it.
-    if (g__log__level & LLL_GEN_INSTRUCT) { // need to generate instruction, but do not execute
+    if (m_mode_instruct) { // need to generate instruction, but do not execute
         return true;
     }
 
@@ -3182,14 +3188,14 @@ bool ArithmeticExpression::handleRCB() {
             exit(E_GRAMMAR);
         }
 
-        if (g__log__level & LLL_GEN_INSTRUCT) {
+        if (m_mode_instruct) {
             WhileCond tailing_cond = while_conds[while_conds.size()-1];
             instruct("    %-11s %-12s # break}", "jmp", tailing_cond.jz_label.c_str());
         }
 
         // set member properties properly
         // clean context stack: pop to STMT_WHILE_BLOCK
-        if (m_execute_at_compile_time) {
+        if (m_mode_execute) {
             popCtxtStackTill(STMT_WHILE_BLOCK, false);
             print("keep STMT_WHILE_BLOCK at ctxt top, handleEnd will process it properly");
             assert(m_ctxt_stack.top() == STMT_WHILE_BLOCK);
@@ -3200,7 +3206,7 @@ bool ArithmeticExpression::handleRCB() {
         }
 
         // NOTE: so, do not gen instruct while executing, other wise stack will mess up
-        if (g__log__level & LLL_GEN_INSTRUCT) {
+        if (m_mode_instruct) {
             m_ctxt_stack.pop(); // pop LOOP_BREAK
 
             m_state_next_certained = ST_BGN;
@@ -3219,7 +3225,7 @@ bool ArithmeticExpression::handleRCB() {
             // ctxt: STMT_WHILE_BLOCK
             // so we will not return here, will re-use '}' to process ctxt STMT_WHILE_BLOCK
 
-            if (m_execute_at_compile_time) {
+            if (m_mode_execute) {
                 dia("handleRCB: go on to process STMT_WHILE_BLOCK");
             }
 
@@ -3233,7 +3239,7 @@ bool ArithmeticExpression::handleRCB() {
             // and with this charactar of skipToBalancedRCB, call handleRCB
             // in any place of handleRCB, should use this same process.
 
-            if (m_execute_at_compile_time) {
+            if (m_mode_execute) {
                 --m_lcb_count; g_lcb_count = m_lcb_count;
             }
 
@@ -3245,11 +3251,11 @@ bool ArithmeticExpression::handleRCB() {
             }
             print("m_parse_pos:%d, rest input: \"%s\"", m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
 
-            if (m_execute_at_compile_time) {
+            if (m_mode_execute) {
                 assert(nextChar(true) == '}'); // should be loop block closing curly brace
             }
 
-            if (m_execute_at_compile_time) {
+            if (m_mode_execute) {
                 // current:
                 // m_parse_pos: 1 left char before '}' (loop block rcb)
                 // state: ST_IDF: inherit from idf/keyword 'break'
@@ -3432,7 +3438,7 @@ bool ArithmeticExpression::handleRCB() {
         WhileCond tailing_cond = while_conds[while_conds.size()-1];
         bool gen_instruct = false; // to ensure only generate once
 
-        if (m_execute_at_compile_time) {
+        if (m_mode_execute) {
             if (tailing_cond.value == 0) { gen_instruct = true; }
         } else {
             gen_instruct = true;
@@ -3449,7 +3455,7 @@ bool ArithmeticExpression::handleRCB() {
         // why `tailing_cond.value != 0` in here?
         // because, if `tailing_cond.value == 0` which means we are skip to here, means
         // we should jump out the while block instead of go back again
-        bool execute_loop_again = m_execute_at_compile_time && !m_stmt_loop_break_ed && tailing_cond.value != 0;
+        bool execute_loop_again = m_mode_execute && !m_stmt_loop_break_ed && tailing_cond.value != 0;
         if (execute_loop_again) {
             loop_start_pos = tailing_cond.start_pos;
         }
@@ -3771,7 +3777,7 @@ bool ArithmeticExpression::calculate(int opr)
             }
         }
 
-        if (!m_execute_at_compile_time) {
+        if (!m_mode_execute) {
             // get stack proprly set
             for(int i=0; i<fnargscnt; ++i) m_opd_stack.pop();
             pushOpdNum(0, false); // place-holder
@@ -4023,7 +4029,7 @@ bool ArithmeticExpression::calculate(int opr)
         }
 
         case PRINT: {
-            // if (g__log__level & LLL_GEN_INSTRUCT) break; // avoid mess up instruct
+            // if (m_mode_instruct) break; // avoid mess up instruct
 
             if (m_opd_stack.empty()) { // "print()"
                 printf("\n");
@@ -4043,7 +4049,7 @@ bool ArithmeticExpression::calculate(int opr)
         }
 
         case PRINTF: {
-            // if (g__log__level & LLL_GEN_INSTRUCT) break; // avoid mess up instruct
+            // if (m_mode_instruct) break; // avoid mess up instruct
 
             // TODO: to support real printf
             const Opd& opd = m_opd_stack.pop();
@@ -4084,31 +4090,31 @@ bool ArithmeticExpression::calculate(int opr)
 
         switch (opr) {
         case '^': {
-            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             pushOpdNum( pow(l_opd,r_opd) , false); break;
         }
         case '+': {
-            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             pushOpdNum( l_opd + r_opd , false); break;
         }
         case '-': {
-            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             pushOpdNum( l_opd - r_opd , false); break;
         }
         case '*': {
-            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             pushOpdNum( l_opd * r_opd , false); break;
         }
         case '/': {
-            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             if ( 0 == r_opd ) {
                 error("divide 0");
@@ -4120,21 +4126,21 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
         case '>': {
-            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             pushOpdNum(l_opd > r_opd? 1: 0, false);
             break;
         }
         case '<': {
-            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             pushOpdNum(l_opd < r_opd? 1: 0, false);
             break;
         }
         case 'e': {             // "=="
-            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             print("e: l_opd=%g r_opd=%g ?=%d", l_opd, r_opd, l_opd == r_opd);
@@ -4142,21 +4148,21 @@ bool ArithmeticExpression::calculate(int opr)
             break;
         }
         case 'a': {             // "&&" and
-            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             pushOpdNum(l_opd !=0 && r_opd != 0? 1: 0, false);
             break;
         }
         case 'o': {             // "||" and
-            if (!m_execute_at_compile_time) { opd_cnt=2; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=2; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             Opd l = m_opd_stack.pop(); double l_opd = _isidf(l)? getIdfValue(l.str): l.num;
             pushOpdNum(l_opd !=0 || r_opd != 0? 1: 0, false);
             break;
         }
         case '!': {
-            if (!m_execute_at_compile_time) { opd_cnt=1; goto calculate_else_opr_end; }
+            if (!m_mode_execute) { opd_cnt=1; goto calculate_else_opr_end; }
             Opd r = m_opd_stack.pop(); double r_opd = _isidf(r)? getIdfValue(r.str): r.num;
             pushOpdNum(r_opd == 0? 1: 0, false);
             break;
@@ -4170,7 +4176,7 @@ bool ArithmeticExpression::calculate(int opr)
 
     calculate_else_opr_end:
         // emulate opr operation
-        if (!m_execute_at_compile_time) {
+        if (!m_mode_execute) {
             for(int i=0; i<opd_cnt; ++i) {
                 Opd opd = m_opd_stack.top();
                 print("pop opd: (%d,%d,%s,%g,\"%s\"), ", opd.token_idx, opd.stmt_count, getOpdTypeStr(opd.type), opd.num, opd.str.c_str());
