@@ -2373,7 +2373,7 @@ bool ArithmeticExpression::handleSMC() {
         m_stmt_loop_break_ed = true;
         return true;
 
-    } else if (ctxt == LOOP_CONTINUE) { // 'continue;' or 'continue ;'
+    } else if (ctxt == LOOP_CONTINUE) { // 'continue}' or 'continue }'
         int key = m_lcb_count;
         while(key >= 0 && (m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
         std::vector<WhileCond>& while_conds = m_stmt_while_cond[key];
@@ -2385,45 +2385,7 @@ bool ArithmeticExpression::handleSMC() {
         }
 
         WhileCond tailing_cond = while_conds[while_conds.size()-1];
-        // bool gen_instruct_once = false; // to ensure generate instruct only once
-        // if (m_execute_at_compile_time) {
-        //     if (tailing_cond.value == 0) { gen_instruct_once = true; }
-        // } else {
-        //     gen_instruct_once = true;
-        // }
-        // if (gen_instruct_once) {
-        //     instruct("    %-11s %-12s # break;", "jmp", tailing_cond.jz_label.c_str());
-        // }
 
-        ////////////////////////////////////////////////////////////////
-
-        // print("TODO: to ignore while-block, just skip to balanced '}', no syntax check for skipped content");
-        // if (!skipToBalancedRCB(m_stmt_loop_break_wrapped_depth)) {
-        //     error("while: no balanced } found");
-        //     printErrorLocation();
-        //     syntax(ctxt);
-        //     exit(E_GRAMMAR);
-        // }
-
-        // print("m_parse_pos:%d, rest input: \"%s\"", m_parse_pos, &m_arithmetic_expression[m_parse_pos]);
-        // if (m_execute_at_compile_time) {
-        //     assert(nextChar(true) == '}'); // should be loop block closing curly brace
-        // }
-
-        // popCtxtStackTill(STMT_WHILE_BLOCK, false);
-
-        // current:
-        // after skipToBalancedRCB:
-        // m_parse_pos: 1 char before while block's right curly brace
-        // state: ST_IDF: 'break;'
-        // ctxt: STMT_WHILE_BLOCK
-        // next char: input[m_parse_pos+1] == '}'
-        // so handleRCB will process on 'STMT_WHILE_BLOCK'
-
-        // assert(m_ctxt_stack.top() == STMT_WHILE_BLOCK);
-        // print("keep STMT_WHILE_BLOCK at ctxt top, handleRCB will process it properly, mainly for cleaning");
-
-        ////////////////////////////////////////////////////////////////
         m_stmt_loop_continue_ed = true;
         print("continue-ed");
 
@@ -2432,15 +2394,18 @@ bool ArithmeticExpression::handleSMC() {
         // NOTE: we do not clear tailing_cond for `continue`, so handleALP can treat this
         // loop block as same block. useful for generating instruction.
 
-        int loop_start_pos = tailing_cond.start_pos;
-        m_parse_pos = loop_start_pos;
-        dia("handleSMC: (continue) loop back to loop_start_pos");
+        m_parse_pos = tailing_cond.start_pos;
+        dia("handleSMC: (`continue;`) jump back to while head");
 
         m_lcb_count -= (1+m_stmt_loop_continue_wrapped_depth); // while lps + lps of wrapped blocks
         m_state_next_certained = ST_BGN;
         m_expect_char_types = {};
 
         g__log__parse_pos_changed = true;
+
+        // just jump back is enough, the tailing clean work is done by next loop turn,
+        // even condition of next loop turn is false.
+
         return true;
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return;' or 'return ;'
@@ -3022,7 +2987,7 @@ bool ArithmeticExpression::handleLCB() {
             m_expect_char_types = {}; // clear
 
         } else {
-            m_ctxt_stack.push(STMT_WHILE_BLOCK);
+            m_ctxt_stack.push(STMT_WHILE_BLOCK); // so more tailing-work will be done at handleRCB
             m_expect_char_types = {}; // clear
 
             print("TODO: to ignore while-block, just skip to balanced '}', no syntax check for skipped content");
@@ -3283,6 +3248,39 @@ bool ArithmeticExpression::handleRCB() {
                 return true;
             }
         }
+    } else if (ctxt == LOOP_CONTINUE ) {   // for both right/wrapped 'continue }'
+        // TODO: can be optimized as `key = m_lcb_count - m_stmt_loop_continue_wrapped_depth - 1`
+        int key = m_lcb_count;
+        while(key >= 0 && (m_stmt_while_cond.find(key) == m_stmt_while_cond.end())) --key;
+        std::vector<WhileCond>& while_conds = m_stmt_while_cond[key];
+        if (while_conds.size() == 0) {
+            print("no while cond found, should not happen, key: %d", key);
+            printErrorLocation();
+            syntax(ctxt);
+            exit(E_GRAMMAR);
+        }
+
+        WhileCond tailing_cond = while_conds[while_conds.size()-1];
+        m_stmt_loop_continue_ed = true;
+        print("continue-ed");
+
+        popCtxtStackTill(STMT_WHILE, true);
+
+        // NOTE: we do not clear tailing_cond for `continue`, so handleALP can treat this
+        // loop block as same block. useful for generating instruction.
+
+        m_parse_pos = tailing_cond.start_pos;
+        dia("handleRCB: (`continue}`) jump back to while head");
+
+        m_lcb_count -= (1+m_stmt_loop_continue_wrapped_depth); // while lps + lps of wrapped blocks
+        m_state_next_certained = ST_BGN;
+        m_expect_char_types = {};
+
+        g__log__parse_pos_changed = true;
+
+        // just jump back is enough, the tailing clean work is done by next loop turn,
+        // even condition of next loop turn is false.
+        return true;
     }
 
     // NOTE: find context type to which current block's openning '{' belongs
@@ -3420,6 +3418,7 @@ bool ArithmeticExpression::handleRCB() {
 
         dia("handleRCB: -:while");
 
+        // TODO: ??? is tailing_cond.value the current condition value or value of next turn ???
         // why `tailing_cond.value != 0` in here?
         // because, if `tailing_cond.value == 0` which means we are skip to here, means
         // we should jump out the while block instead of go back again
