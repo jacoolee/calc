@@ -19,12 +19,25 @@
 
 // LLL_GEN_INSTRUCT: show instruct, to combine other log, use LLL_GEN_INSTRUCT + log_level (::dia)
 
-#define instruct(...)                                                   \
+#define instruct(op, opd)                                               \
     do {                                                                \
-        if (g__log__mode_instruct) {                         \
-            if (g__log__mode_instruct_dia) fprintf(stderr,"%s:%03d:%02d: %*s", g_filename, g_ln_count, g_lcb_count*4+1, g_lcb_count*4, ""); \
-            fprintf(stderr,__VA_ARGS__);                                \
-            if (g__log__mode_instruct_dia) fprintf(stderr," # %04d %s\n", __LINE__, __func__); \
+        if (g__log__mode_instruct) {                                    \
+            int indent = g_lcb_count*4;                                 \
+            if (g__log__mode_instruct_dia) fprintf(stderr,"%s%s:%03d:%02d: ", g_ln_count&1?"\033[48;2;55;55;55m":"", g_filename, g_ln_count, indent+1); \
+            const char*s = "\0";                                        \
+            if (g__log__line_content_showed_map.find(g_ln_count) == g__log__line_content_showed_map.end()) { \
+                s = g__log__line_content;                               \
+                g__log__line_content_showed_map[g_ln_count]=1;          \
+            }                                                           \
+            if (g__log__mode_instruct_dia) fprintf(stderr,"%*s", indent, ""); \
+            if (op[0] == '\0') {                                        \
+                fprintf(stderr, "%-15s %-*s", "", 28 - indent, "");      \
+            } else {                                                    \
+                if (op[strlen(op)-1] == ':') fprintf(stderr, "%-15s %-*s", op, 28- indent, opd); \
+                else fprintf(stderr, "    %-11s %-*s", op, 28 - indent, opd); \
+            }                                                           \
+            if (g__log__mode_instruct_dia) fprintf(stderr," | %03d %-50s", g_ln_count, s); \
+            if (g__log__mode_instruct_dia) fprintf(stderr," | %04d %-20s%s\n", __LINE__, __func__, "\033[0m"); \
             else fprintf(stderr,"\n");                                  \
         }                                                               \
     } while (0)
@@ -93,6 +106,9 @@ const char *g_filename = NULL;
 const char *g__log__cur_pos = NULL;
 const char *g__log__line_begin = NULL;
 const char *g__log__line_end = NULL;
+char g__log__line_content[200];
+std::unordered_map<int,int> g__log__line_content_showed_map={};
+
 bool g__log__parse_pos_changed = false;
 bool g__log__cur_c_newline = false;
 
@@ -1678,7 +1694,7 @@ bool ArithmeticExpression::handleALP(char _c)
                 std::string start_label = std::string("WHILE_")+std::to_string(start_label_no);
                 std::string jz_label = std::string("WHILE_END_")+std::to_string(start_label_no);
                 while_conds.push_back({while_start_pos, start_label, jz_label, 0});
-                instruct("%-15s %-12s # while", (start_label+':').c_str(), "");
+                instruct((start_label+':').c_str(), "");
             } else {
                 print("while: we are back here: while_start_pos:%d", while_start_pos);
             }
@@ -1754,6 +1770,8 @@ bool ArithmeticExpression::handleALP(char _c)
 
             print("loop block found: %s", getContextTypeStr(_t));
 
+            if (g__log__mode_instruct_dia) { instruct("", ""); }
+
             // rule met, ok
             m_stmt_loop_break_ed = false; // always reset before loop been consumed
             m_ctxt_stack.push(LOOP_BREAK);
@@ -1806,6 +1824,8 @@ bool ArithmeticExpression::handleALP(char _c)
             }
 
             print("loop block found: %s", getContextTypeStr(_t));
+
+            if (g__log__mode_instruct_dia) { instruct("", ""); }
 
             // rule met, ok
             m_ctxt_stack.push(LOOP_CONTINUE);
@@ -2306,7 +2326,7 @@ bool ArithmeticExpression::handleSMC() {
         assignValueToIdf(assign_idf, assign_v, false);
         // TODO: clean current ctxt from ctxt stack after consumed
 
-        instruct("    %-11s %-12s", "store", assign_idf.c_str());
+        instruct("store", assign_idf.c_str());
 
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         if (m_opd_stack.count() < 3) { // base + 2
@@ -2323,7 +2343,7 @@ bool ArithmeticExpression::handleSMC() {
         assignValueToIdf(assign_idf, assign_v, true);
         // TODO: clean current ctxt from ctxt stack after consumed
 
-        instruct("    %-11s %-12s", "store_local", assign_idf.c_str());
+        instruct("store_local", assign_idf.c_str());
 
     } else if (ctxt == LOOP_BREAK) { // 'break;' or 'break ;'
         int key = m_lcb_count;
@@ -2345,7 +2365,7 @@ bool ArithmeticExpression::handleSMC() {
             gen_instruct_once = true;
         }
         if (gen_instruct_once) {
-            instruct("    %-11s %-12s # break;", "jmp", tailing_cond.jz_label.c_str());
+            instruct("jmp", tailing_cond.jz_label.c_str());
         }
 
         print("TODO: to ignore while-block, just skip to balanced '}', no syntax check for skipped content");
@@ -2418,7 +2438,7 @@ bool ArithmeticExpression::handleSMC() {
         if (m_mode_instruct) {
             if (m_gen_instruct_once_map.find(m_parse_pos) == m_gen_instruct_once_map.end()) {
                 m_gen_instruct_once_map[m_parse_pos] = 1;
-                instruct("    %-11s %-12s # continue;", "jmp", tailing_cond.start_label.c_str());
+                instruct("jmp", tailing_cond.start_label.c_str());
 
                 m_ctxt_stack.pop();
                 m_state_next_certained = ST_BGN;
@@ -2884,7 +2904,7 @@ bool ArithmeticExpression::handleLCB() {
         m_state_next_certained = ST_BGN;
         ++m_lcb_count; g_lcb_count = m_lcb_count;
 
-        instruct("    %-11s %-12s # if", "jz", jz_label.c_str());
+        instruct("jz", jz_label.c_str());
 
         return true;
 
@@ -2955,7 +2975,7 @@ bool ArithmeticExpression::handleLCB() {
         m_state_next_certained = ST_BGN;
         ++m_lcb_count; g_lcb_count = m_lcb_count;
 
-        instruct("    %-11s %-12s # elif", "jz", jz_label.c_str());
+        instruct("jz", jz_label.c_str());
 
         return true;
 
@@ -3022,7 +3042,7 @@ bool ArithmeticExpression::handleLCB() {
         m_state_next_certained = ST_BGN;
         ++m_lcb_count; g_lcb_count = m_lcb_count;
 
-        instruct("    %-11s %-12s", "jz", tailing_cond.jz_label.c_str());
+        instruct("jz", tailing_cond.jz_label.c_str());
 
         return true;
 
@@ -3059,10 +3079,12 @@ bool ArithmeticExpression::skipToBalancedRCB(int extra_lcb_count_to_skip) {
     while (++m_parse_pos < size) {
         const char& c = m_arithmetic_expression.at(m_parse_pos);
         print("skip char: '%c' @ %d", c, m_parse_pos);
+
         if (c == '\n') {
             ++m_ln_count;
             g_ln_count = m_ln_count;
         }
+
         switch(c) {
         case '{': ++n_skiped_lcb; break;
         case '}': --n_skiped_lcb; break;
@@ -3190,7 +3212,7 @@ bool ArithmeticExpression::handleRCB() {
 
         if (m_mode_instruct) {
             WhileCond tailing_cond = while_conds[while_conds.size()-1];
-            instruct("    %-11s %-12s # break}", "jmp", tailing_cond.jz_label.c_str());
+            instruct("jmp", tailing_cond.jz_label.c_str());
         }
 
         // set member properties properly
@@ -3305,7 +3327,7 @@ bool ArithmeticExpression::handleRCB() {
         if (m_mode_instruct) {
             if (m_gen_instruct_once_map.find(m_parse_pos) == m_gen_instruct_once_map.end()) {
                 m_gen_instruct_once_map[m_parse_pos] = 1;
-                instruct("    %-11s %-12s # continue}", "jmp", tailing_cond.start_label.c_str());
+                instruct("jmp", tailing_cond.start_label.c_str());
 
             }
 
@@ -3377,35 +3399,35 @@ bool ArithmeticExpression::handleRCB() {
         ////////////////////////////////////////////////////////////////
         if (block_ctxt == STMT_IF_BLOCK) {
             if (tailing_cond_followed_with_elif) { // if cond {} + elif cond {}
-                instruct("    %-11s %-12s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
-                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct("jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
+                instruct((tailing_cond.jz_label+':').c_str(), "");
             } else if (tailing_cond_followed_with_else) { // if cond {} + else {}
-                instruct("    %-11s %-12s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need "END:"
-                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct("jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need "END:"
+                instruct((tailing_cond.jz_label+':').c_str(), "");
             } else {            // if cond {} as ending
                 // reuse "LXXX:" as "END:", no need jmp, and no need "END:" anymore
-                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct((tailing_cond.jz_label+':').c_str(), "");
             }
 
         } else if (block_ctxt == STMT_ELIF_BLOCK) {
             if (tailing_cond_followed_with_elif) { // elif cond {} + elif
-                instruct("    %-11s %-12s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
-                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct("jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need 'end'
+                instruct((tailing_cond.jz_label+':').c_str(), "");
             } else if (tailing_cond_followed_with_else) { // elif cond {} + else {}
-                instruct("    %-11s %-12s", "jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need "END:"
-                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct("jmp", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)).c_str()); // need "END:"
+                instruct((tailing_cond.jz_label+':').c_str(), "");
             } else {                                      // elif cond {} as ending
                 // *THE ONLY PLACE WHERE TWO LABELS USED FOR END*, it's ok
-                instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
+                instruct((tailing_cond.jz_label+':').c_str(), "");
                 // why another END? used for previous elif "jmp"
-                instruct("%-15s %-12s", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), "");
+                instruct((std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), "");
             }
 
         } else if (block_ctxt == STMT_ELSE_BLOCK) {
             if (tailing_cond_followed_with_elif) { // false
             } else if (tailing_cond_followed_with_else) { // false
             } else {
-                instruct("%-15s %-12s", (std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), ""); // TODO 'end_'+uniq_modifier
+                instruct((std::string("IF_END_")+std::to_string(if_elif_else_chain_ukey)+':').c_str(), ""); // TODO 'end_'+uniq_modifier
             }
         }
 
@@ -3445,8 +3467,8 @@ bool ArithmeticExpression::handleRCB() {
         }
 
         if (gen_instruct) {
-            instruct("    %-11s %-12s", "jmp", tailing_cond.start_label.c_str());
-            instruct("%-15s %-12s", (tailing_cond.jz_label+':').c_str(), "");
+            instruct("jmp", tailing_cond.start_label.c_str());
+            instruct((tailing_cond.jz_label+':').c_str(), "");
         }
 
         dia("handleRCB: -:while");
@@ -3497,7 +3519,7 @@ bool ArithmeticExpression::handleRCB() {
             assignValueToIdf(assign_idf, assign_v, false);
             // TODO: clean current ctxt from ctxt stack after consumed
 
-            instruct("    %-11s %-12s", "store", assign_idf.c_str());
+            instruct("store", assign_idf.c_str());
 
             goto handleRCB_common;
 
@@ -3515,7 +3537,7 @@ bool ArithmeticExpression::handleRCB() {
             assignValueToIdf(assign_idf, assign_v, true);
             // TODO: clean current ctxt from ctxt stack after consumed
 
-            instruct("    %-11s %-12s", "store_local", assign_idf.c_str());
+            instruct("store_local", assign_idf.c_str());
 
             goto handleRCB_common;
 
@@ -3645,21 +3667,23 @@ bool ArithmeticExpression::handleDBQ() {
 void ArithmeticExpression::pushOpdIdf(std::string idf, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_IDF, 0, idf });
     if (gen_instruct) {
-        instruct("    %-11s %-12s", "push_idf", idf.c_str());
+        instruct("push_idf", idf.c_str());
     }
 }
 
 void ArithmeticExpression::pushOpdIdfValue(const std::string& idf, bool gen_instruct) {
     pushOpdNum(getIdfValue(idf), false);
     if (gen_instruct) {
-        instruct("    %-11s %-12s", "push_idv", idf.c_str());
+        instruct("push_idv", idf.c_str());
     }
 }
 
 void ArithmeticExpression::pushOpdNum(double num, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_NUM, num, "" });
     if (gen_instruct) {
-        instruct("    %-11s %-12g", "push", num);
+        char num_str[32];
+        snprintf(num_str, sizeof(num_str), "%g", num);
+        instruct("push", num_str);
     }
 }
 
@@ -3667,7 +3691,7 @@ void ArithmeticExpression::pushOpdStr(std::string str, bool gen_instruct) {
     // use std::move to avoid unnecessary string copy
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_STR, 0, std::move(str) });
     if (gen_instruct) {
-        instruct("    %-11s %-12s", "push_str", str.c_str());
+        instruct("push_str", str.c_str());
     }
 }
 
@@ -3742,7 +3766,7 @@ bool ArithmeticExpression::calculate(int opr)
     }
 
     if (!opr_code.empty()) {
-        instruct("    %-11s %-12s", opr_code.c_str(), opr_args.c_str());
+        instruct(opr_code.c_str(), opr_args.c_str());
     }
 
     ////////////////////////////////////////////////////////////////
@@ -4348,8 +4372,18 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
         }
         if (g__log__cur_c_newline) {
             print("> \e[42m\\n\033[0m");
+            g__log__line_content[0] = '\0';
         } else {
             print("> \033[48;2;68;68;68m%.*s\e[42m%c\033[0m\033[48;2;68;68;68m%.*s\033[0m", (int)(g__log__cur_pos - g__log__line_begin), g__log__line_begin, c, (int)(g__log__line_end - g__log__cur_pos)-1, g__log__cur_pos+1);
+            if (g__log__mode_instruct_dia) {
+                int len = g__log__line_end - g__log__line_begin;
+                memcpy(g__log__line_content, g__log__line_begin, len);
+                g__log__line_content[len] = '\0';
+            }
+        }
+
+        if (g__log__mode_instruct_dia && g__log__line_end == g__log__line_begin) {
+            instruct("", "");
         }
 
         print("c = '%c', m_parse_pos = %d, size: %d, m_state: %s, ctxt: %s", c, m_parse_pos, size, getStateStr(m_state), getContextTypeStr(m_ctxt_stack.top()));
@@ -4414,7 +4448,7 @@ bool ArithmeticExpression::handleEnd()
         assignValueToIdf(assign_idf, assign_v, false);
         // TODO: clean current ctxt from ctxt stack after consumed
 
-        instruct("    %-11s %-12s", "store", assign_idf.c_str());
+        instruct("store", assign_idf.c_str());
 
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         if (m_opd_stack.count() < 3) { // base + 2
@@ -4432,7 +4466,7 @@ bool ArithmeticExpression::handleEnd()
 
         // TODO: clean current ctxt from ctxt stack after consumed
 
-        instruct("    %-11s %-12s", "store_local", assign_idf.c_str());
+        instruct("store_local", assign_idf.c_str());
 
     } else if (ctxt == STMT_WHILE_COND) {
         print("while block not complete");
@@ -4537,7 +4571,7 @@ bool ArithmeticExpression::handleEnd()
         assignValueToIdf(assign_idf, assign_v, false);
         // TODO: clean current ctxt from ctxt stack after consumed
 
-        instruct("    %-11s %-12s", "store", assign_idf.c_str());
+        instruct("store", assign_idf.c_str());
 
     } else if (ctxt == FUNCTION_RETURN_VALUE) { // `return xxxx` in global scope
         if (m_opd_stack.count() >= 2) {
