@@ -2213,23 +2213,22 @@ bool ArithmeticExpression::handleSMC() {
         exit(E_GRAMMAR);
 
     } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
-        if (m_mode_execute) {
-            // at least two opd need
-            if (m_opd_stack.count() < 3) {
-                error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count()-1);
-                printErrorLocation();
-                exit(E_GRAMMAR);
-            } else {
-                m_expect_char_types = {};
-            }
+        // at least two opd need
+        if (m_opd_stack.count() < 3) {
+            error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count()-1);
+            printErrorLocation();
+            exit(E_GRAMMAR);
+        }
 
+        // NOTE: PATTERN (mode): execute and instruct mode just operate opd/opr stack in different way, but
+        // *must* with same push/pop pace.
+
+        if (m_mode_execute) {
             Opd opdv = m_opd_stack.pop();
             std::string assign_idf = _2idf(m_opd_stack.pop());
             double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
             assignValueToIdf(assign_idf, assign_v, false);
-
             // clean current ctxt from ctxt stack after consumed
-            popCtxtStackTill(STMT_DECLARE_ASSIGN);
         }
 
         if (m_mode_instruct) {
@@ -2237,6 +2236,9 @@ bool ArithmeticExpression::handleSMC() {
             std::string assign_idf = _2idf(m_opd_stack.pop());
             instruct("store", assign_idf.c_str());
         }
+
+        m_expect_char_types = {};
+        popCtxtStackTill(STMT_DECLARE_ASSIGN);
 
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         if (m_opd_stack.count() < 3) { // base + 2
@@ -2359,20 +2361,25 @@ bool ArithmeticExpression::handleSMC() {
         }
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return;' or 'return ;'
+        // PATTERN (mode)
         if (m_mode_execute) {
             m_parse_pos = m_arithmetic_expression.size();
+        }
+        if (m_mode_instruct) {
+            instruct("return", "");
         }
         m_expect_char_types = {};
         m_return_value_ptr = NULL;
         popCtxtStackTill(FUNCTION_RETURN);
-        if (m_mode_instruct) {
-            instruct("return", "");
-        }
         return true;
 
     } else if (ctxt == FUNCTION_RETURN_VALUE) { // 'return xxx;'
+        // PATTERN (mode)
         if (m_mode_execute) {
             m_parse_pos = m_arithmetic_expression.size();
+        }
+        if (m_mode_instruct) {
+            instruct("return", "");
         }
         m_expect_char_types = {};
         // WE have no clue function need return a value or not, so
@@ -2383,9 +2390,6 @@ bool ArithmeticExpression::handleSMC() {
             // assert(m_return_value_ptr->stmt_count == m_stmt_count-1);
         }
         popCtxtStackTill(FUNCTION_RETURN);
-        if (m_mode_instruct) {
-            instruct("return", "");
-        }
         return true;
 
     } else {
@@ -3480,6 +3484,7 @@ bool ArithmeticExpression::handleRCB() {
             goto handleRCB_common;
 
         } else if (ctxt == FUNCTION_RETURN) { // `{return}` `{....;return}`
+            // TODO: to remove
             if (m_mode_execute) {
                 m_parse_pos = m_arithmetic_expression.size();
             }
@@ -3487,6 +3492,7 @@ bool ArithmeticExpression::handleRCB() {
             goto handleRCB_common;
 
         } else if (ctxt == FUNCTION_RETURN_VALUE) { // `{....; return value }`, not ends with `;`
+            // TODO: to remove
             print("TODO handle } for FUNCTION_RETURN_VALUE");
             if (m_mode_execute) {
                 m_parse_pos = m_arithmetic_expression.size();
@@ -3654,13 +3660,11 @@ bool ArithmeticExpression::_isstr(const Opd& item) {
 }
 
 std::string ArithmeticExpression::_2idf(const Opd& item) {
-    // printStackItem(item);
     assert(_isidf(item));
     return item.str;
 }
 
 double ArithmeticExpression::_2num(const Opd& item) {
-    // printStackItem(item);
     if (_isidf(item)) return getIdfValue(item.str);
     if (_isnum(item)) return item.num;
     error("unsupported type:%d found for _2num", item.type);
@@ -3669,7 +3673,6 @@ double ArithmeticExpression::_2num(const Opd& item) {
 }
 
 std::string ArithmeticExpression::_2str(const Opd& item) {
-    // printStackItem(item);
     assert(_isstr(item));
     return item.str;
 }
@@ -3701,12 +3704,12 @@ bool ArithmeticExpression::calculate(int opr)
     case 'f': {
         opr_code = fni2fnn(m_opr_stack.top(-1).v);
         int fnargscnt = m_fnargscnt_stack.top();
-        opr_args= std::to_string(fnargscnt);
+        opr_args = std::to_string(fnargscnt);
         break;
     }
     case 'F': {
         int fnargscnt = m_fnargscnt_stack.top();
-        opr_args= std::to_string(fnargscnt);
+        opr_args = std::to_string(fnargscnt);
         break;
     }
     default:
@@ -4200,8 +4203,8 @@ bool ArithmeticExpression::call(const std::string function_name) {
         exit(E_DEV_ERROR);
     }
 
+    // PATTERN (mode)
     if (m_mode_execute) {
-
         // TODO: use ArithmeticExpression recursively
         // so run state of each block is stored automatically
 
@@ -4226,7 +4229,6 @@ bool ArithmeticExpression::call(const std::string function_name) {
             __print(" %s=%g", item.first.c_str(), item.second);
         }
         __print("\n");
-
 
         ArithmeticExpression fnblock(
             m_arithmetic_expression,
