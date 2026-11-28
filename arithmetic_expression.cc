@@ -1879,25 +1879,8 @@ bool ArithmeticExpression::handleALP(char _c)
             return true;
 
         } else { // fnn or var or assign-left-var, undetermined, just push idf for later use
-            std::string tkn = nextToken(m_parse_pos+1);
-            print("tkn: \"%s\"", tkn.c_str());
-
-            if (tkn == "(") {     // fnn
-                pushOpdIdf(m_id, false);
-            } else if (tkn == "=") {     // assign
-                // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
-                pushOpdIdf(m_id, false);
-            } else if (tkn == ":") {     // scope assign
-                pushOpdIdf(m_id, false);
-            } else if (tkn == "==") {     // eq, idf must have value, so use value directly
-                pushOpdIdfValue(m_id);
-            } else {                   // var
-                pushOpdIdfValue(m_id);
-            }
-
-            //pushOpdIdf(m_id);
+            _handleidf(m_id);
             return true;
-
         }
 
     } else if (ctxt == CTXT_EXP) { // fnn or var
@@ -1909,13 +1892,7 @@ bool ArithmeticExpression::handleALP(char _c)
             exit(E_GRAMMAR);
         }
 
-        // TODO: [2026-11-03] use nextToken for more precise-checking.
-
-        if (nextChar() == '(') { // fnn
-            pushOpdIdf(m_id, false);
-        } else {
-            pushOpdIdfValue(m_id);
-        }
+        _handleidf(m_id);
         return true;
 
     } else if (ctxt == STMT_IF_COND) { // STMT_IF_COND is a special case of CTXT_EXP
@@ -1936,98 +1913,39 @@ bool ArithmeticExpression::handleALP(char _c)
         // TODO: m_id here can not be following keywords:
         // if elif else function
 
-        // TODO: [2026-11-03] use nextToken for more precise-checking.
-
-        print("'%c'", nextChar());
-        if (nextChar() == '(') {
-            pushOpdIdf(m_id);
-        } else {
-            pushOpdIdfValue(m_id);
-        }
-
+        _handleidf(m_id);
         // alpha is sufficient for if cond, so expect '{'
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
         return true;
 
     } else if (ctxt == STMT_ELIF_COND) { // STMT_ELIF_COND is a special case of CTXT_EXP
-        print("'%c'", nextChar());
-
-        // TODO: [2026-11-03] use nextToken for more precise-checking.
-        if (nextChar() == '(') {
-            pushOpdIdf(m_id);
-        } else {
-            pushOpdIdfValue(m_id);
-        }
-
+        _handleidf(m_id);
         // alpha is sufficient for if cond, so expect '{'
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
         return true;
 
     } else if (ctxt == STMT_ELIF_BLOCK) { // STMT_IF_COND is a special case of CTXT_EXP
-        std::string tkn = nextToken(m_parse_pos+1);
-        if (tkn == "(") {     // fnn
-            pushOpdIdf(m_id, false);
-        } else if (tkn == "=") {     // assign
-            // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
-            pushOpdIdf(m_id, false);
-        } else if (tkn == ":") {     // scope assign
-            pushOpdIdf(m_id, false);
-        } else if (tkn == "==") {     // eq, idf must have value, so use value directly
-            pushOpdIdfValue(m_id);
-        } else {                   // var
-            pushOpdIdfValue(m_id);
-        }
+        _handleidf(m_id);
         return true;
 
     } else if (ctxt == STMT_ELSE_BLOCK) { // STMT_IF_COND is a special case of CTXT_EXP
-        std::string tkn = nextToken(m_parse_pos+1);
-        if (tkn == "(") {     // fnn
-            pushOpdIdf(m_id, false);
-        } else if (tkn == "=") {     // assign
-            // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
-            pushOpdIdf(m_id, false);
-        } else if (tkn == ":") {     // scope assign
-            pushOpdIdf(m_id, false);
-        } else if (tkn == "==") {     // eq, idf must have value, so use value directly
-            pushOpdIdfValue(m_id);
-        } else {                   // var
-            pushOpdIdfValue(m_id);
-        }
+        _handleidf(m_id);
         return true;
 
     } else if (ctxt == STMT_WHILE_COND) { // a special case of CTXT_EXP
-        print("'%c'", nextChar());
-
-        // TODO: [2026-11-03] use nextToken for more precise-checking.
-        if (nextChar() == '(') {
-            pushOpdIdf(m_id);
-        } else {
-            pushOpdIdfValue(m_id);
-        }
-
+        _handleidf(m_id);
         // alpha is sufficient for if cond, so expect '{'
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LCB, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_CMA, CT_EXM, CT_SPC };
         return true;
 
     } else if (ctxt == STMT_WHILE_BLOCK) { // exclude '{'
-        std::string tkn = nextToken(m_parse_pos+1);
-        if (tkn == "(") {     // fnn
-            pushOpdIdf(m_id, false);
-        } else if (tkn == "=") {     // assign
-            // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
-            pushOpdIdf(m_id, false);
-        } else if (tkn == ":") {     // scope assign
-            pushOpdIdf(m_id, false);
-        } else if (tkn == "==") {     // eq, idf must have value, so use value directly
-            pushOpdIdfValue(m_id);
-        } else {                   // var
-            pushOpdIdfValue(m_id);
-        }
+        _handleidf(m_id);
         return true;
 
     } else if (ctxt == FUNCTION_DEFINITION) { // function FNN
         m_function_declare_cur_name = m_id;
         m_expect_char_types = { CT_LP, CT_SPC };
+        instruct("fn", m_function_declare_cur_name.c_str());
         return true;
 
     } else if (ctxt == FUNCTION_ARGS) {                // function name(ARG or function name(arg, ARG
@@ -2037,64 +1955,49 @@ bool ArithmeticExpression::handleALP(char _c)
         return true;
 
     } else if (ctxt == STMT_DECLARE_ASSIGN) {
-        if (nextChar() == '(') {
-            pushOpdIdf(m_id);
-        } else {
-            pushOpdIdfValue(m_id);
-        }
+        _handleidf(m_id);
         m_ctxt_stack.push(STMT_DECLARE_ASSIGN_VALUE);
         m_expect_char_types = {};
         return true;
 
     } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
-        if (nextChar() == '(') {
-            pushOpdIdf(m_id);
-        } else {
-            pushOpdIdfValue(m_id);
-        }
+        _handleidf(m_id);
         return true;
 
     } else if (ctxt == FUNCTION_RETURN_VALUE) { // exclude '{'
-        if (nextChar() == '(') {
-            pushOpdIdf(m_id);
-        } else {
-            pushOpdIdfValue(m_id);
-        }
+        _handleidf(m_id);
         m_expect_char_types = {CT_ALP, CT_FLG, CT_LP, CT_NUM, CT_RP, CT_OP, CT_SEQ, CT_AMP, CT_VBR, CT_EXM, CT_SPC, CT_SMC, CT_CMA, CT_RCB};
         return true;
 
     } else if (ctxt == FUNCTION_BLOCK) { // exclude '{'
-        std::string tkn = nextToken(m_parse_pos+1);
-        if (tkn == "(") {     // fnn
-            pushOpdIdf(m_id, false);
-        } else if (tkn == "=") {     // assign
-            // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
-            pushOpdIdf(m_id, false);
-        } else if (tkn == ":") {     // scope assign
-            pushOpdIdf(m_id, false);
-        } else if (tkn == "==") {     // eq, idf must have value, so use value directly
-            pushOpdIdfValue(m_id);
-        } else {                   // var
-            pushOpdIdfValue(m_id);
-        }
+        _handleidf(m_id);
         return true;
 
     } else {
         warn("un-specially-processed contextType: %s", getContextTypeStr(ctxt));
-
         return true;
-        // PATTERN: context + expects
-
-        // if (m_id == "if") {
-        //     m_ctxt_stack.push(STMT_IF_COND);
-        //     m_expect_char_types = { CT_SPC, CT_LP, CT_FLG };
-        // }
     }
 
     error("should not come here");
     printErrorLocation();
     exit(E_DEV_ERROR);
     return false;
+}
+
+void ArithmeticExpression::_handleidf(std::string& idf) {
+    std::string tkn = nextToken(m_parse_pos+1);
+    if (tkn == "(") {     // fnn
+        pushOpdIdf(idf, false);
+    } else if (tkn == "=") {     // assign
+        // FIXME: [2026-11-02] buggy, could be '==', use nexttoken for futher checking
+        pushOpdIdf(idf, false);
+    } else if (tkn == ":") {     // scope assign
+        pushOpdIdf(idf, false);
+    } else if (tkn == "==") {     // eq, idf must have value, so use value directly
+        pushOpdIdfValue(idf);
+    } else {                   // var
+        pushOpdIdfValue(idf);
+    }
 }
 
 bool ArithmeticExpression::handleSPC() {

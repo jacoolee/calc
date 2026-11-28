@@ -502,6 +502,8 @@ private:
     bool call_old(const std::string);
     bool call(const std::string);
 
+    void _handleidf(std::string& idf);
+
     double getIdfValue(const std::string& idf);
     void assignValueToIdf(const std::string& idf, double value, bool scoped);
 
