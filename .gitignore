@@ -3,3 +3,7 @@ calc
 cscope.out
 .DS_Store
 tmp
+TAGS
+cscope*
+gen_TAGS.sh
+gen_cscopefiles.sh
