@@ -31,13 +31,13 @@
             }                                                           \
             if (g__log__mode_instruct_dia) fprintf(stderr,"%*s", indent, ""); \
             if (op[0] == '\0') {                                        \
-                fprintf(stderr, "%-15s %-*s", "", 28 - indent, "");      \
+                fprintf(stderr, "%-15s %-*s", "", 28 - indent, "");     \
             } else {                                                    \
                 if (op[strlen(op)-1] == ':') fprintf(stderr, "%-15s %-*s", op, 28- indent, opd); \
                 else fprintf(stderr, "    %-11s %-*s", op, 28 - indent, opd); \
             }                                                           \
             if (g__log__mode_instruct_dia) fprintf(stderr," | %03d %-50s", g_ln_count, s); \
-            if (g__log__mode_instruct_dia) fprintf(stderr," | %04d %-20s%s\n", __LINE__, __func__, "\033[0m"); \
+            if (g__log__mode_instruct_dia) fprintf(stderr," | %04d %-30s%s\n", __LINE__, __func__, "\033[0m"); \
             else fprintf(stderr,"\n");                                  \
         }                                                               \
     } while (0)
@@ -1867,7 +1867,7 @@ bool ArithmeticExpression::handleALP(char _c)
                 (top_opr.stmt_count == m_stmt_count && top_opr.v != LOWEST_PRIO_OP)) {
                 error("`return` supposed to be at very begin of one statement");
                 printErrorLocation();
-                syntax(STMT_ELSE);
+                syntax(FUNCTION_RETURN);
                 exit(E_GRAMMAR);
             }
 
@@ -2213,23 +2213,30 @@ bool ArithmeticExpression::handleSMC() {
         exit(E_GRAMMAR);
 
     } else if (ctxt == STMT_DECLARE_ASSIGN_VALUE) {
-        // at least two opd need
-        if (m_opd_stack.count() < 3) {
-            error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count()-1);
-            printErrorLocation();
-            exit(E_GRAMMAR);
-        } else {
-            m_expect_char_types = {};
+        if (m_mode_execute) {
+            // at least two opd need
+            if (m_opd_stack.count() < 3) {
+                error("two opds need to form a assign statement, while %d gotten", m_opd_stack.count()-1);
+                printErrorLocation();
+                exit(E_GRAMMAR);
+            } else {
+                m_expect_char_types = {};
+            }
+
+            Opd opdv = m_opd_stack.pop();
+            std::string assign_idf = _2idf(m_opd_stack.pop());
+            double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
+            assignValueToIdf(assign_idf, assign_v, false);
+
+            // clean current ctxt from ctxt stack after consumed
+            popCtxtStackTill(STMT_DECLARE_ASSIGN);
         }
 
-        Opd opdv = m_opd_stack.pop();
-        double assign_v = _isidf(opdv)? getIdfValue(opdv.str): opdv.num;
-
-        std::string assign_idf = _2idf(m_opd_stack.pop());
-        assignValueToIdf(assign_idf, assign_v, false);
-        // TODO: clean current ctxt from ctxt stack after consumed
-
-        instruct("store", assign_idf.c_str());
+        if (m_mode_instruct) {
+            m_opd_stack.pop();
+            std::string assign_idf = _2idf(m_opd_stack.pop());
+            instruct("store", assign_idf.c_str());
+        }
 
     } else if (ctxt == STMT_SCOPE_DECLARE_ASSIGN) {
         if (m_opd_stack.count() < 3) { // base + 2
@@ -2352,13 +2359,21 @@ bool ArithmeticExpression::handleSMC() {
         }
 
     } else if (ctxt == FUNCTION_RETURN) { // 'return;' or 'return ;'
-        m_parse_pos = m_arithmetic_expression.size();
+        if (m_mode_execute) {
+            m_parse_pos = m_arithmetic_expression.size();
+        }
         m_expect_char_types = {};
         m_return_value_ptr = NULL;
+        popCtxtStackTill(FUNCTION_RETURN);
+        if (m_mode_instruct) {
+            instruct("return", "");
+        }
         return true;
 
     } else if (ctxt == FUNCTION_RETURN_VALUE) { // 'return xxx;'
-        m_parse_pos = m_arithmetic_expression.size();
+        if (m_mode_execute) {
+            m_parse_pos = m_arithmetic_expression.size();
+        }
         m_expect_char_types = {};
         // WE have no clue function need return a value or not, so
         // no error here, checking should be done at caller side
@@ -2366,6 +2381,10 @@ bool ArithmeticExpression::handleSMC() {
             m_return_value_ptr = &(m_opd_stack.top());
             // FIXME: assert failed for recursively call (eg. fib.al)
             // assert(m_return_value_ptr->stmt_count == m_stmt_count-1);
+        }
+        popCtxtStackTill(FUNCTION_RETURN);
+        if (m_mode_instruct) {
+            instruct("return", "");
         }
         return true;
 
@@ -2678,7 +2697,7 @@ bool ArithmeticExpression::handleLCB() {
 
         // ' } '   =>   ' } '
         //  ^              ^
-        //  m_parse_pos    end_pos
+        //  m_parse_pos    exec_end
         m_function_declare_map[m_function_declare_cur_name].exec_end = m_parse_pos + 2;
 
         // reset temp vars after consumed
@@ -3072,18 +3091,25 @@ bool ArithmeticExpression::handleRCB() {
     // x=2; y=0; if 1{y=x} print(y)
     //              ^^
 
-    // prepare opds for last ';'-missing statement in block
-    Opd top_opd = m_opd_stack.top();
-    if (_isidf(top_opd) && top_opd.token_idx == m_token_idx-1) {
-        m_opd_stack.pop();
-        pushOpdIdfValue(_2idf(top_opd));
-    }
+    // FIXME: [2026-11-27] this should not be coded, ';' should handle everything properly,
+    // this mainly caused by our non-forced-smc-as-statement-terminal-char, we should force
+    // using ';' as statement ternimal symbol to fix this.
+    if (0) {
+        // why?
+        print("prepare opds for last ';'-missing statement in block");
+        Opd top_opd = m_opd_stack.top();
+        if (_isidf(top_opd) && top_opd.token_idx == m_token_idx-1) {
+            m_opd_stack.pop();
+            pushOpdIdfValue(_2idf(top_opd));
+        }
 
-    // calculate for last ';'-missing statement in block
-    int top_opr;
-    while (!m_opr_stack.empty() && (top_opr = m_opr_stack.top().v) != LOWEST_PRIO_OP) {
-        if (!calculate(top_opr)) return false;
-        m_opr_stack.pop();
+        // why?
+        print("calculate for last ';'-missing statement in block");
+        int top_opr;
+        while (!m_opr_stack.empty() && (top_opr = m_opr_stack.top().v) != LOWEST_PRIO_OP) {
+            if (!calculate(top_opr)) return false;
+            m_opr_stack.pop();
+        }
     }
 
     // NOTE: block exists in following cases:
@@ -3250,7 +3276,8 @@ bool ArithmeticExpression::handleRCB() {
                block_ctxt != STMT_ELSE_BLOCK &&
                block_ctxt != STMT_WHILE_BLOCK &&
                block_ctxt != PURE_BLOCK &&
-               block_ctxt != FUNCTION_BLOCK
+               block_ctxt != FUNCTION_BLOCK &&
+               block_ctxt != FUNCTION_CALL
                )) {
         --step;
         block_ctxt = m_ctxt_stack.top(step);
@@ -3402,6 +3429,11 @@ bool ArithmeticExpression::handleRCB() {
 
     } else if (block_ctxt == FUNCTION_BLOCK) {
         popCtxtStackTill(FUNCTION_DEFINITION);
+        instruct("fn_end", "");
+        goto handleRCB_common;
+
+    } else if (block_ctxt == FUNCTION_CALL) {
+        popCtxtStackTill(FUNCTION_CALL);
         goto handleRCB_common;
 
     } else {
@@ -3448,13 +3480,17 @@ bool ArithmeticExpression::handleRCB() {
             goto handleRCB_common;
 
         } else if (ctxt == FUNCTION_RETURN) { // `{return}` `{....;return}`
-            m_parse_pos = m_arithmetic_expression.size();
+            if (m_mode_execute) {
+                m_parse_pos = m_arithmetic_expression.size();
+            }
             m_expect_char_types = {};
             goto handleRCB_common;
 
         } else if (ctxt == FUNCTION_RETURN_VALUE) { // `{....; return value }`, not ends with `;`
             print("TODO handle } for FUNCTION_RETURN_VALUE");
-            m_parse_pos = m_arithmetic_expression.size();
+            if (m_mode_execute) {
+                m_parse_pos = m_arithmetic_expression.size();
+            }
             m_expect_char_types = {};
             goto handleRCB_common;
 
@@ -3569,21 +3605,24 @@ bool ArithmeticExpression::handleDBQ() {
 
 void ArithmeticExpression::pushOpdIdf(std::string idf, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_IDF, 0, idf });
-    if (gen_instruct) {
+    if (m_mode_instruct && gen_instruct) {
         instruct("push_idf", idf.c_str());
     }
 }
 
 void ArithmeticExpression::pushOpdIdfValue(const std::string& idf, bool gen_instruct) {
-    pushOpdNum(getIdfValue(idf), false);
-    if (gen_instruct) {
+    if (m_mode_execute) {
+        pushOpdNum(getIdfValue(idf), false);
+    }
+    if (m_mode_instruct && gen_instruct) {
+        m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_IDF, 0, idf }); // just a placeholder for instruction mode
         instruct("push_idv", idf.c_str());
     }
 }
 
 void ArithmeticExpression::pushOpdNum(double num, bool gen_instruct) {
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_NUM, num, "" });
-    if (gen_instruct) {
+    if (m_mode_instruct && gen_instruct) {
         char num_str[32];
         snprintf(num_str, sizeof(num_str), "%g", num);
         instruct("push", num_str);
@@ -3593,8 +3632,8 @@ void ArithmeticExpression::pushOpdNum(double num, bool gen_instruct) {
 void ArithmeticExpression::pushOpdStr(std::string str, bool gen_instruct) {
     // use std::move to avoid unnecessary string copy
     m_opd_stack.push({ m_token_idx, m_stmt_count, OPD_STR, 0, std::move(str) });
-    if (gen_instruct) {
-        instruct("push_str", str.c_str());
+    if (m_mode_instruct && gen_instruct) {
+        instruct("push_str", str.c_str()); // TODO handle str properly
     }
 }
 
@@ -3615,11 +3654,13 @@ bool ArithmeticExpression::_isstr(const Opd& item) {
 }
 
 std::string ArithmeticExpression::_2idf(const Opd& item) {
+    // printStackItem(item);
     assert(_isidf(item));
     return item.str;
 }
 
 double ArithmeticExpression::_2num(const Opd& item) {
+    // printStackItem(item);
     if (_isidf(item)) return getIdfValue(item.str);
     if (_isnum(item)) return item.num;
     error("unsupported type:%d found for _2num", item.type);
@@ -3628,6 +3669,7 @@ double ArithmeticExpression::_2num(const Opd& item) {
 }
 
 std::string ArithmeticExpression::_2str(const Opd& item) {
+    // printStackItem(item);
     assert(_isstr(item));
     return item.str;
 }
@@ -3658,6 +3700,11 @@ bool ArithmeticExpression::calculate(int opr)
 
     case 'f': {
         opr_code = fni2fnn(m_opr_stack.top(-1).v);
+        int fnargscnt = m_fnargscnt_stack.top();
+        opr_args= std::to_string(fnargscnt);
+        break;
+    }
+    case 'F': {
         int fnargscnt = m_fnargscnt_stack.top();
         opr_args= std::to_string(fnargscnt);
         break;
@@ -4008,9 +4055,7 @@ bool ArithmeticExpression::calculate(int opr)
         g_scope_name = g_scope_name+"/"+fnn;
         call(fnn);
         g_scope_name = scope_name_old;
-
         return true;
-
     } else {
 
         int opd_cnt = 0;
@@ -4155,66 +4200,76 @@ bool ArithmeticExpression::call(const std::string function_name) {
         exit(E_DEV_ERROR);
     }
 
-    // TODO: use ArithmeticExpression recursively
-    // so run state of each block is stored automatically
+    if (m_mode_execute) {
 
-    int begin = m_function_declare_map[function_name].exec_begin;
-    int end = m_function_declare_map[function_name].exec_end;
+        // TODO: use ArithmeticExpression recursively
+        // so run state of each block is stored automatically
 
-    // TODO: support multiple type for value part
-    std::unordered_map<std::string,double> argm = {};
-    std::vector<std::string>& args = m_function_declare_map[function_name].args;
+        int begin = m_function_declare_map[function_name].exec_begin;
+        int end = m_function_declare_map[function_name].exec_end;
 
-    for (int i = (int)args.size() - 1; i >= 0; i--) {
-        std::string& key = args[i];
-        if (m_opd_stack.empty()) {
-            error("function %s expects %zu args, current argv[%d] name:%s, while no operand any more", function_name.c_str() , args.size(), i, key.c_str());
-            exit(E_INPUT_ERROR);
+        // TODO: support multiple type for value part
+        std::unordered_map<std::string,double> argm = {};
+        std::vector<std::string>& args = m_function_declare_map[function_name].args;
+
+        for (int i = (int)args.size() - 1; i >= 0; i--) {
+            std::string& key = args[i];
+            if (m_opd_stack.empty()) {
+                error("function %s expects %zu args, current argv[%d] name:%s, while no operand any more", function_name.c_str() , args.size(), i, key.c_str());
+                exit(E_INPUT_ERROR);
+            }
+            argm[key] = _2num(m_opd_stack.pop());
         }
-        argm[key] = _2num(m_opd_stack.pop());
+
+        printnoln("exec function \"%s\" with argm: ", function_name.c_str());
+        for (const auto& item : argm) {
+            __print(" %s=%g", item.first.c_str(), item.second);
+        }
+        __print("\n");
+
+
+        ArithmeticExpression fnblock(
+            m_arithmetic_expression,
+            getDepth()+1,
+            getLCBCount(),
+            getIdfMap(),        // FIXME: maybe just leak global scope idf to valid idf value pollution
+            argm,
+            FUNCTION_CALL,
+            g__log__level
+            );
+        fnblock.setMeta(
+            getFunctionDeclareMap(),
+            getFunctionDeclareExecBeginNameMap(),
+            getIdfScopeDeclared() // FIXME: maybe just leak global scope idf to valid idf value pollution
+            );
+
+        g_depth = getDepth()+1;
+
+        if (! fnblock.parse(begin, end)) {
+            exit(E_EVALUATE);
+        }
+
+        Opd *return_value_ptr = fnblock.getReturnValuePtr();
+        if (return_value_ptr != NULL) {
+            // TODO: now, only support num
+            pushOpdNum(_2num(*return_value_ptr), false);
+        }
+
+        print("merge fnblock's outer scope reassigned map to caller's m_idf_map");
+        std::unordered_map<std::string,double>& m = fnblock.getIdfOuterScopeReassignedMap();
+        for (const auto& item : m) {
+            assignValueToIdf(item.first, item.second, false);
+        }
+        dia("call: after outer scope reassigned map merge");
+
+        --g_depth;
     }
 
-    printnoln("exec function \"%s\" with argm: ", function_name.c_str());
-    for (const auto& item : argm) {
-        __print(" %s=%g", item.first.c_str(), item.second);
-    }
-    __print("\n");
-
-    ArithmeticExpression fnblock(
-        m_arithmetic_expression,
-        getDepth()+1,
-        getLCBCount(),
-        getIdfMap(),        // FIXME: maybe just leak global scope idf to valid idf value pollution
-        argm,
-        FUNCTION_CALL,
-        g__log__level
-        );
-    fnblock.setMeta(
-        getFunctionDeclareMap(),
-        getFunctionDeclareExecBeginNameMap(),
-        getIdfScopeDeclared() // FIXME: maybe just leak global scope idf to valid idf value pollution
-        );
-
-    g_depth = getDepth()+1;
-
-    if (! fnblock.parse(begin, end)) {
-        exit(E_EVALUATE);
+    if (m_mode_instruct) {
+        std::vector<std::string>& args = m_function_declare_map[function_name].args;
+        instruct("call", (function_name + ' ' + std::to_string(args.size())).c_str());
     }
 
-    Opd *return_value_ptr = fnblock.getReturnValuePtr();
-    if (return_value_ptr != NULL) {
-        // TODO: now, only support num
-        pushOpdNum(_2num(*return_value_ptr), false);
-    }
-
-    print("merge fnblock's outer scope reassigned map to caller's m_idf_map");
-    std::unordered_map<std::string,double>& m = fnblock.getIdfOuterScopeReassignedMap();
-    for (const auto& item : m) {
-        assignValueToIdf(item.first, item.second, false);
-    }
-    dia("call: after outer scope reassigned map merge");
-
-    --g_depth;
     return true;
 }
 
@@ -4289,7 +4344,7 @@ bool ArithmeticExpression::parse(int begin_pos, int end_pos)
             instruct("", "");
         }
 
-        print("c = '%c', m_parse_pos = %d, size: %d, m_state: %s, ctxt: %s", c, m_parse_pos, size, getStateStr(m_state), getContextTypeStr(m_ctxt_stack.top()));
+        print("c = '%c', m_parse_pos = %d, m_token_idx: %d, m_stmt_count: %d, size: %d, m_state: %s, ctxt: %s", c, m_parse_pos, m_token_idx, m_stmt_count, size, getStateStr(m_state), getContextTypeStr(m_ctxt_stack.top()));
 
         if ( ! handle(c) ) {
             error("failed to handle, "
