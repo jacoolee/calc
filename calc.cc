@@ -72,6 +72,11 @@ int main(int argc, char *argv[])
         // fprintf(stderr, "no run-mode (gen instruction mode:%d, execute mode:%d) set, we will use execute mode", LLL_GEN_INSTRUCT, LLL_EXECUTE_AT_COMPILE_TIME);
         log_level += LLL_EXECUTE_AT_COMPILE_TIME;
     }
+    // only allow one mode, and prefer instruct mode
+    if (in_mode_instruct && in_mode_execute) {
+        in_mode_execute = false;
+        log_level -= LLL_EXECUTE_AT_COMPILE_TIME;
+    }
 
     char *str = NULL;
     if (ends_with(arg1, ".al")) {
